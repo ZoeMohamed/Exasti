@@ -4,22 +4,23 @@
 
 ### WHY
 
-> Pemilik warung kehilangan untung tanpa sadar. Cabai rawit bisa naik dua kali lipat dalam
-> dua minggu, tapi harga di banner menu tidak ikut berubah. Mereka baru tahu rugi setelah
-> sebulan — itu pun kalau sempat menghitung. Yang hilang bukan cuma margin, tapi kemampuan
-> usaha kecil bertahan.
+> Pemilik warung kehilangan untung tanpa sadar. Harga bahan merayap naik, harga
+> di banner menu diam, dan selisihnya dimakan diam-diam berbulan-bulan. Warung
+> makan jarang mati karena sepi pembeli — mereka mati karena berjualan rugi
+> tanpa tahu.
 
 ### HOW
 
-> Datanya sudah ada. Bank Indonesia menerbitkan harga 21 komoditas pangan setiap hari kerja,
-> per kabupaten, terbuka dan gratis. Yang belum ada adalah jembatan dari harga komoditas ke
-> margin per menu. Takar membangun jembatan itu.
+> Datanya sudah ada. Bank Indonesia menerbitkan harga 21 varian komoditas pangan
+> setiap hari kerja, per kabupaten, terbuka dan gratis. Yang belum ada adalah
+> jembatan dari harga komoditas ke untung per menu. Takar membangun jembatan itu.
 
 ### WHAT
 
-> Aplikasi web. Pemilik memasukkan resep sekali — bisa lewat foto tulisan tangan. Setiap pagi
-> sistem menghitung ulang HPP tiap menu terhadap harga hari itu di kotanya, lalu hanya memberi
-> tahu yang benar-benar perlu ditindaklanjuti.
+> Aplikasi web. Pemilik memasukkan satu resep sekali — dalam bahasa dia sendiri,
+> "sekali masak 2 kg ayam jadi 8 porsi". Setiap hari sistem menghitung ulang
+> modal tiap menu terhadap harga hari itu di kotanya, lalu hanya memberi tahu
+> yang benar-benar perlu ditindaklanjuti.
 
 **Kalimat penutup pitch:**
 
@@ -28,103 +29,250 @@
 
 ---
 
-## Wawasan inti produk — sudah diuji dengan angka nyata
+## Takar bukan aplikasi penetapan harga
 
-Kami menjalankan skema dan perhitungan ini dengan harga sungguhan untuk satu porsi
-ayam geprek (harga jual Rp 18.000):
+Ini kesalahpahaman yang paling sering muncul, termasuk di dalam tim sendiri.
 
-| Skenario | Kenaikan | Dampak ke margin |
-|---|---|---|
-| Cabai rawit melonjak — **ramai di berita** | +58% | 22,9% → 19,5% (turun **3,4 poin**) |
-| Daging ayam naik — **tidak jadi berita** | +20% | 22,9% → 12,8% (turun **10,1 poin**) |
+Kalau Takar disebut "aplikasi penetapan harga", ada asumsi tersembunyi: bahwa
+pemiliknya **sudah tahu** dia perlu mengambil keputusan. Padahal tidak. Itu
+seluruh masalahnya.
 
-Kenaikan yang sunyi memukul **tiga kali lebih keras**, karena ayam menyumbang 65% dari HPP
-sementara cabai hanya 6%.
+Urutan sebenarnya tiga langkah:
 
-> **Berita nasional tidak bisa memberitahu pemilik warung kenaikan mana yang penting baginya,
-> karena jawabannya tergantung resepnya sendiri. Itulah yang Takar hitung.**
+```
+1. DETEKSI      "untungmu menyusut"                ← tidak ada di produk mana pun
+2. ATRIBUSI     "gara-gara ayam, bukan cabai"      ← hanya Takar
+3. KEPUTUSAN    naikkan harga / ganti bahan        ← bagian yang paling mudah
+```
 
-Ini pembeda utama produk. Bukan "kami menampilkan harga pangan" — itu sudah ada di mana-mana.
-Tapi **"kami memberi bobot harga itu terhadap resepmu, lalu memberitahu mana yang benar-benar
-mengancam."**
+Langkah 3 bisa dilakukan kalkulator, bahkan hitung manual. Langkah 1 dan 2 yang
+tidak dimiliki siapa pun.
 
-Konsekuensi untuk demo: pilih menu yang bahan dominannya bergerak. Kalau memamerkan lonjakan
-cabai pada menu yang cabainya 6%, demo akan terasa hambar — dan itu justru kebalikan dari
-pesan produk.
+> **Takar itu detektor asap, bukan alat pemadam.**
+> Kamu tidak membuka detektor asap saat memutuskan memadamkan api — detektor
+> asap yang memberitahumu ada api, waktu kamu belum tahu.
+
+Dan keputusannya tidak selalu "naikkan harga". Bisa juga ganti bahan, kurangi
+porsi, hentikan menu, atau **biarkan karena cuma musiman** — yang terakhir itu
+keputusan sah dan sering paling benar. Mengetahui bahwa ini sementara juga hasil
+yang berguna, dan itu butuh riwayat harga.
 
 ---
 
-## Kenapa ini menang
+## Wawasan inti — sudah diuji dengan angka nyata
 
-### 1. Celah yang nyata di antara pemenang sebelumnya
+Dijalankan dengan harga sungguhan, satu porsi ayam geprek, jual Rp 18.000:
 
-Pemenang hackathon UMKM yang kami pelajari — UMKM SIAP (compliance), Hermyz (invoice),
-DataBridge (business intelligence), SEMANTIR (copywriting), Snap Cart (checkout),
-ViEC Beauty (e-commerce) — **seluruhnya berada di sisi penjualan dan administrasi.**
+| Skenario | Kenaikan | Dampak ke untung |
+|---|---|---|
+| Cabai rawit melonjak — **ramai di berita** | +58% | turun **3,4 poin** |
+| Daging ayam naik — **tidak jadi berita** | +20% | turun **10,1 poin** |
 
-Tidak satu pun menyentuh sisi biaya. Padahal itu yang membunuh warung.
+Kenaikan yang sunyi memukul **tiga kali lebih keras**, karena ayam menyumbang
+61% dari modal menu ini sementara cabai hanya 9%.
 
-### 2. Datanya terverifikasi, bukan diasumsikan
+> **Berita nasional tidak bisa memberitahu pemilik warung kenaikan mana yang
+> penting baginya, karena jawabannya tergantung resepnya sendiri. Itulah yang
+> Takar hitung.**
 
-Endpoint BI sudah dipanggil langsung dan mengembalikan data harian per kabupaten sampai
-11 September 2026. Tidak ada dependency yang bisa mati saat final:
-satu sumber, tanpa auth, tanpa API key, tanpa kuota.
+Ini pembeda utama produk. Bukan "kami menampilkan harga pangan" — itu sudah ada
+di mana-mana. Tapi **"kami memberi bobot harga itu terhadap resepmu, lalu
+memberitahu mana yang benar-benar mengancam."**
 
-### 3. Nol pengambilan data
+Aturan teknisnya ada di [BR-04](06-SRS.md#br-04--penentuan-pendorong-). Kalau
+diimplementasikan sebagai "persentase kenaikan terbesar", produk kehilangan
+seluruh pembedanya.
 
-Tidak ada survei lapangan, tidak ada izin, tidak ada CCTV, tidak ada scraping abu-abu.
+---
 
-### 4. Demo terbaca dalam 15 detik
+## Posisi terhadap produk lain
 
-Juri tidak perlu dijelaskan cara membacanya.
+### Tiga alat, tiga pertanyaan berbeda
 
-### 5. Ramah live coding
+```
+POS                 →  "Hari ini uang masuk berapa?"
+                       Melihat penjualan. Buta terhadap biaya bahan.
 
-Margin engine adalah fungsi murni. Juri minta *"tambahkan bahan"* atau *"ubah threshold"* →
-satu objek konfigurasi, UI langsung berubah.
+Kalkulator HPP      →  "Kalau bahan segini, modal saya berapa?"
+(KalKuliner, dll)      Dijawab sekali. Lalu angkanya beku selamanya.
+
+Takar               →  "Untung saya menyusut nggak, dan gara-gara apa?"
+```
+
+Bedanya: POS dan kalkulator **menjawab kalau ditanya**. Takar **memberi tahu
+tanpa ditanya**. Tidak ada pemilik warung yang membuka kalkulator HPP tiap minggu
+untuk mengecek ulang — persis karena itu masalahnya tetap ada meski kalkulatornya
+sudah bertahun-tahun tersedia.
+
+### Untuk mengucapkan kalimat pembeda itu, butuh tiga hal sekaligus
+
+```
+1. harga harian semua bahan      ← POS tidak punya
+2. resep spesifik warung itu     ← data harga publik tidak punya
+3. pembobotan keduanya (BR-04)   ← kalkulator tidak melakukan
+```
+
+POS punya nol dari tiga. Kalkulator punya satu. Takar punya ketiganya.
+
+### Takar melengkapi POS, tidak melawannya
+
+```
+POS    mengurus uang MASUK
+Takar  mengurus uang KELUAR
+```
+
+Jangan memposisikan diri sebagai pengganti POS di pitch. Mengisi ruang kosong
+lebih kuat daripada menggantikan yang sudah dipakai.
+
+### Kategorinya sudah terbukti — di luar negeri
+
+| Produk | Bukti |
+|---|---|
+| **xtraCHEF** | Diakuisisi Toast (Juni 2021) |
+| **MarginEdge** | Platform back-office restoran mapan |
+| **meez** | Klaim penurunan COGS 3–5% |
+
+Mekanismenya persis sama: foto faktur → OCR → biaya resep diperbarui otomatis →
+peringatan margin. **Masalahnya nyata dan orang mau membayar.**
+
+Tapi semuanya bergantung pada **faktur pemasok**, yang warung Indonesia tidak
+punya — mereka belanja di pasar, tunai, sering tanpa nota. Dan Indonesia punya
+sesuatu yang pasar Barat tidak punya: **data harga komoditas publik harian per
+kabupaten.**
+
+```
+Restoran besar   →  MarginEdge, xtraCHEF        butuh faktur pemasok
+                    ─────────────────────
+                         CELAH  ←  Takar
+                    ─────────────────────
+Warung           →  kalkulator HPP statis       beku setelah sekali hitung
+```
+
+Terlalu kecil untuk alat kelas MarginEdge. Terlalu dinamis untuk kalkulator.
+
+---
+
+## Segmentasi
+
+Produk ini hanya masuk akal kalau **empat syarat** terpenuhi sekaligus:
+
+```
+✓ Punya resep dengan bahan terukur     →  makanan, bukan ritel
+✓ Harga jual LENGKET                   →  syarat kuncinya
+✓ Beli bahan sendiri di pasar          →  bukan pemasok kontrak
+✓ Margin tipis, turun 10 poin terasa   →  warung, bukan restoran mahal
+```
+
+Syarat kedua paling menentukan. **Kalau harga jual gampang diubah, masalahnya
+tidak ada.**
+
+### Segmen utama
+
+**Warung makan dan rumah makan kecil bermenu tetap** — ayam geprek, penyetan,
+nasi rames, warteg, soto, bakso. 5–20 menu, harga di banner, belanja sendiri di
+pasar, tanpa back-office.
+
+### Yang BUKAN segmen ini
+
+| Segmen | Kenapa tidak |
+|---|---|
+| Kafe / coffee shop | Bahannya kopi, susu, sirup — hampir tidak ada di data BI, dan mereka lebih mudah menaikkan harga |
+| Katering | Harga dikutip per pesanan, biaya sudah dihitung saat menawar |
+| Waralaba | Harga ditentukan pusat, pemilik tidak boleh mengubah |
+| Toko kelontong | Tidak ada resep |
+| Restoran besar | Punya pemasok dan faktur — MarginEdge lebih cocok |
+
+---
+
+## Cakupan data — diukur, bukan dikira
+
+21 varian komoditas BI menutup **88,8%** modal untuk menu berbasis protein dan nasi:
+
+```
+Ayam Geprek     92,0%        Rendang         89,2%
+Nasi Goreng     86,7%        Es Teh Manis    43,5%
+Telur Balado    89,6%
+```
+
+Bukan kebetulan: BI melacak keranjang inflasi pangan — komoditas yang porsinya
+besar **dan** harganya bergejolak. Yang tidak dilacak (tepung, kecap, gas,
+kemasan) justru stabil dan kecil. Barang stabil tidak butuh pelacakan harian.
+
+```
+volatil + porsi besar   →  BI, otomatis, harian
+stabil  + porsi kecil   →  input manual, sekali saja
+```
+
+**Di mana ini patah:** mie ayam, bakso, warteg sayur, seafood — bahan dominannya
+di luar BI. Sebut batas ini terang-terangan; juri menghargai batasan yang
+disadari dan menghukum klaim "untuk semua UMKM".
 
 ---
 
 ## Peran AI — jujur dan sempit
 
-Rubrik EXASTI menilai **efektivitas pemanfaatan AI tools dalam proses pembuatan**, bukan
-mewajibkan model canggih di dalam produk. Jangan mengarang peran AI.
+Rubrik EXASTI menilai **efektivitas pemanfaatan AI tools dalam proses pembuatan**,
+bukan mewajibkan model canggih di dalam produk. Jangan mengarang peran AI.
 
 | Komponen | AI? | Alasan |
 |---|---|---|
-| Hitung HPP & margin | ❌ Tidak | `Σ(takaran × harga)`. Aritmetika. Harus bisa diaudit pemilik warung. |
-| Deteksi tren harga | ❌ Tidak | Moving average dan delta. Deterministik. |
-| **Pilih alert yang layak** | ✅ Ya | Dari 40 menu × 21 komoditas, memilih 2 yang penting hari ini adalah masalah pertimbangan. |
-| **Saran substitusi bahan** | ✅ Ya | Perlu paham kendala masakan, bukan cuma harga termurah. |
-| **Baca foto resep/nota** | ✅ Ya (VLM) | Satu panggilan, bukan agent. Jangan sebut agent. |
+| Hitung modal & untung | ❌ | `Σ(takaran × harga)`. Aritmetika. Harus bisa diaudit pemilik. |
+| Tentukan bahan pendorong | ❌ | BR-04, formula kontribusi rupiah. Deterministik. |
+| Deteksi tren harga | ❌ | Selisih dan rata-rata bergerak. |
+| Pilih alert yang layak | ⚪ | Cincin 0 pakai aturan (3 penurunan terbesar). AI = peningkatan di Cincin 2. |
+| **Baca foto nota belanja** | ✅ | Teks bebas, tulisan tangan, tata letak tiap toko beda |
+| **Baca foto resep** | ✅ | Sama |
+| **Cocokkan nama bahan ke katalog** | ✅ | Nama lokal tak terhingga, tidak bisa di-hardcode |
+| **Saran substitusi bahan** | ✅ | Butuh paham kendala masakan, bukan cari termurah |
+
+### Garis yang memisahkan
+
+> **AI tidak pernah menulis langsung ke jalur uang tanpa ada manusia yang melihat.**
+
+OCR → pemilik mengonfirmasi. Pencocokan → pemilik menyetujui. Alert agent → hanya
+memilih apa yang ditampilkan, tidak menghitung angkanya.
+
+Kalau AI salah baca, yang terjadi adalah pemilik mengoreksi — bukan untung
+diam-diam jadi bohong.
+
+### Bentuknya berbeda, jangan disamakan
+
+```
+Panggilan tunggal (VLM)  →  OCR nota · baca resep · pencocokan
+Agent sungguhan          →  alert selector (terjadwal, otonom, memilih)
+Penalaran satu arah      →  saran substitusi
+```
+
+Hanya satu yang boleh disebut **agent**. Menyebut OCR sebagai agent akan
+ketahuan juri teknis.
 
 **Kalimat Q&A:**
 
-> Aritmetikanya sengaja deterministik supaya bisa diaudit — pemilik warung berhak tahu
-> angkanya dari mana. AI hanya kami pakai di bagian yang benar-benar butuh pertimbangan.
+> Aritmetikanya sengaja deterministik supaya bisa diaudit — pemilik warung
+> berhak tahu dari mana angkanya. AI hanya kami pakai di lapisan input dan
+> penyaringan, dan tidak pernah menulis ke jalur uang tanpa dikonfirmasi manusia.
 
 ---
 
-## Ruang lingkup MVP
+## Ruang lingkup — tiga cincin
 
-### Masuk
+Lihat [04-EXECUTION.md](04-EXECUTION.md#cincin) untuk isinya. Ringkasnya:
 
-- Registrasi warung + pilih kabupaten
-- CRUD menu dan resep (manual + foto)
-- Ingestion harga harian otomatis
-- Perhitungan HPP dan margin harian
-- Riwayat margin 30 hari
-- Alert harian dengan penyebab dan saran
-- Dashboard ringkasan
+```
+Cincin 0   ingestion · resep · engine · BR-04 · dashboard · detail
+           TANPA AI SAMA SEKALI — dan itu sudah produk utuh
 
-### Tidak masuk (jangan tergoda)
+Cincin 1   simulator · peta eksposur · onboarding template · OCR nota
 
-- POS / kasir
-- Manajemen stok
-- Multi-cabang
-- Pembayaran
-- Aplikasi mobile native
-- Prediksi harga jangka panjang
+Cincin 2   alert agent AI · substitusi · katalog · input suara
+```
+
+**Kalau Cincin 0 belum selesai akhir Hari 3, jangan sentuh Cincin 1.**
+
+### Tidak masuk, jangan tergoda
+
+POS/kasir · manajemen stok · multi-cabang · pembayaran · aplikasi native ·
+prediksi harga jangka panjang · agregat lintas warung
 
 ---
 
@@ -134,20 +282,23 @@ mewajibkan model canggih di dalam produk. Jangan mengarang peran AI.
 |---|---|
 | "Kami memprediksi harga pangan" | Kita ekstrapolasi tren, bukan meramal pasar |
 | "Data real-time" | BI terbit sekali per hari kerja. Sebut **harian**. |
-| "Harga di pasar dekat warung Anda" | Granularitas BI adalah kabupaten, bukan pasar individual |
-| "AI menghitung margin Anda" | Margin dihitung rumus. Mengaku AI = bunuh diri di Q&A |
-| "Akurat 100%" | Bahan di luar 21 komoditas BI diinput manual oleh pemilik |
+| "Harga di pasar dekat warungmu" | Granularitas BI adalah kabupaten |
+| "AI menghitung marginmu" | Margin dihitung rumus. Mengaku AI = bunuh diri di Q&A |
+| "Kami pakai banyak sumber data" | Satu sumber resmi + data yang dibangun pengguna |
+| "Untuk semua UMKM" | Warung makan bermenu tetap. Sebut batasnya. |
+| "Sudah ada penggunanya" | Belum. Jangan mengaku mewawancarai siapa pun. |
+| "Untung bulananmu sekian" | Tidak ada data penjualan. Hanya untung **per porsi**. |
 
-### Yang harus diungkap terbuka di UI
+### Yang harus diungkap terbuka di antarmuka
 
-Setiap angka HPP menampilkan **berapa bahan yang harganya berasal dari BI** dan
-**berapa yang diinput manual**. Contoh:
+Setiap angka modal menampilkan berapa bahan yang harganya dari BI dan berapa
+yang manual:
 
 ```
-HPP Ayam Geprek   Rp 13.350
-  ├ 4 bahan dari data BI (11 Sep 2026)
-  └ 2 biaya manual (gas + kemasan)
+Modal Ayam Geprek   Rp 14.915
+  ├ 92% dari data Bank Indonesia (11 Sep 2026)
+  └ Gas + kemasan Rp 1.200 — perkiraan, bisa dibetulkan
 ```
 
-Transparansi ini bukan kelemahan — ini yang membuat produk bisa dipercaya,
-dan ini jawaban siap pakai ketika juri bertanya soal akurasi.
+Transparansi ini bukan kelemahan — ini yang membuat angkanya dipercaya, dan
+jawaban siap pakai saat juri bertanya soal akurasi.

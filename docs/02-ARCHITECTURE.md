@@ -12,10 +12,10 @@
       │  /api/cron/ingest │  catat ke ingest_runs
       └─────────┬─────────┘
                 ▼
-          ┌──────────┐
-          │  prices  │  time-series (commodity × region × date)
+          ┌──────────┐        harga milik warung sendiri
+          │  prices  │ ◀───── (business_id terisi, source='manual'|'nota_ocr')
           └────┬─────┘
-               │
+               │   satu tabel untuk SEMUA harga
     ┌──────────┴───────────┐
     ▼                      ▼
 ┌─────────────────┐  ┌──────────────────┐
@@ -27,148 +27,152 @@
 │       × harga)  │           │
 │       + biaya   │           │
 │         tetap   │           │
-│                 │           │
-│ margin =        │           │
-│  (jual−HPP)     │           │
-│   ÷ jual        │           │
 └────────┬────────┘           │
          ▼                    │
   margin_snapshots            │
          └──────────┬─────────┘
                     ▼
            ┌──────────────────┐
-           │   ALERT AGENT    │  ← satu-satunya AI di jalur keputusan
-           │   Claude Haiku   │     pilih ≤3 yang layak diganggu
+           │  PEMILIH ALERT   │  Cincin 0: aturan (3 penurunan terbesar)
+           │                  │  Cincin 2: AI agent
            └────────┬─────────┘
                     ▼
                  alerts
                     │
                     ▼
            ┌──────────────────┐
-           │   Web Dashboard  │
+           │   Web Dashboard  │◀── peta eksposur · simulator  (Cincin 1)
            └────────┬─────────┘
                     ▲
-      menu + resep ─┤
+      menu + resep ─┤  (input BATCH: "2 kg → 8 porsi")
                     │
-        VLM: foto resep / nota → JSON terstruktur
+         📷 foto nota / resep
+                    │
+           ┌────────┴─────────┐
+           │   lib/ai/client  │──▶ ai_cache  ← WAJIB, lihat §Ketahanan
+           │  (Gemini Flash)  │
+           └──────────────────┘
 ```
 
-## Tiga keputusan yang harus dibela di Q&A
+## Empat keputusan yang harus dibela di Q&A
 
-1. **Margin engine adalah fungsi murni tanpa AI.** Bisa diaudit, bisa diuji, hasilnya sama
-   setiap kali. Pemilik warung berhak tahu angkanya dari mana.
-2. **AI hanya di dua titik** — memilih apa yang layak diganggu, dan membaca foto. Sisanya rumus.
-3. **Satu sumber data, tanpa auth.** Tidak ada yang bisa mati saat final.
+1. **Margin engine fungsi murni tanpa AI.** Bisa diaudit, bisa diuji, hasilnya
+   sama setiap kali. Pemilik warung berhak tahu dari mana angkanya.
+2. **Satu tabel harga untuk semua sumber.** Barang yang dicatat pemilik
+   diperlakukan persis seperti data resmi, jadi tidak ada bagian biaya yang
+   luput dari analisis BR-04.
+3. **AI hanya di lapisan input dan penyaringan**, dan selalu dikonfirmasi manusia.
+4. **Demo tidak bergantung pada panggilan API live.** Semua hasil AI di-cache.
 
 ---
 
 ## Skema database
 
+DDL lengkap dan tervalidasi: [`db/schema.sql`](../db/schema.sql)
+
 ```mermaid
 erDiagram
     regions ||--o{ prices : "punya harga"
     commodities ||--o{ prices : "dicatat di"
+    catalog_items ||--o{ prices : "dicatat di"
     regions ||--o{ businesses : "lokasi"
+    businesses ||--o{ prices : "harga miliknya"
     businesses ||--o{ menu_items : "menjual"
     menu_items ||--o{ recipe_items : "tersusun dari"
     menu_items ||--o{ fixed_costs : "punya biaya"
-    commodities ||--o{ recipe_items : "dipakai sebagai"
     menu_items ||--o{ margin_snapshots : "direkam harian"
     businesses ||--o{ alerts : "menerima"
-    menu_items ||--o{ alerts : "memicu"
 
     commodities {
-        text id PK "com_1 dari BI"
-        text category_id "cat_1"
+        text id PK "com_18"
         text name "Cabai Rawit Merah"
         text unit "kg"
-        int  sort_order
+    }
+    catalog_items {
+        text id PK "CINCIN 2"
+        text name "Tepung Terigu"
+        text unit
+        bool approved
     }
     regions {
         int  id PK
         int  bi_province_id "13"
-        int  bi_regency_id  "null = level provinsi"
-        text name "Kota Semarang"
-        text level "province | regency"
+        int  bi_regency_id "1 = Kota Semarang"
+        text name
     }
     prices {
         text    commodity_id PK,FK
         int     region_id PK,FK
+        uuid    business_id PK "NULL = publik BI"
         date    date PK
-        numeric price "rupiah per unit"
-        text    source "bi_hargapangan"
-        bool    is_filled "true jika forward-fill"
-    }
-    businesses {
-        uuid id PK
-        text name "Warung Bu Sri"
-        int  region_id FK
-        text owner_email
+        numeric price
+        text    source "bi_hargapangan|manual|nota_ocr"
+        bool    is_filled "hasil forward-fill"
     }
     menu_items {
         uuid    id PK
-        uuid    business_id FK
         text    name "Ayam Geprek"
-        numeric sell_price "15000"
-        bool    active
+        numeric sell_price "18000"
+        int     batch_yield "8 porsi sekali masak"
     }
     recipe_items {
         uuid    id PK
-        uuid    menu_item_id FK
         text    commodity_id FK
-        numeric qty "0.25 (dalam unit komoditas)"
-        text    note
+        numeric batch_qty "2 (kg sekali masak)"
+        numeric qty "0,25 (turunan per porsi)"
     }
     fixed_costs {
         uuid    id PK
-        uuid    menu_item_id FK
         text    label "gas + kemasan"
-        numeric amount "rupiah per porsi"
+        numeric amount "per porsi"
+        numeric pack_price "22000"
+        numeric pack_qty "340"
+        numeric usage_qty "15"
+        bool    is_estimated
     }
     margin_snapshots {
-        bigint  id PK
         uuid    menu_item_id FK
         date    date
         numeric hpp
-        numeric sell_price
         numeric margin_pct
-        int     missing_count "bahan tanpa harga hari itu"
+        int     from_data
     }
     alerts {
         uuid  id PK
-        uuid  business_id FK
-        uuid  menu_item_id FK
-        date  date
-        text  severity "info | warning | critical"
+        text  severity
         text  headline
-        text  detail
         text  driver_commodity_id FK
         jsonb suggestion
-        timestamptz read_at
     }
 ```
 
-### Kenapa `fixed_costs` ada
+### Kenapa `batch_qty` dan `qty` dua-duanya disimpan
 
-BI hanya melacak 21 komoditas. Warung nyata juga pakai tepung, bumbu, gas, kemasan, dan
-tenaga. Tanpa tabel ini, HPP akan terlalu rendah dan seluruh angka margin jadi bohong.
+Pemilik warung berpikir **"2 kg ayam jadi 8 porsi"**, bukan "0,25 kg per porsi".
+Memaksa dia membagi sendiri adalah penyebab utama onboarding gagal
+(lihat [07-UX.md §8](07-UX.md#8-kenapa-desainnya-begini--dua-simulasi)).
 
-Ini juga jawaban untuk pertanyaan juri *"bagaimana dengan bahan yang tidak ada di data BI?"*
+Jadi `batch_qty` menyimpan angka aslinya, `qty` adalah turunan yang dipakai
+engine. Saat pemilik mengedit, yang ditampilkan kembali adalah angkanya sendiri.
 
-### Kenapa `margin_snapshots` ada
+### Kenapa `business_id` ada di `prices`
 
-Margin bisa dihitung on-the-fly, tapi snapshot harian memberi:
+Barang di luar 21 komoditas BI (saus, tepung, gas) harganya dicatat pemilik
+sendiri. Kalau disimpan di tabel terpisah tanpa riwayat, harga saus naik →
+untung turun → **sistem tidak bisa menjelaskan kenapa**, dan alert jadi
+menyesatkan.
 
-- riwayat untuk grafik tren 30 hari,
-- basis untuk mendeteksi *perubahan* (yang memicu alert),
-- bukti bahwa sistem berjalan tiap hari, bukan dihitung saat demo.
+Dengan satu tabel: BR-04 berlaku seragam, riwayat gratis, dan engine tetap satu
+jalur lookup.
 
-### Kenapa `is_filled` ada
+### Kenapa `is_estimated` ada di `fixed_costs`
 
-BI tidak terbit di akhir pekan dan hari libur. Kita forward-fill agar grafik tidak bolong,
-tapi menandainya supaya UI bisa jujur: *"harga Sabtu memakai data Jumat."*
+Gas dan kemasan tidak ditanyakan saat menu pertama — sistem memberi perkiraan
+Rp 1.200 dan menandainya. Antarmuka wajib menampilkan tanda itu.
 
-DDL lengkap: [`db/schema.sql`](../db/schema.sql)
+### Kenapa `ai_cache` ada
+
+Demo tidak boleh bergantung panggilan live. Lihat §Ketahanan.
 
 ---
 
@@ -178,7 +182,7 @@ DDL lengkap: [`db/schema.sql`](../db/schema.sql)
 
 | Endpoint | Fungsi |
 |---|---|
-| `GetRefCommodityAndCategory` | Daftar 10 kategori + 21 varian komoditas |
+| `GetRefCommodityAndCategory` | 10 kategori + 21 varian komoditas |
 | `GetGridDataDaerah` | Time-series harga per wilayah |
 
 ### Parameter `GetGridDataDaerah`
@@ -188,27 +192,21 @@ DDL lengkap: [`db/schema.sql`](../db/schema.sql)
 | `price_type_id` | `1` | Pasar tradisional |
 | `province_id` | `13` | Jawa Tengah |
 | `regency_id` | int | Kosongkan untuk level provinsi |
-| `start_date` / `end_date` | `MM/DD/YYYY` | **Lihat jebakan di bawah** |
+| `start_date` / `end_date` | `MM/DD/YYYY` | **lihat jebakan** |
 | `comcat_id` | kosong | Semua komoditas |
 | `tipe_laporan` | `1` | |
 
-### ⚠️ Jebakan yang sudah ditemukan
+### ⚠️ Jebakan yang sudah ditemukan dan diverifikasi
 
-1. **Tanggalnya `MM/DD/YYYY`, bukan `DD/MM/YYYY`.**
-   Format salah tidak menghasilkan error — tapi seluruh baris berisi `"-"`.
-   Ini akan menghabiskan waktu berjam-jam kalau tidak tahu.
-
-2. **Wajib kirim header `X-Requested-With: XMLHttpRequest`.**
-
+1. **Tanggalnya `MM/DD/YYYY`, bukan `DD/MM/YYYY`.** Format salah **tidak
+   menghasilkan error** — seluruh baris berisi `"-"`. Ini bisa menghabiskan
+   berjam-jam kalau tidak tahu.
+2. **Wajib header `X-Requested-With: XMLHttpRequest`.**
 3. **Nilai kosong adalah string `"-"`, bukan `null`.**
-
-4. **Angka memakai pemisah ribuan koma:** `"16,350"` → parse jadi `16350`.
-
-5. **BI publikasi pukul 13:00 WIB, hari kerja saja.** Jalankan cron 13:30.
-   Akhir pekan dan libur nasional tidak ada data baru.
-
+4. **Angka memakai pemisah ribuan koma:** `"16,350"` → `16350`.
+5. **BI publikasi 13:00 WIB, hari kerja saja.** Jalankan cron 13:30.
 6. **Mapping `province_id`/`regency_id` ke nama wilayah tidak terdokumentasi.**
-   Harus dipetakan manual sekali (lihat tugas Orang 1).
+   Harus dipetakan manual sekali — tugas pertama O1.
 
 ### Contoh panggilan terverifikasi
 
@@ -217,8 +215,6 @@ curl -s 'https://www.bi.go.id/hargapangan/WebSite/TabelHarga/GetGridDataDaerah?p
   -H 'X-Requested-With: XMLHttpRequest'
 ```
 
-Respons (dipersingkat):
-
 ```json
 { "data": [
   { "no": "I", "name": "Beras", "level": 1,
@@ -226,24 +222,39 @@ Respons (dipersingkat):
 ]}
 ```
 
+### Sumber lain yang sudah dicek — jangan dipakai
+
+| Sumber | Status | Catatan |
+|---|---|---|
+| SiHati Jawa Tengah (`hargajateng.org`) | ❌ **HTTP 502** | Padanan Jateng, tapi mati di semua variasi URL |
+| SP2KP / SISP Kemendag | ⚠️ SPA | Situs hidup, tapi tidak ada API — semua path balik shell 137 KB |
+| Bapanas Panel Harga | ⚠️ 401 | API terkunci token, belum ditemukan |
+| Siskaperbapo | ⚠️ Jawa Timur | Komoditas jauh lebih luas, tapi **salah provinsi** |
+| Portal open data daerah | ❌ 404/502 | Semua mati |
+
+**Kesimpulan: satu sumber eksternal terverifikasi — BI.** Sisanya lapisan data
+yang dibangun pengguna sendiri. Jangan pernah bilang "kami pakai banyak sumber".
+
+Kolom `prices.source` sudah menyiapkan penambahan sumber nanti tanpa perubahan
+skema.
+
 ---
 
 ## Margin engine
 
-Inti produk. **Wajib fungsi murni** — tanpa I/O, tanpa panggilan database, tanpa AI.
-Ini yang membuatnya bisa diuji, bisa diaudit, dan bisa dimodifikasi di depan juri.
+Inti produk. **Wajib fungsi murni** — tanpa I/O, tanpa database, tanpa AI.
 
 ```ts
 // lib/margin.ts
 
-export type Ingredient  = { commodityId: string; qty: number }
+export type Ingredient  = { commodityId: string; qty: number }   // per porsi
 export type FixedCost   = { label: string; amount: number }
 export type PriceLookup = (commodityId: string) => number | null
 
 export type HppResult = {
   hpp: number
-  fromData: number      // jumlah bahan yang harganya dari BI
-  missing: string[]     // commodityId tanpa harga hari itu
+  fromData: number      // bahan yang harganya ada
+  missing: string[]     // bahan tanpa harga hari itu
 }
 
 export function computeHpp(
@@ -272,9 +283,43 @@ export function computeMargin(sellPrice: number, hpp: number): number {
 }
 ```
 
+### Konversi batch → per porsi
+
+Terjadi **sekali saat menyimpan**, bukan di engine:
+
+```ts
+// lib/recipe.ts
+export const perPorsi = (batchQty: number, batchYield: number) =>
+  batchQty / batchYield
+```
+
+### Prioritas harga
+
+```ts
+// lib/price.ts — urutan lookup
+// 1. harga milik warung itu sendiri  (business_id = id warung)
+// 2. harga publik BI                 (business_id NULL)
+// 3. null → bahan masuk `missing`
+```
+
+### Simulator "kalau harga jadi segini" *(Cincin 1)*
+
+Karena engine fungsi murni, simulator **hampir gratis** — panggil ulang dengan
+`priceOf` yang disubstitusi:
+
+```ts
+const simulated = (override: Record<string, number>): PriceLookup =>
+  (id) => override[id] ?? realPriceOf(id)
+
+computeHpp(ingredients, fixedCosts, simulated({ com_ayam: 60000 }))
+```
+
+Sekitar dua jam kerja, dan jadi momen terkuat di demo. Ini juga bukti
+arsitekturnya benar — sebutkan saat Q&A.
+
 ### Konfigurasi ambang — target live coding
 
-Simpan sebagai objek, **bukan if-else tersebar**. Juri minta ubah ambang → satu baris.
+Simpan sebagai objek tunggal, **bukan if-else tersebar**:
 
 ```ts
 // lib/thresholds.ts
@@ -285,79 +330,145 @@ export const SEVERITY = {
 } as const
 ```
 
-Latih skenario ini sampai 30 detik:
+Latih skenario ini sampai 30 detik: *"Tambahkan tingkat `urgent` di bawah 5%."*
 
-> *"Tambahkan tingkat `urgent` di bawah 5%."* → tambah satu baris, UI berubah.
+---
+
+## Ketahanan — demo tidak boleh bergantung API live
+
+Rate limit, jaringan panitia, kuota habis — semuanya terjadi tepat saat
+presentasi. Tiga lapis pertahanan:
+
+**Lapis 1 — AI gagal, perhitungan tetap jalan.** (FR-31)
+Cabut API key → aplikasi hidup, hanya fitur AI menampilkan pesan.
+
+**Lapis 2 — semua hasil AI di-cache** ke tabel `ai_cache`.
+Saat demo, yang tampil adalah data tersimpan. Panggilan live kalau berhasil
+adalah bonus, bukan syarat. **Bangun cache sejak awal, jangan ditambahkan
+belakangan.**
+
+**Lapis 3 — video cadangan.** Rekam fitur AI yang berhasil, simpan offline.
+
+> **Hari 6: latihan demo dengan mode pesawat menyala.** Ini yang paling sering
+> dilewatkan tim, dan paling sering menjatuhkan mereka.
+
+---
+
+## Penyedia AI
+
+**Google AI Studio — Gemini Flash.** Alasannya cocok dengan tiga syarat tim:
+
+```
+gratis, tanpa kartu kredit   ✓  ambil key di aistudio.google.com, 2 menit
+vision                       ✓  pemakaian utama: OCR nota & resep
+structured output            ✓  skema JSON dijamin
+~1.000 request/hari          ✓  demo butuh puluhan
+setup                        ✓  satu env var, tanpa CLI, tanpa billing
+```
+
+**Peringatan privasi:** di free tier, data boleh dipakai Google untuk melatih
+produknya. Untuk demo dengan data buatan sendiri, aman. **Jangan unggah nota
+warung sungguhan tanpa memberi tahu pemiliknya, dan jangan klaim "data pengguna
+aman" di pitch.**
+
+Alternatif berbayar kalau nanti butuh kualitas vision lebih tinggi: Claude Haiku
+4.5 (~$1/$5 per MTok, seluruh lomba di bawah $5) — tapi perlu kartu kredit.
+
+### Satu file pembungkus
+
+```
+lib/ai/client.ts   ← seluruh panggilan provider lewat sini
+```
+
+Ganti provider = ubah satu file. Juga menang di live coding kalau juri bertanya
+*"bisa ganti model?"*
 
 ---
 
 ## Kontrak API
 
-| Route | Method | Fungsi |
-|---|---|---|
-| `/api/cron/ingest` | POST | Tarik harga hari ini. Dipanggil Vercel Cron. |
-| `/api/cron/recompute` | POST | Hitung ulang snapshot + generate alert. |
-| `/api/businesses` | POST | Daftarkan warung |
-| `/api/menu` | GET, POST | Daftar / tambah menu |
-| `/api/menu/[id]` | GET, PATCH, DELETE | Detail menu + resep |
-| `/api/menu/[id]/margin` | GET | Margin hari ini + riwayat 30 hari |
-| `/api/alerts` | GET | Alert aktif untuk satu warung |
-| `/api/alerts/[id]/read` | POST | Tandai sudah dibaca |
-| `/api/ai/parse-recipe` | POST | Upload foto → JSON resep terstruktur |
-| `/api/ai/suggest` | POST | Saran substitusi untuk satu menu |
+| Route | Method | Fungsi | Cincin |
+|---|---|---|---|
+| `/api/cron/ingest` | POST | Tarik harga hari ini | 0 |
+| `/api/cron/recompute` | POST | Snapshot + alert | 0 |
+| `/api/businesses` | POST | Daftarkan warung | 0 |
+| `/api/menu` | GET, POST | Daftar / tambah menu | 0 |
+| `/api/menu/[id]` | GET, PATCH, DELETE | Detail + resep | 0 |
+| `/api/menu/[id]/margin` | GET | Untung hari ini + riwayat 30 hari | 0 |
+| `/api/alerts` | GET | Alert aktif | 0 |
+| `/api/alerts/[id]/read` | POST | Tandai dibaca | 0 |
+| `/api/exposure` | GET | Peta eksposur menu × bahan | 1 |
+| `/api/simulate` | POST | What-if harga | 1 |
+| `/api/ai/parse-nota` | POST | Foto nota → item + harga | 1 |
+| `/api/ai/parse-recipe` | POST | Foto resep → bahan + takaran | 2 |
+| `/api/ai/suggest` | POST | Saran substitusi | 2 |
 
 ### Contoh respons `/api/menu/[id]/margin`
 
 ```json
 {
-  "menuItem": { "id": "...", "name": "Ayam Geprek", "sellPrice": 15000 },
+  "menuItem": { "id": "...", "name": "Ayam Geprek",
+                "sellPrice": 18000, "batchYield": 8 },
   "today": {
     "date": "2026-09-11",
-    "hpp": 13350,
-    "marginPct": 11.0,
-    "fromData": 4,
-    "manualCosts": 2,
+    "hpp": 16740,
+    "profitPerPorsi": 1260,
+    "marginPct": 7.0,
+    "fromData": 5,
+    "estimatedCosts": 1,
     "missing": []
   },
   "history": [
-    { "date": "2026-09-02", "marginPct": 31.2 },
-    { "date": "2026-09-11", "marginPct": 11.0 }
+    { "date": "2026-09-03", "marginPct": 17.1, "profitPerPorsi": 3085 },
+    { "date": "2026-09-11", "marginPct": 7.0,  "profitPerPorsi": 1260 }
   ],
   "driver": {
-    "commodityId": "com_18",
+    "commodityId": "com_ayam",
+    "name": "Daging Ayam Ras",
+    "changePct": 20.0,
+    "contributionRp": 1825,
+    "sharePct": 61,
+    "windowDays": 7
+  },
+  "notDriver": {
     "name": "Cabai Rawit Merah",
-    "changePct": 58.3,
-    "windowDays": 9
-  }
+    "changePct": 58.2,
+    "sharePct": 9
+  },
+  "suggestion": { "type": "reprice", "value": 20000 }
 }
 ```
+
+Perhatikan `notDriver` — antarmuka **wajib** menampilkan kontras ini. Tanpa
+kalimat kedua, produk ini cuma aplikasi harga pangan biasa.
 
 ---
 
 ## Prompt AI
 
-### Alert agent
+### OCR nota belanja *(Cincin 1)*
 
-Input: daftar menu dengan margin hari ini, margin 7 hari lalu, dan komoditas pendorong.
-Output: maksimal 3 alert, terurut kepentingan.
+Input: foto nota. Output: `{ items: [{ nameRaw, qty, unit, totalPrice }] }`.
+Pencocokan ke komoditas/katalog dilakukan **di kode**, bukan model (FR-28).
+Hasil selalu ditampilkan untuk dikonfirmasi pemilik sebelum disimpan.
 
-Aturan yang harus masuk prompt:
+### Pencocokan nama bahan
 
-- Jangan laporkan menu yang marginnya stabil, walau rendah — pemilik sudah tahu.
-- Prioritaskan **perubahan**, bukan level absolut.
-- Satu kalimat headline, bahasa Indonesia sehari-hari, tanpa jargon.
-- Selalu sebut komoditas penyebabnya.
+| Sasaran | Cara | Alasan |
+|---|---|---|
+| 21 komoditas BI | pencocokan string di kode | kecil, tetap, deterministik |
+| Katalog barang warung | AI + konfirmasi pemilik | besar, tumbuh, banyak nama lokal |
+| Naik jadi item katalog baru | ambang kemunculan (≥3 warung) | melindungi data bersama |
 
-Gunakan **structured outputs** (`output_config.format`) agar JSON dijamin sesuai skema.
+### Pemilih alert
 
-### VLM parse resep
+**Cincin 0 — aturan, bukan AI:** ambil 3 penurunan margin terbesar yang melewati
+ambang BR-05, buang yang perubahannya < 2 poin.
 
-Input: foto resep tulis tangan atau nota belanja.
-Output: `{ items: [{ nameRaw, qty, unit, matchedCommodityId | null }] }`
+**Cincin 2 — AI:** prioritaskan *perubahan* bukan level absolut; satu kalimat
+headline bahasa sehari-hari; selalu sebut komoditas penyebab; pakai structured
+outputs.
 
-Pencocokan ke 21 komoditas BI dilakukan di sisi kode, bukan diserahkan ke model —
-model hanya membaca teks dan angka. Yang tidak cocok masuk ke `fixed_costs`
-untuk diisi harganya manual.
-
-**Dokumentasikan sambil jalan:** prompt utama, halusinasi yang ditemukan, re-prompting,
-dan bagian yang diperbaiki manual. Rubrik EXASTI memintanya secara eksplisit.
+**Dokumentasikan sambil jalan** di `docs/AI-PROCESS.md`: prompt utama, halusinasi
+yang ditemukan, re-prompting, bagian yang diperbaiki manual. Rubrik memintanya
+eksplisit, dan rekonstruksi di akhir akan terlihat karangan.

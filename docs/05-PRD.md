@@ -101,21 +101,30 @@ Butuh gambaran agregat lintas warung binaan. **Di luar ruang lingkup MVP.**
 
 ### 5.1 Termasuk (MVP)
 
-| ID | Fitur | Prioritas |
+| ID | Fitur | Cincin |
 |---|---|---|
-| F-01 | Registrasi warung + pilih kabupaten | **Must** |
-| F-02 | CRUD menu dan harga jual | **Must** |
-| F-03 | CRUD resep (bahan + takaran) dan biaya tetap | **Must** |
-| F-04 | Ingestion harga BI harian otomatis | **Must** |
-| F-05 | Perhitungan HPP dan margin harian | **Must** |
-| F-06 | Dashboard: semua menu, terurut margin terburuk | **Must** |
-| F-07 | Identifikasi komoditas pendorong (weighted) | **Must** |
-| F-08 | Riwayat margin 30 hari | **Should** |
-| F-09 | Alert harian dengan penyebab | **Should** |
-| F-10 | Saran harga jual baru | **Should** |
-| F-11 | Input resep lewat foto (VLM) | **Should** |
-| F-12 | Saran substitusi bahan | **Could** |
-| F-13 | Transparansi sumber data per HPP | **Must** |
+| F-01 | Registrasi warung + pilih kabupaten | **0** |
+| F-02 | CRUD menu dan harga jual | **0** |
+| F-03 | Editor resep **berbasis batch** + biaya tetap | **0** |
+| F-04 | Ingestion harga BI harian otomatis | **0** |
+| F-05 | Perhitungan modal dan untung harian | **0** |
+| F-06 | Dashboard: menu terurut untung terkecil | **0** |
+| F-07 | Identifikasi bahan pendorong (kontribusi rupiah) | **0** |
+| F-08 | Riwayat untung 30 hari | **0** |
+| F-09 | Alert harian dengan penyebab (aturan, bukan AI) | **0** |
+| F-10 | Saran harga jual baru | **0** |
+| F-11 | Transparansi sumber data per modal | **0** |
+| F-12 | Simulator "kalau harga jadi segini" | **1** |
+| F-13 | Peta eksposur menu × bahan | **1** |
+| F-14 | Onboarding template + tunda biaya | **1** |
+| F-15 | OCR nota belanja | **1** |
+| F-16 | Alert agent AI | 2 |
+| F-17 | Saran substitusi bahan | 2 |
+| F-18 | Katalog barang non-BI + custom items | 2 |
+| F-19 | Foto resep tulis tangan · input suara | 2 |
+
+**Cincin 0 tidak mengandung AI sama sekali** — dan sudah produk utuh.
+Isi tiap cincin dan aturan urutannya: [04-EXECUTION.md](04-EXECUTION.md#cincin).
 
 ### 5.2 Tidak termasuk
 
@@ -126,14 +135,29 @@ prediksi harga jangka panjang · agregat lintas warung · multi-bahasa
 
 ## 6. Alur pengguna utama
 
-### 6.1 Onboarding *(dilakukan P2, sekali, ±15 menit)*
+### 6.1 Onboarding *(target ≤2 menit — lihat [07-UX.md](07-UX.md))*
 
 ```
-Daftar warung → pilih kabupaten → tambah menu (nama + harga jual)
-     → isi resep: ketik manual ATAU foto catatan
-     → bahan yang tidak ada di data BI masuk ke "biaya lain"
-     → selesai: langsung lihat margin hari ini
+"Warungmu di mana?"       → pilih kabupaten            1 ketuk
+"Warungmu jual apa?"      → [Ayam Geprek] [Soto] …     1 ketuk
+"Jual berapa seporsi?"    → 18000                      1 ketikan
+"Sekali masak habis apa?" → takaran template sudah
+                            terisi, tinggal dikoreksi  ~3 koreksi
+"Jadi berapa porsi?"      → sudah terisi 8
+        ↓
+🎯 "Untungmu Rp 3.085 per porsi"
 ```
+
+**Tiga keputusan yang membuat ini mungkin:**
+
+1. **Tanya sekali masak, bukan per porsi.** Pemilik tahu "2 kg jadi 8 porsi";
+   dia tidak tahu "0,25 kg per porsi". Memaksanya membagi sendiri adalah
+   penyebab utama onboarding gagal.
+2. **Satu menu dulu, bukan delapan.** Menu lain ditawarkan setelah alert
+   pertama terasa berguna.
+3. **Tunda biaya gas/kemasan.** Beri perkiraan Rp 1.200 yang ditandai terbuka.
+
+Kalau template tidak cocok → "Lainnya" → isi manual atau foto nota.
 
 ### 6.2 Pemakaian harian *(dilakukan P1, ±2 menit)*
 
@@ -160,19 +184,29 @@ Buka aplikasi → dashboard: menu terurut dari untung terkecil
 
 | Metrik | Target |
 |---|---|
+| **Waktu sampai angka untung pertama muncul** | **≤ 2 menit** |
 | Menu demo dengan resep lengkap | ≥ 5 |
 | Eksposur komoditas berbeda antar menu demo | ≥ 3 pola |
 | Hari riwayat harga nyata tersedia saat demo | ≥ 90 |
-| Waktu dari buka aplikasi ke memahami masalah | ≤ 15 detik |
+| Waktu dari buka dashboard ke memahami masalah | ≤ 15 detik |
 | Warung baru bisa didaftarkan tanpa bantuan developer | ya |
+| Aplikasi tetap berfungsi dengan mode pesawat menyala | ya |
+
+Metrik pertama yang paling menentukan apakah produk dipakai atau ditinggalkan.
 
 ### 7.2 Untuk produk (pasca-lomba)
 
 | Metrik | Definisi | Target |
 |---|---|---|
-| Aktivasi | Warung yang menyelesaikan ≥3 resep | 70% |
+| Aktivasi | Menu pertama selesai tanpa bantuan | 80% |
+| Perluasan | Menu kedua ditambahkan dalam 7 hari | 50% |
 | Keterlibatan | Alert dibuka dalam 24 jam | 50% |
 | Dampak | Menu yang harganya disesuaikan setelah alert | 20% |
+
+**Risiko terbesar ada di baris kedua.** Banyak pengguna akan berhenti di satu
+menu. Itu masih berguna bagi mereka, tapi nilai penuh produk baru muncul kalau
+semua menu masuk. Arah solusi: tawarkan menu berikutnya **setelah** alert
+pertama mendarat dan terasa berguna — bukan saat onboarding.
 
 ---
 
