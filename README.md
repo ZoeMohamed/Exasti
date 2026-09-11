@@ -58,11 +58,18 @@ resep masing-masing warung. Itulah yang Takar hitung.
 | [docs/05-PRD.md](docs/05-PRD.md) | Persona, job stories, prioritas fitur, metrik |
 | [docs/06-SRS.md](docs/06-SRS.md) | 10 aturan bisnis, 42 kebutuhan fungsional, 21 non-fungsional |
 | [docs/07-UX.md](docs/07-UX.md) | **Persona, prinsip teks, rancangan layar, simulasi friksi** |
+| [docs/08-AI-USECASE.md](docs/08-AI-USECASE.md) | Peran AI per fitur, apa yang bukan AI, ketahanan, jawaban Q&A |
+| [docs/09-CARA-PAKAI.md](docs/09-CARA-PAKAI.md) | **Penjelasan untuk pemilik warung — tanpa istilah teknis** |
 | [db/schema.sql](db/schema.sql) | DDL — tervalidasi di PostgreSQL 15 |
 
-> **Merancang antarmuka? Mulai dari [07-UX.md](docs/07-UX.md).**
-> Di sana ada persona, kosakata yang boleh dipakai, dan alasan di balik tiap
-> keputusan layar.
+> **Merancang antarmuka?** Mulai dari [07-UX.md](docs/07-UX.md) — persona,
+> kosakata yang boleh dipakai, dan alasan di balik tiap keputusan layar.
+>
+> **Menulis narasi video atau menjelaskan aplikasi ke orang luar?**
+> Pakai [09-CARA-PAKAI.md](docs/09-CARA-PAKAI.md) apa adanya.
+>
+> **Membangun fitur AI atau menyiapkan Q&A soal AI?**
+> Semua ada di [08-AI-USECASE.md](docs/08-AI-USECASE.md).
 
 ---
 
