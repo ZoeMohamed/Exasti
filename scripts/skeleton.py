@@ -97,6 +97,50 @@ def fetch_prices(start: date, end: date) -> dict[str, dict[date, float]]:
     return series
 
 
+def harga_efektif(
+    komoditas: str,
+    hari: date,
+    series_bi: dict[str, dict[date, float]],
+    harga_sendiri: tuple[float, date] | None = None,
+) -> tuple[float | None, str]:
+    """BR-09 — harga yang dipakai untuk menghitung modal.
+
+    Gabungkan LEVEL pemilik dengan GERAKAN pasar:
+
+        harga = harga_nota × ( BI_hari_ini ÷ BI_tanggal_nota )
+
+    Alasannya: harga BI adalah rata-rata sekabupaten, bukan harga langganan
+    Bu Sri. Tapi arah dan besar GERAKANNYA berkorelasi kuat — mereka beli dari
+    rantai pasok yang sama. Jadi pakai levelnya dia, gerakannya pasar.
+
+    Kembalikan (harga, alasan) untuk ditampilkan di UI.
+    """
+    bi = series_bi.get(komoditas)
+
+    # Bahan di luar 21 komoditas BI — tidak ada gerakan yang bisa dipakai
+    if bi is None:
+        if harga_sendiri is None:
+            return None, "tidak ada harga"
+        return harga_sendiri[0], "harga kamu (beku)"
+
+    bi_kini, _ = price_on(bi, hari)
+    if harga_sendiri is None:
+        return bi_kini, "harga pasar (BI)"
+
+    nota_harga, nota_tgl = harga_sendiri
+    bi_saat_beli, _ = price_on(bi, nota_tgl, max_gap_days=10)
+    if bi_kini is None or bi_saat_beli is None or bi_saat_beli == 0:
+        return nota_harga, "harga kamu (beku)"
+
+    rasio = bi_kini / bi_saat_beli
+
+    # Pagar pengaman: rasio ekstrem berarti ada yang salah — jangan dipercaya.
+    if not (0.3 <= rasio <= 3.0):
+        return bi_kini, "harga pasar (rasio tidak wajar)"
+
+    return nota_harga * rasio, f"harga kamu × gerakan pasar {(rasio-1)*100:+.0f}%"
+
+
 def price_on(series: dict[date, float], target: date, max_gap_days: int = 7):
     """BR-03 forward-fill: pakai harga hari kerja terakhir, maksimal 7 hari mundur.
 

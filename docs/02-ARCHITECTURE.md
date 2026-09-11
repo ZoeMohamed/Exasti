@@ -302,14 +302,46 @@ export const perPorsi = (batchQty: number, batchYield: number) =>
   batchQty / batchYield
 ```
 
-### Prioritas harga
+### Harga efektif — BR-09
+
+Harga BI adalah rata-rata sekabupaten, bukan harga langganan warung. Gabungkan
+**level pemilik** dengan **gerakan pasar**:
 
 ```ts
-// lib/price.ts — urutan lookup
-// 1. harga milik warung itu sendiri  (business_id = id warung)
-// 2. harga publik BI                 (business_id NULL)
-// 3. null → bahan masuk `missing`
+// lib/price.ts
+export function hargaEfektif(
+  komoditasId: string,
+  hari: Date,
+  biSeries: Map<string, Map<string, number>>,
+  hargaSendiri?: { harga: number; tanggal: Date },
+): { harga: number | null; alasan: string } {
+  const bi = biSeries.get(komoditasId)
+
+  // di luar 21 komoditas BI — tidak ada gerakan yang bisa dipakai
+  if (!bi) return hargaSendiri
+    ? { harga: hargaSendiri.harga, alasan: "harga kamu (beku)" }
+    : { harga: null, alasan: "tidak ada harga" }
+
+  const biKini = priceOn(bi, hari)
+  if (!hargaSendiri) return { harga: biKini, alasan: "harga pasar (BI)" }
+
+  const biSaatBeli = priceOn(bi, hargaSendiri.tanggal)
+  if (!biKini || !biSaatBeli) return { harga: hargaSendiri.harga, alasan: "harga kamu (beku)" }
+
+  const rasio = biKini / biSaatBeli
+  if (rasio < 0.3 || rasio > 3.0)          // pagar pengaman
+    return { harga: biKini, alasan: "harga pasar (rasio tidak wajar)" }
+
+  return { harga: hargaSendiri.harga * rasio,
+           alasan: `harga kamu × gerakan pasar ${((rasio - 1) * 100).toFixed(0)}%` }
+}
 ```
+
+**Jangan implementasikan sebagai "harga pemilik selalu menang".** Itu membekukan
+harga di nilai lama dan membuat sistem buta terhadap kenaikan pasar — produk mati
+diam-diam tanpa error. Penjelasan lengkap: [BR-09](06-SRS.md#br-09--harga-efektif-).
+
+Referensi berjalan: `scripts/skeleton.py` → `harga_efektif()`.
 
 ### Simulator "kalau harga jadi segini" *(Cincin 1)*
 

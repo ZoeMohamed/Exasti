@@ -140,15 +140,73 @@ Konversi terjadi **sekali saat menyimpan**, bukan di dalam margin engine.
 `batch_qty` dan `batch_yield` wajib disimpan apa adanya — saat pemilik mengedit,
 yang ditampilkan kembali adalah angka aslinya ("2 kg, 8 porsi"), bukan 0,25.
 
-### BR-09 — Prioritas sumber harga
+### BR-09 — Harga efektif ⭐
 
-Untuk `(komoditas k, wilayah r, tanggal d, warung b)`, urutan lookup:
+**Harga BI bukan harga yang dibayar warung.** BI merata-rata pasar tradisional
+sekabupaten; pemilik membeli di satu langganan, bisa lebih murah atau lebih mahal.
+
+Tapi **arah dan besar gerakannya berkorelasi kuat** — keduanya membeli dari rantai
+pasok yang sama. Maka: pakai **level** dari pemilik, **gerakan** dari pasar.
 
 ```
-1. harga milik warung itu sendiri   (business_id = b)
-2. harga publik BI                  (business_id NULL)
-3. tidak ada → bahan masuk `missing` (BR-01 berlaku)
+harga_efektif(k, d, warung b) =
+
+  bahan ADA di BI, pemilik punya harga sendiri bertanggal t:
+      harga_sendiri × [ BI(k, d) ÷ BI(k, t) ]
+
+  bahan ADA di BI, pemilik tidak punya harga sendiri:
+      BI(k, d)
+
+  bahan TIDAK ADA di BI:
+      harga_sendiri apa adanya (beku sampai diperbarui)
+
+  tidak ada dua-duanya:
+      → bahan masuk `missing` (BR-01 berlaku)
 ```
+
+**Pagar pengaman:** bila rasio `BI(k,d) ÷ BI(k,t)` berada di luar rentang
+`0,3 – 3,0`, ada yang salah pada data. Jangan dipercaya — pakai `BI(k, d)` dan
+tandai di UI.
+
+#### Kenapa bukan "harga pemilik selalu menang"
+
+Versi awal aturan ini menyatakan harga pemilik mengalahkan harga BI. Itu **salah
+dan membutakan sistem**:
+
+```
+1 Sept    Bu Sri isi ayam dari nota      Rp 38.000
+hari ini  BI: ayam naik jadi Rp 43.800   (+20%)
+
+Aturan lama  → tetap memakai Rp 38.000
+             → modal tidak berubah
+             → untung tidak berubah
+             → TIDAK ADA PERINGATAN            ← produk mati diam-diam
+```
+
+Aturan yang benar menghasilkan `38.000 × 1,20 = Rp 45.600` — akurat **dan** segar.
+
+Terbukti berjalan di `scripts/skeleton.py` fungsi `harga_efektif()`.
+
+#### Efek samping yang berguna
+
+Sistem memegang dua angka sekaligus, jadi antarmuka bisa menampilkan:
+
+```
+Daging ayam
+  harga pasar (BI)   Rp 43.800
+  kamu bayar         Rp 45.600      4% di atas pasar
+```
+
+Informasi yang selama ini tidak pernah dimiliki pemilik warung.
+
+#### Batas yang harus diakui
+
+Rumus ini mengandaikan harga langganan bergerak **sebanding** dengan pasar.
+Biasanya benar, tapi bila langganan menaikkan harga di luar tren pasar, sistem
+tidak tahu sampai pemilik memotret nota lagi.
+
+Tetap jauh lebih baik daripada dua pilihan ekstrem: harga BI mentah (level salah)
+atau harga nota beku (gerakan hilang).
 
 ### BR-10 — Ambang peringatan cakupan
 
