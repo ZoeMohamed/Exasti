@@ -142,12 +142,13 @@ prediksi harga jangka panjang · agregat lintas warung · multi-bahasa
 ### 6.1 Onboarding *(target ≤2 menit — lihat [07-UX.md](07-UX.md))*
 
 ```
-"Warungmu di mana?"       → pilih kabupaten            1 ketuk
-"Warungmu jual apa?"      → [Ayam Geprek] [Soto] …     1 ketuk
-"Jual berapa seporsi?"    → 18000                      1 ketikan
-"Sekali masak habis apa?" → takaran template sudah
-                            terisi, tinggal dikoreksi  ~3 koreksi
-"Jadi berapa porsi?"      → sudah terisi 8
+"Warungmu di mana?"        → pilih kabupaten           1 ketuk
+  + nama (boleh dilewati)
+"Menu apa yang paling laku?" → [Ayam Geprek] [Soto] …  1 ketuk
+"Jual berapa seporsi?"     → 18000                     1 ketikan
+"Sekali masak kamu BELI    → takaran template sudah
+ apa saja?"                  terisi, tinggal dikoreksi ~3 koreksi
+"Jadi berapa porsi?"       → sudah terisi 8
         ↓
 🎯 "Untungmu Rp 3.085 per porsi"
 ```
@@ -159,7 +160,16 @@ prediksi harga jangka panjang · agregat lintas warung · multi-bahasa
    penyebab utama onboarding gagal.
 2. **Satu menu dulu, bukan delapan.** Menu lain ditawarkan setelah alert
    pertama terasa berguna.
-3. **Tunda biaya gas/kemasan.** Beri perkiraan Rp 1.200 yang ditandai terbuka.
+3. **Tunda biaya gas, bumbu, listrik.** Satu baris teks read-only berisi
+   perkiraan — bukan field yang dinonaktifkan. Kemasan dirinci terpisah
+   dengan kalkulator pack, karena pemilik tahu angkanya persis.
+
+> ⭐ Kata **"BELI"**, bukan "pakai". Beli 2 kg ayam, terpakai 1,6 kg setelah
+> dipotong tulang — kalau resep ditulis yang terpakai, modalnya meleset 20%.
+> Satu kata menyelesaikan masalah susut tanpa konsep tambahan.
+
+> ⭐ Kata **"paling laku"** membatasi jadi satu menu **dan** memastikan menu
+> pertama adalah yang paling besar dampaknya.
 
 Kalau template tidak cocok → "Lainnya" → isi manual atau foto nota.
 

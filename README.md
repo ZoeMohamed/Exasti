@@ -99,7 +99,9 @@ Satu label input yang salah di sini membuat onboarding gagal.
 Cincin 0   ingestion · resep · engine · BR-04 · dashboard · detail
            TANPA AI SAMA SEKALI — dan sudah produk utuh
 
-Cincin 1   simulator · peta eksposur · onboarding template · OCR nota
+Cincin 1   onboarding template · menu planner · volume kasar
+           simulator · OCR nota · peta eksposur
+           (kepenuhan — kalau harus pilih tiga: template, planner, simulator)
 
 Cincin 2   alert agent AI · substitusi · katalog · input suara
 ```
