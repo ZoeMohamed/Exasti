@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Python (sisa eksperimen kalibrasi)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Media besar hasil eksperimen — jangan pernah masuk repo
+*.mp4
+*.mov
+calib/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Log
+*.log
+npm-debug.log*
+yarn-error.log*
