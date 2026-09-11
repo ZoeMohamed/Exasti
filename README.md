@@ -60,6 +60,7 @@ resep masing-masing warung. Itulah yang Takar hitung.
 | [docs/07-UX.md](docs/07-UX.md) | **Persona, prinsip teks, rancangan layar, simulasi friksi** |
 | [docs/08-AI-USECASE.md](docs/08-AI-USECASE.md) | Peran AI per fitur, apa yang bukan AI, ketahanan, jawaban Q&A |
 | [docs/09-CARA-PAKAI.md](docs/09-CARA-PAKAI.md) | **Penjelasan untuk pemilik warung — tanpa istilah teknis** |
+| [docs/10-AI-VALIDATION.md](docs/10-AI-VALIDATION.md) | Brief validasi AI — 4 tes, kriteria lolos, rencana mundur |
 | [db/schema.sql](db/schema.sql) | DDL — tervalidasi di PostgreSQL 15 |
 
 > **Merancang antarmuka?** Mulai dari [07-UX.md](docs/07-UX.md) — persona,
