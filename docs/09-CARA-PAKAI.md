@@ -25,7 +25,7 @@ Pilih kotamu. Sekali ketuk.
 
 Ini penting karena harga bahan di tiap kota berbeda.
 
-### 2. Warungmu jual apa?
+### 2. Menu apa yang paling laku?
 
 ```
    [ Ayam Geprek ]   [ Nasi Goreng ]   [ Soto ]
@@ -33,7 +33,7 @@ Ini penting karena harga bahan di tiap kota berbeda.
    [ Bakso ]         [ Lainnya ]
 ```
 
-Pilih **satu dulu** — yang paling laku. Yang lain nanti saja.
+Pilih **satu dulu**. Yang lain nanti saja.
 
 ### 3. Jualnya berapa seporsi?
 
@@ -41,10 +41,11 @@ Pilih **satu dulu** — yang paling laku. Yang lain nanti saja.
    Rp  18.000
 ```
 
-### 4. Sekali masak, habis apa saja?
+### 4. Sekali masak, kamu beli apa saja?
 
 Nah, ini yang paling penting. **Kamu tidak perlu menghitung apa-apa.**
-Cukup sebutkan yang biasa kamu beli.
+Cukup sebutkan yang biasa kamu beli — bukan yang terpakai, tapi yang kamu
+**beli**. Kalau ayam 2 kilo lalu ada tulang yang dibuang, tetap tulis 2 kilo.
 
 ```
    Ayam            2      kg
