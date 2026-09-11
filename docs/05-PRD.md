@@ -160,10 +160,11 @@ Buka aplikasi → dashboard: menu terurut dari untung terkecil
 
 | Metrik | Target |
 |---|---|
-| Warung nyata yang datanya masuk sistem | ≥ 2 |
-| Menu nyata dengan resep lengkap | ≥ 8 |
-| Hari riwayat harga tersedia saat demo | ≥ 90 |
+| Menu demo dengan resep lengkap | ≥ 5 |
+| Eksposur komoditas berbeda antar menu demo | ≥ 3 pola |
+| Hari riwayat harga nyata tersedia saat demo | ≥ 90 |
 | Waktu dari buka aplikasi ke memahami masalah | ≤ 15 detik |
+| Warung baru bisa didaftarkan tanpa bantuan developer | ya |
 
 ### 7.2 Untuk produk (pasca-lomba)
 

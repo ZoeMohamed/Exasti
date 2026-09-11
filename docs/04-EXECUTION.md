@@ -15,9 +15,9 @@ Jangan paralel dulu. Satu ruangan, satu sore.
 |---|---|
 | Semua | Setup repo, Next.js, Supabase, jalankan `db/schema.sql` |
 | O1 | **Mapping wilayah BI** — ini blocker semua orang. Kerjakan pertama. |
-| O2 | Layout dasar + komponen dengan data palsu |
+| O2 | Layout dasar + komponen `ui/` dengan data palsu |
 | O3 | Uji panggilan Claude API, pastikan key jalan |
-| O4 | Hubungi warung, jadwalkan wawancara |
+| O4 | Scaffold rute onboarding + form registrasi warung |
 
 **Gerbang Hari 1:** `regions` terisi minimal Kota Semarang, dan `npm run dev` menyala.
 Kalau ini tidak tercapai, jangan lanjut — perbaiki dulu.
@@ -25,9 +25,9 @@ Kalau ini tidak tercapai, jangan lanjut — perbaiki dulu.
 ### Hari 2 — Data mengalir
 
 | O1 | Ingestion jalan + **seed 90 hari ke belakang** |
-| O2 | CRUD menu & resep |
+| O2 | Kerangka dashboard + komponen bar margin |
 | O3 | VLM parse resep, versi pertama |
-| O4 | Wawancara warung #1 dan #2 |
+| O4 | CRUD menu + editor resep & biaya tetap |
 
 **Gerbang Hari 2:** `select count(*) from prices` mengembalikan ribuan baris.
 
@@ -36,9 +36,9 @@ Kalau ini tidak tercapai, jangan lanjut — perbaiki dulu.
 | O1 | Margin engine + unit test + recompute job |
 | O2 | Dashboard utama tersambung API asli |
 | O3 | Alert agent versi pertama |
-| O4 | Masukkan resep hasil wawancara sebagai seed |
+| O4 | `scripts/seed.ts` — 5 menu demo masuk sistem |
 
-**Gerbang Hari 3:** satu menu nyata menampilkan margin nyata dari harga nyata.
+**Gerbang Hari 3:** satu menu di sistem menampilkan margin yang dihitung dari harga BI asli.
 **Ini momen produk jadi ada.** Kalau meleset, potong fitur, jangan geser hari.
 
 ### Hari 4 — Integrasi
@@ -82,8 +82,9 @@ Target ≤3 menit. Struktur yang menang: **masalah → produk → bukti**.
 | 110–140 | **Bukti berjalan.** Tunjukkan `ingest_runs` — sistem menarik data tiap hari, bukan dihitung saat demo. Grafik margin 30 hari. |
 | 140–170 | **Penutup.** "Bukan aplikasi kasir. Bukan aplikasi promosi. Takar menjaga agar warung tidak kehilangan untung tanpa sadar." |
 
-**Wajib ada di video:** wajah/suara pemilik warung asli, walau 5 detik.
-Itu yang membedakan dari demo yang datanya karangan.
+**Wajib ada di video:** sorot layar endpoint BI yang asli dan tabel `ingest_runs`.
+Tanpa pengguna nyata, **bukti bahwa datanya nyata** adalah aset kredibilitas utama kalian —
+tunjukkan, jangan cuma diklaim.
 
 ---
 
@@ -114,7 +115,12 @@ Pertanyaan yang hampir pasti muncul, dan jawabannya.
 > dan terverifikasi jalan. Kami tunjukkan hasil auditnya.
 
 **"Sudah ada penggunanya?"**
-> Resep di sistem ini berasal dari wawancara langsung dengan [N] pemilik warung di Semarang.
+> Belum — ini prototipe. Harga di dalamnya nyata dari Bank Indonesia dan diperbarui otomatis
+> tiap hari kerja; resep dan takarannya kami susun dari porsi warung pada umumnya, dan bisa
+> diubah pemilik sesuai resepnya sendiri dalam satu menit.
+
+> ⚠️ **Jangan mengaku sudah mewawancarai pemilik warung.** Kalau juri menggali dan ternyata
+> tidak ada, seluruh kredibilitas presentasi runtuh — termasuk bagian yang benar.
 
 ---
 
@@ -124,7 +130,7 @@ Pertanyaan yang hampir pasti muncul, dan jawabannya.
 |---|---|---|
 | Endpoint BI berubah / down saat final | Fatal | **Seed 90 hari di Hari 2.** Aplikasi tetap hidup dari database walau API mati. Siapkan dump. |
 | Format tanggal salah, tidak disadari | Boros hari | Sudah didokumentasikan: `MM/DD/YYYY`. Uji dengan tanggal yang jelas berbeda hari/bulannya. |
-| Warung batal diwawancara | Pitch lemah | Hubungi 5, targetkan 2. Kerjakan Hari 1. |
+| Tanpa pengguna nyata, pitch terasa teoretis | Inovasi 30% melemah | Ganti bukti: tunjukkan endpoint BI langsung + `ingest_runs` di video. Kredibilitas pindah dari "ada penggunanya" ke "datanya terverifikasi". |
 | Hanya O1 paham engine | Gagal live coding 40% | Sesi 30 menit wajib di Hari 4 |
 | Kehabisan waktu | Fitur setengah jadi | Freeze di Hari 6. Lebih baik 4 fitur rapi daripada 7 setengah. |
 | Kuota / key Claude habis | AI mati saat demo | Simpan hasil parse dan alert dari demo run sebagai fallback statis |
@@ -137,7 +143,8 @@ Produk dianggap layak demo jika seluruhnya terpenuhi:
 
 - [ ] Harga Kota Semarang terisi ≥90 hari ke belakang
 - [ ] Cron ingestion berjalan otomatis dan tercatat di `ingest_runs`
-- [ ] Minimal 2 warung nyata dengan ≥4 menu nyata masuk sistem
+- [ ] Seed menghasilkan ≥5 menu dengan eksposur komoditas yang berbeda-beda
+- [ ] Warung baru bisa didaftarkan sampai punya menu bermargin, tanpa bantuan developer
 - [ ] Dashboard menampilkan margin harian yang berubah mengikuti harga
 - [ ] Riwayat margin 30 hari tampil sebagai grafik
 - [ ] Alert muncul otomatis dengan penyebab dan saran
