@@ -255,6 +255,84 @@ Ketiganya harus menunjuk **satu item katalog**. AI menyarankan pencocokan,
 
 Tanpa ini, tiga nota menjadi tiga barang berbeda dan tren mustahil dihitung.
 
+### BR-13 — Batas modal per porsi ⭐
+
+Tidak semua biaya warung masuk modal per porsi. Pembatasnya: **apakah biaya itu
+ikut jumlah porsi.**
+
+```
+MASUK  (ikut jumlah porsi)          TIDAK MASUK  (tetap tiap bulan)
+──────────────────────────          ────────────────────────────────
+bahan pangan                        sewa tempat
+kemasan, sendok, plastik            listrik langganan
+gas, air masak                      gaji karyawan
+bumbu & bahan kecil                 internet
+```
+
+Alasan yang tidak masuk: nilainya **berubah tergantung berapa porsi terjual**,
+dan sistem tidak tahu itu (batasan C-4).
+
+```
+Sewa Rp 2 juta/bulan ÷ 1.000 porsi = Rp 2.000/porsi
+Sewa Rp 2 juta/bulan ÷ 3.000 porsi = Rp   667/porsi
+```
+
+Memasukkannya berarti mengarang.
+
+**Konsekuensi wajib:** angka untung yang ditampilkan adalah **sisa per porsi
+untuk menutup biaya tetap**, bukan untung bersih. Antarmuka **wajib** menyertakan:
+
+> Belum dikurangi sewa dan listrik bulanan.
+
+Tanpa kalimat itu, pemilik mengira Rp 3.085 adalah untung bersihnya — salah paham
+yang membuatnya salah mengambil keputusan harga.
+
+**Untuk keputusan yang Takar bantu — naikkan harga atau tidak — angka ini justru
+yang benar.** Sewa tidak berubah waktu harga ayam naik.
+
+### BR-14 — Pembobotan volume
+
+Bila `menu_items.weekly_volume` terisi, urutan prioritas dashboard dan menu
+planner memakai **dampak rupiah**, bukan persentase margin:
+
+```
+dampak(m) = untung_per_porsi(m) × weekly_volume(m)
+```
+
+**Contoh yang wajib lolos uji:**
+
+| Menu | Untung/porsi | Laku/minggu | Dampak |
+|---|---|---|---|
+| Ayam Geprek | Rp 1.260 | 150 | **Rp 189.000** |
+| Telur Balado | −Rp 340 | 5 | −Rp 1.700 |
+
+Telur Balado bermargin **negatif**, tapi Ayam Geprek **100× lebih besar
+dampaknya**. Implementasi yang mengurutkan berdasarkan persentase margin akan
+menaruh Telur Balado di atas dan membuat pemilik memperbaiki kebocoran Rp 1.700
+sambil mengabaikan yang Rp 189.000.
+
+Ini **pembobotan yang sama dengan BR-04**, satu lapis di atasnya: jangan lihat
+persen, lihat rupiah berbobot.
+
+`weekly_volume` adalah perkiraan dari ingatan. **Jangan pernah ditampilkan
+seolah presisi** — selalu sertai "perkiraan dari N porsi yang kamu sebutkan".
+
+### BR-15 — Pengelompokan kesehatan menu
+
+```
+sehat   margin ≥ 20%
+tipis   0% ≤ margin < 20%
+rugi    margin < 0%
+```
+
+Menu yang **diistirahatkan** (`active = false`) tetap dihitung margin hariannya,
+supaya sistem dapat memanggil balik ketika sudah sehat lagi:
+
+> *"Telur Balado sudah untung lagi — Rp 2.100 per porsi. Jual lagi?"*
+
+Sistem **tidak boleh** menyarankan menu mana yang dipromosikan — itu butuh data
+penjualan yang tidak dimiliki (C-4). Yang boleh: peringkat kesehatan.
+
 ---
 
 ## 3. Kebutuhan fungsional
@@ -335,6 +413,26 @@ Tanpa ini, tiga nota menjadi tiga barang berbeda dan tren mustahil dihitung.
 | **FR-40** | Setiap hasil panggilan AI disimpan ke `ai_cache` dan dibaca dari sana bila tersedia | Panggilan kedua dengan input sama tidak menyentuh jaringan |
 | **FR-41** | **Aplikasi tetap berfungsi penuh dengan mode pesawat menyala**, memakai data tersimpan | Uji Hari 6: matikan jaringan, seluruh demo tetap jalan |
 | **FR-42** | Kegagalan layanan AI tidak menghentikan perhitungan margin | Cabut API key → untung tetap tampil, fitur AI menampilkan pesan |
+
+### 3.8 Biaya per porsi, menu planner, dan volume
+
+| ID | Kebutuhan | Uji penerimaan |
+|---|---|---|
+| **FR-43** | Biaya kemasan dirinci dengan kalkulator pack: harga kemasan + isi → harga per porsi | Isi Rp 28.000 / 500 lembar → Rp 56 per porsi |
+| **FR-44** | Kolom "pakai per porsi" untuk kemasan disembunyikan, default 1 | Form kemasan hanya menampilkan dua kolom |
+| **FR-45** | Gas, bumbu, dan listrik ditampilkan sebagai **baris teks read-only**, bukan input yang dinonaktifkan | Tidak ada elemen `<input disabled>` pada alur onboarding |
+| **FR-46** | Baris perkiraan dapat diubah dari halaman detail menu | Ketuk nilai di rincian modal → bisa diedit |
+| **FR-47** | Warung menjawab sekali: makan di tempat / bungkus / campur, dan perkiraan kemasan menyesuaikan | Pilih "bungkus" → default kemasan ≈ Rp 700 |
+| **FR-48** | Setiap tampilan untung menyertakan catatan "belum dikurangi sewa dan listrik" (BR-13) | Teks muncul di S5 dan S7 |
+| **FR-49** | Pengguna dapat mengisi perkiraan volume mingguan per menu | `weekly_volume` tersimpan, boleh dikosongkan |
+| **FR-50** | Bila volume terisi, urutan prioritas memakai dampak rupiah (BR-14) | **Uji Ayam Geprek vs Telur Balado wajib lolos** |
+| **FR-51** | Angka berbasis volume selalu ditandai perkiraan | Teks "perkiraan dari N porsi" menyertai tiap nilai |
+| **FR-52** | Menu dapat diistirahatkan dan margin tetap dihitung (BR-15) | `active=false`, `margin_snapshots` tetap bertambah |
+| **FR-53** | Sistem memberi tahu ketika menu yang diistirahatkan kembali sehat | Notifikasi muncul saat margin ≥ 20% |
+| **FR-54** | Label input resep berbunyi "kamu **beli** berapa", bukan "pakai berapa" | Uji teks pada form S4 |
+| **FR-55** | Bahan ditampilkan dengan nama sehari-hari, bukan nama BI | "Ayam", bukan "Daging Ayam Ras Segar" |
+| **FR-56** | Satuan alami didukung dengan konversi; satuan berisiko menampilkan asumsinya | Pilih "ekor" → tampil "1 ekor ≈ 1,2 kg, betulkan?" |
+| **FR-57** | Bila modal satu bahan per porsi melebihi harga jual, sistem menolak menyimpan dan bertanya | Isi ayam 2.000 kg → muncul peringatan salah satuan |
 
 ---
 

@@ -118,10 +118,14 @@ Butuh gambaran agregat lintas warung binaan. **Di luar ruang lingkup MVP.**
 | F-13 | Peta eksposur menu × bahan | **1** |
 | F-14 | Onboarding template + tunda biaya | **1** |
 | F-15 | OCR nota belanja | **1** |
-| F-16 | Alert agent AI | 2 |
-| F-17 | Saran substitusi bahan | 2 |
-| F-18 | Katalog barang non-BI + custom items | 2 |
-| F-19 | Foto resep tulis tangan · input suara | 2 |
+| F-16 | Menu planner: sehat/tipis/rugi + istirahatkan | **1** |
+| F-17 | Volume kasar + pembobotan prioritas | **1** |
+| F-18 | Kemasan dirinci dengan kalkulator pack | **1** |
+| F-19 | Alert agent AI | 2 |
+| F-20 | Saran substitusi bahan | 2 |
+| F-21 | Katalog barang non-BI + custom items | 2 |
+| F-22 | Foto resep tulis tangan · input suara | 2 |
+| F-23 | Biaya tetap bulanan → untung bersih | 2 |
 
 **Cincin 0 tidak mengandung AI sama sekali** — dan sudah produk utuh.
 Isi tiap cincin dan aturan urutannya: [04-EXECUTION.md](04-EXECUTION.md#cincin).

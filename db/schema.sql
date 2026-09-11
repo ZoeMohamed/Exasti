@@ -100,9 +100,13 @@ create table if not exists ingest_runs (
 
 create table if not exists businesses (
   id          uuid primary key default gen_random_uuid(),
-  name        text not null,                -- 'Warung Bu Sri'
+  name        text not null default 'Warungku',   -- boleh dilewati saat daftar
   region_id   int  not null references regions(id),
   owner_email text,
+  -- Menentukan perkiraan biaya kemasan. Ditanya sekali per warung,
+  -- satu ketukan, selisihnya bisa Rp 600/porsi.
+  packaging_mode text not null default 'mixed'
+    check (packaging_mode in ('dine_in','takeaway','mixed')),
   created_at  timestamptz not null default now()
 );
 
@@ -115,6 +119,14 @@ create table if not exists menu_items (
   name        text not null,                -- 'Ayam Geprek'
   sell_price  numeric(12,2) not null check (sell_price > 0),
   batch_yield int  not null default 1 check (batch_yield > 0),
+  -- Perkiraan kasar dari ingatan pemilik, ditanya sesekali.
+  -- Dipakai untuk MEMBOBOT prioritas: menu margin 7% yang laku 150/minggu
+  -- menggerus jauh lebih banyak daripada menu -3% yang laku 5/minggu.
+  -- NULL = belum ditanya. Jangan pernah ditampilkan seolah presisi.
+  weekly_volume int check (weekly_volume >= 0),
+  -- false = diistirahatkan pemilik (mis. cabai sedang mahal).
+  -- Margin TETAP dihitung supaya sistem bisa memanggil balik:
+  -- "Telur Balado sudah untung lagi, jual lagi?"
   active      boolean not null default true,
   created_at  timestamptz not null default now()
 );
@@ -136,9 +148,17 @@ create table if not exists recipe_items (
   unique (menu_item_id, commodity_id)
 );
 
--- Biaya tanpa harga pasar: gas, kemasan, tenaga.
--- pack_price/pack_qty opsional — kalau diisi, amount dihitung dari keduanya
--- supaya pemilik cukup bilang "satu botol Rp 22.000, isi 340 g, pakai 15 g".
+-- Biaya per porsi di luar bahan yang harganya dilacak.
+--
+-- DUA PERLAKUAN BERBEDA (lihat BR-13):
+--   kemasan  → DIRINCI. Pemilik tahu angkanya: "1 pack 500 lembar Rp 28.000".
+--              usage_qty hampir selalu 1, jadi kolomnya DISEMBUNYIKAN di UI.
+--   gas/bumbu/listrik → SATU perkiraan, is_estimated=true, ditampilkan
+--              sebagai baris teks read-only saat onboarding. Bukan disabled
+--              input — itu terbaca sebagai rusak.
+--
+-- TIDAK termasuk di sini: sewa, listrik langganan, gaji. Biaya itu tetap
+-- tiap bulan dan tidak ikut jumlah porsi, jadi bukan modal per porsi.
 create table if not exists fixed_costs (
   id           uuid primary key default gen_random_uuid(),
   menu_item_id uuid not null references menu_items(id) on delete cascade,

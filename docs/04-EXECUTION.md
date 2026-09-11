@@ -26,12 +26,22 @@ didemokan.
 
 Bangun hanya kalau Cincin 0 selesai **akhir Hari 3**.
 
+**Diurut dari yang paling wajib. Potong dari BAWAH kalau waktu habis.**
+
 ```
-8.  Simulator "kalau harga jadi segini"   ~2 jam   ← momen terkuat di demo
-9.  Peta eksposur menu × bahan            ~½ hari
-10. Onboarding template + batch           ~1 hari  ← tanpa ini produk tidak dipakai
-11. OCR nota belanja (Gemini Flash)       ~1 hari  ← komponen AI paling visual
+ 8. Onboarding template + kemasan        ~1 hari   tanpa ini produk tidak dipakai
+ 9. Menu planner sehat/tipis/rugi        ~1 hari   tempat pemilik MENGAMBIL KEPUTUSAN
+10. Volume kasar + pembobotan BR-14      ~½ hari   membalik urutan prioritas
+11. Simulator "kalau harga jadi segini"  ~2 jam    momen terkuat di demo
+12. OCR nota belanja (Gemini Flash)      ~1 hari   komponen AI paling visual
+13. Peta eksposur menu × bahan           ~½ hari   wawasan, bukan tindakan
 ```
+
+⚠️ **Totalnya ~4,5 hari — Cincin 1 kepenuhan.** Empat orang dalam tujuh hari
+tidak akan menyelesaikan semuanya setelah Cincin 0. Nomor 8–10 yang paling
+mengubah apakah produk dipakai; nomor 11 paling mengubah demo; 12–13 bonus.
+
+Kalau harus memilih tiga saja: **8, 9, 11.**
 
 **Batas OCR di Cincin 1:** hasil bacaan hanya mengisi **biaya manual**, tanpa
 identitas katalog dan tanpa pelacakan tren. Pelacakan barang non-BI dari waktu ke

@@ -276,6 +276,51 @@ prediksi harga jangka panjang · agregat lintas warung
 
 ---
 
+## Apa yang masuk modal per porsi
+
+Pembatasnya satu: **apakah biaya itu ikut jumlah porsi.**
+
+```
+MASUK                               TIDAK MASUK
+bahan pangan                        sewa tempat
+kemasan, sendok, plastik            listrik langganan
+gas, air masak                      gaji karyawan
+bumbu & bahan kecil
+```
+
+Yang tidak masuk nilainya berubah tergantung berapa porsi terjual, dan sistem
+tidak tahu itu. Memasukkannya berarti mengarang.
+
+**Konsekuensinya harus dikatakan terbuka:** angka untung yang ditampilkan adalah
+**sisa per porsi untuk menutup biaya tetap**, bukan untung bersih. Setiap
+tampilan untung wajib menyertakan *"belum dikurangi sewa dan listrik bulanan"*
+([BR-13](06-SRS.md)).
+
+Dan untuk keputusan yang Takar bantu — naikkan harga atau tidak — **angka ini
+justru yang benar.** Sewa tidak berubah waktu harga ayam naik.
+
+---
+
+## Pembobotan dua lapis — pola yang berulang
+
+Pembeda Takar muncul dua kali, di dua lapis berbeda, dan **dua-duanya membalik
+urutan yang terlihat benar sekilas.**
+
+```
+BR-04   jangan lihat kenaikan PERSEN    →  lihat kontribusi RUPIAH
+        cabai +58% (Rp 480)  kalah dari  ayam +20% (Rp 1.800)
+
+BR-14   jangan lihat margin PERSEN      →  lihat untung RUPIAH × volume
+        Telur Balado −3% (−Rp 1.700)  kalah dari  Ayam Geprek 7% (Rp 189.000)
+```
+
+Kalimat pitch-nya:
+
+> Kami membobot dua kali — harga terhadap resep, dan margin terhadap penjualan.
+> Keduanya membalik urutan yang terlihat benar sekilas.
+
+---
+
 ## Klaim yang TIDAK boleh dibuat
 
 | Jangan bilang | Kenapa |
@@ -288,6 +333,8 @@ prediksi harga jangka panjang · agregat lintas warung
 | "Untuk semua UMKM" | Warung makan bermenu tetap. Sebut batasnya. |
 | "Sudah ada penggunanya" | Belum. Jangan mengaku mewawancarai siapa pun. |
 | "Untung bulananmu sekian" | Tidak ada data penjualan. Hanya untung **per porsi**. |
+| "Ini untung bersihmu" | Sewa, listrik langganan, dan gaji tidak dihitung (BR-13) |
+| "Kami sarankan promosikan menu ini" | Butuh data penjualan yang tidak dimiliki (C-4) |
 
 ### Yang harus diungkap terbuka di antarmuka
 
