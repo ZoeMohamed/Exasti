@@ -113,6 +113,29 @@ dari harga BI asli, dan blok "gara-gara" menyebut bahan yang benar.
 
 ---
 
+## Jendela demo terverifikasi — 2 Desember 2025
+
+Disisir dari 400 hari data BI Kota Semarang (`scripts/cari_demo_window.py`).
+**20 hari** sepanjang tahun menunjukkan kontras persen-vs-rupiah; ini yang paling tajam:
+
+```
+Ayam Geprek · jual Rp 18.000 · sekali masak 8 porsi
+
+  Untung   Rp 2.751 (15,3%)  →  Rp 1.490 (8,3%)      turun 7,0 poin
+
+  Gara-gara : Daging Ayam    +6,1%   →  Rp 625 per porsi
+  Bukan     : Cabai Rawit   +67,7%   →  Rp 424 per porsi
+```
+
+Cabai naik **11× lebih tinggi persentasenya** tapi menyumbang **lebih sedikit rupiah.**
+Inilah BR-04 terbukti di data pemerintah sungguhan — bukan contoh karangan.
+
+**Pakai tanggal ini untuk demo.** Data minggu berjalan sering datar (pengujian
+11 Sep 2026: harga bergerak < 2%, tidak ada kontras sama sekali). Jangan bertaruh
+pada harga hari-H.
+
+---
+
 ## Skrip video demo
 
 Target ≤3 menit. **Masalah → produk → bukti.**

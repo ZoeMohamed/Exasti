@@ -198,15 +198,24 @@ Demo tidak boleh bergantung panggilan live. Lihat §Ketahanan.
 
 ### ⚠️ Jebakan yang sudah ditemukan dan diverifikasi
 
-1. **Tanggalnya `MM/DD/YYYY`, bukan `DD/MM/YYYY`.** Format salah **tidak
-   menghasilkan error** — seluruh baris berisi `"-"`. Ini bisa menghabiskan
-   berjam-jam kalau tidak tahu.
+1. **Tanggal request `MM/DD/YYYY`, tapi kunci tanggal di RESPONS `DD/MM/YYYY`.**
+   Format **berbeda** di satu API yang sama — sudah dikonfirmasi berjalan di
+   `scripts/skeleton.py`. Format request yang salah **tidak menghasilkan error**,
+   seluruh baris hanya berisi `"-"`.
 2. **Wajib header `X-Requested-With: XMLHttpRequest`.**
 3. **Nilai kosong adalah string `"-"`, bukan `null`.**
 4. **Angka memakai pemisah ribuan koma:** `"16,350"` → `16350`.
 5. **BI publikasi 13:00 WIB, hari kerja saja.** Jalankan cron 13:30.
 6. **Mapping `province_id`/`regency_id` ke nama wilayah tidak terdokumentasi.**
-   Harus dipetakan manual sekali — tugas pertama O1.
+   Harus dipetakan manual sekali. `province_id=13`, `regency_id=1` = Kota Semarang
+   (terverifikasi).
+7. **Nama komoditas punya spasi di belakang** — mis. `"Cabai Merah Keriting "`.
+   Selalu `.strip()`. Nama aslinya juga berbeda dari dugaan: `Daging Ayam Ras Segar`,
+   `Cabai Rawit Hijau`, `Beras Kualitas Medium I`.
+8. **Respons memuat 28 baris, bukan 21** — baris kategori induk ikut terkirim
+   bersama variannya. Jangan dihitung dua kali.
+9. **Rentang > 120 hari sering timeout.** Pecah per 90 hari lalu gabungkan
+   (lihat `scripts/cari_demo_window.py`).
 
 ### Contoh panggilan terverifikasi
 
@@ -356,7 +365,20 @@ belakangan.**
 
 ## Penyedia AI
 
-**Google AI Studio — Gemini Flash.** Alasannya cocok dengan tiga syarat tim:
+**Google AI Studio — Gemini Flash.** Sudah diuji langsung (`scripts/test_ocr.py`):
+OCR nota sintetis tercetak dan miring **100% benar**, nol harga ditebak.
+
+⚠️ **Wajib pakai rantai fallback model.** Terbukti saat pengujian: alias
+`gemini-flash-latest` kena **503 (sibuk)**, dan `gemini-2.5-flash` kena **404
+(sudah pensiun untuk pengguna baru)**. Rantai yang berhasil:
+
+```
+gemini-3.6-flash → gemini-3.5-flash → gemini-3.8-flash → gemini-flash-lite-latest
+```
+
+Perlakukan **404 dan 503 sama** — dua-duanya lanjut ke model berikutnya.
+
+Alasannya cocok dengan tiga syarat tim:
 
 ```
 gratis, tanpa kartu kredit   ✓  ambil key di aistudio.google.com, 2 menit
