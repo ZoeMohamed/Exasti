@@ -276,6 +276,7 @@ nasi berada di 86–92%, sedangkan menu yang didominasi barang non-BI jatuh ke 4
 | **NFR-12** | Setiap keadaan kosong menyertakan penjelasan dan langkah berikutnya |
 | **NFR-20** | Nilai rupiah selalu ditampilkan lebih dulu, persentase sebagai pelengkap dalam kurung |
 | **NFR-21** | **Waktu dari mulai mendaftar sampai angka untung pertama muncul ≤ 2 menit** |
+| **NFR-22** | Panggilan AI memakan ~4 detik (terukur) — setiap unggahan foto wajib menampilkan indikator tunggu, dan diproses satu per satu, tidak beruntun |
 
 ### 4.4 Keamanan
 

@@ -376,7 +376,28 @@ OCR nota sintetis tercetak dan miring **100% benar**, nol harga ditebak.
 gemini-3.6-flash → gemini-3.5-flash → gemini-3.8-flash → gemini-flash-lite-latest
 ```
 
-Perlakukan **404 dan 503 sama** — dua-duanya lanjut ke model berikutnya.
+Perlakukan **404, 503, dan 429 sama** — semuanya lanjut ke model berikutnya.
+
+### Batas terukur (`scripts/test_ratelimit.py`, 11 Sep 2026)
+
+```
+7 permintaan berhasil beruntun, lalu 429 mulai permintaan ke-7
+pulih penuh setelah 60 detik
+latensi 4,0 s rata-rata  ·  5,1 s maksimum  ·  13 s pada panggilan pertama setelah pulih
+```
+
+**Lebih ketat dari dokumentasi Google** (yang menyebut 15/menit). Konsekuensi desain:
+
+| Temuan | Konsekuensi |
+|---|---|
+| Latensi 4 detik | UI **wajib** menampilkan indikator tunggu (NFR-22) |
+| Batas ~7 per burst | Proses nota **satu per satu**, jangan beruntun. Pakai antrean. |
+| Pulih 60 detik | Retry dengan jeda, bukan langsung |
+
+**Rotasi kunci tidak dibangun.** Pemakaian nyata adalah satu nota per unggahan —
+tidak akan mendekati batas. Menumpuk kunci free tier untuk melipatgandakan kuota
+juga bukan sesuatu yang mau dijelaskan ke juri. Yang sah: satu kunci per anggota
+tim untuk pekerjaan masing-masing.
 
 Alasannya cocok dengan tiga syarat tim:
 
