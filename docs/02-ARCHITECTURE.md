@@ -365,8 +365,20 @@ belakangan.**
 
 ## Penyedia AI
 
-**Google AI Studio — Gemini Flash.** Sudah diuji langsung (`scripts/test_ocr.py`):
-OCR nota sintetis tercetak dan miring **100% benar**, nol harga ditebak.
+**Google AI Studio — Gemini Flash.** Sudah divalidasi pada **nota Indonesia asli**
+(dataset CORD, `scripts/test_ocr_nyata.py`):
+
+```
+35 nota · 81 barang
+  nama barang   79/81   98%
+  harga         73/81   90%
+  harga ditebak     0           ← syarat mutlak, terpenuhi
+  latensi       6 s tunggal, 14–20 s di bawah beban
+```
+
+⚠️ **Belum terbukti: nota tulisan tangan.** CORD mayoritas nota tercetak. Warung
+belanja di toko kelontong dan pasar. Bagian itu masih harus diuji sendiri —
+jangan klaim OCR "bekerja" sampai sudah.
 
 ⚠️ **Wajib pakai rantai fallback model.** Terbukti saat pengujian: alias
 `gemini-flash-latest` kena **503 (sibuk)**, dan `gemini-2.5-flash` kena **404

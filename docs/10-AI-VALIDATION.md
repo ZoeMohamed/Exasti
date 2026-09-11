@@ -42,19 +42,26 @@ berdiri atau tidak.
 
 ## Tes 1 — OCR nota belanja ⭐ paling penting
 
-### Kumpulkan 10 nota
+### Nota uji sudah tersedia — dataset CORD
 
-Sengaja yang beragam, karena inilah yang akan ditemui di lapangan:
+**Tidak perlu mengumpulkan nota sendiri.** Sudah ada dataset nota Indonesia asli
+lengkap dengan label kebenaran:
+
+**CORD** (Consolidated Receipt Dataset, NAVER CLOVA AI) — nota nyata dari toko dan
+restoran Indonesia, dengan anotasi `menu.nm` (nama), `menu.price` (harga), dan
+`menu.cnt` (jumlah). Versi publik: 1.000 nota, split test berisi 100.
+
+Terbuka tanpa autentikasi lewat HuggingFace datasets-server:
 
 ```
-3 nota minimarket     Indomaret/Alfamart — thermal, rapi, tercetak
-3 nota toko kelontong tulisan tangan, kertas kecil
-2 nota pasar          coretan, singkatan, kadang tanpa kop
-2 nota "buruk"        lecek, difoto miring, cahaya kurang
+https://datasets-server.huggingface.co/rows
+  ?dataset=naver-clova-ix%2Fcord-v2&config=default&split=test&offset=0&length=10
 ```
 
-Sumber: belanja sendiri, minta ke keluarga, atau nota lama di dompet. Tidak perlu
-nota warung sungguhan — yang diuji adalah kemampuan membaca, bukan isinya.
+`scripts/test_ocr_nyata.py` sudah menarik, menjalankan, dan menilainya otomatis.
+
+**Nota tulisan tangan tetap perlu dikumpulkan sendiri** — CORD mayoritas nota
+tercetak. Itu bagian yang belum terbukti dan paling perlu kamu uji.
 
 ### Jalankan
 
