@@ -33,6 +33,14 @@ Bangun hanya kalau Cincin 0 selesai **akhir Hari 3**.
 11. OCR nota belanja (Gemini Flash)       ~1 hari  ← komponen AI paling visual
 ```
 
+**Batas OCR di Cincin 1:** hasil bacaan hanya mengisi **biaya manual**, tanpa
+identitas katalog dan tanpa pelacakan tren. Pelacakan barang non-BI dari waktu ke
+waktu (katalog + normalisasi satuan, BR-11 & BR-12) adalah **Cincin 2**.
+
+Alasannya: demo utama adalah ayam-vs-cabai — dua-duanya komoditas BI. Pelacakan
+non-BI adalah kelengkapan cakupan, bukan bintang panggung, dan Cincin 1 sudah
+berisi empat hal.
+
 ### Cincin 2 — backlog, potong duluan
 
 ```

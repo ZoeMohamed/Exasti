@@ -24,6 +24,11 @@ create table if not exists commodities (
 
 -- Barang di luar 21 komoditas BI, dipilih pemilik dari katalog.
 -- CINCIN 2 — jangan dibangun sebelum Cincin 0 dan 1 selesai.
+-- Di Cincin 1, hasil OCR nota hanya mengisi fixed_costs tanpa identitas
+-- katalog. Pelacakan tren barang non-BI (BR-11 normalisasi satuan,
+-- BR-12 identitas) menunggu tabel ini.
+-- PENTING: satuan_dasar menentukan normalisasi. Kemasan 1 kg dan 500 g
+-- hanya sebanding setelah dijadikan harga per gram.
 -- Katalognya dikurasi tim (±20 item awal), tumbuh dari pemakaian.
 create table if not exists catalog_items (
   id          text primary key,             -- 'cat_tepung_terigu'

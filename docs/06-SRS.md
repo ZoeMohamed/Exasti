@@ -220,6 +220,41 @@ Bila `cakupan(m) < 70%`, antarmuka **wajib** memperingatkan bahwa angka untungny
 kurang akurat. Ambang 70% dipilih dari sebaran terukur: menu berbasis protein dan
 nasi berada di 86–92%, sedangkan menu yang didominasi barang non-BI jatuh ke 43%.
 
+### BR-11 — Normalisasi satuan ⭐
+
+Harga barang non-BI **wajib** disimpan sebagai harga per **satuan dasar katalog**,
+bukan harga per kemasan.
+
+```
+harga_per_satuan = total_harga ÷ isi_kemasan_dalam_satuan_dasar
+```
+
+**Contoh yang wajib lolos uji:**
+
+| Nota | Kemasan | Harga | Per gram |
+|---|---|---|---|
+| Superindo, 12 Agu | 1 kg | Rp 42.000 | **Rp 42,0** |
+| Indomaret, 3 Sep | 500 g | Rp 22.500 | **Rp 45,0** |
+
+Kemasan kedua **lebih mahal per gram**, meski angka nominalnya jauh lebih kecil.
+
+Implementasi yang membandingkan harga kemasan secara langsung akan melaporkan
+*"harga turun 46%"* padahal sebenarnya **naik 7%** — salah arah sepenuhnya, tanpa
+error apa pun. Terbukti di `scripts/demo_lacak_nonbi.py`.
+
+### BR-12 — Identitas barang non-BI
+
+Nota menulis nama berbeda tiap toko untuk barang yang sama:
+
+```
+"MAYONAISE MAESTRO 1000G"   ·   "Mayonnaise Maestro 500gr"   ·   "MAYONAISE MAESTRO 1KG"
+```
+
+Ketiganya harus menunjuk **satu item katalog**. AI menyarankan pencocokan,
+**pemilik mengonfirmasi**, dan sejak itu identitasnya terkunci.
+
+Tanpa ini, tiga nota menjadi tiga barang berbeda dan tren mustahil dihitung.
+
 ---
 
 ## 3. Kebutuhan fungsional
