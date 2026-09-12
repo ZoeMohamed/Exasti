@@ -1,25 +1,76 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { formatRupiah } from "@/lib/formatRupiah";
 
-export function MenuPriceActions() {
+interface MenuPriceActionsProps {
+  menuId: string;
+  menuName: string;
+  currentPrice: number;
+  suggestedPrice: number;
+}
+
+export function MenuPriceActions({
+  menuId,
+  menuName,
+  currentPrice,
+  suggestedPrice,
+}: MenuPriceActionsProps) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [updated, setUpdated] = useState(false);
+  const [activePrice, setActivePrice] = useState(currentPrice);
+
+  const handleApplyPrice = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/menus/${menuId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ price: suggestedPrice }),
+      });
+
+      if (res.ok) {
+        setActivePrice(suggestedPrice);
+        setUpdated(true);
+        router.refresh();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Gagal memperbarui harga");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan jaringan.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex gap-2">
-      <button
-        type="button"
-        onClick={() =>
-          alert("Harga Ayam Geprek diperbarui menjadi Rp 20.000 di sistem!")
-        }
-        className="brutal-btn flex-1 bg-bright-green px-4 py-3 text-sm font-heading font-extrabold text-ink"
-      >
-        Gunakan Harga Ini
-      </button>
-      <Link
-        href="/dashboard/simulator"
-        className="brutal-btn bg-warning-yellow px-3 py-3 text-xs font-heading font-bold text-ink"
-      >
-        🎚️ Uji Dulu
-      </Link>
+    <div className="space-y-3">
+      {updated && (
+        <div className="bg-bright-green p-2.5 font-mono text-xs font-bold text-ink brutal-border-2 animate-bounce">
+          ✅ Berhasil! Harga {menuName} telah diperbarui menjadi {formatRupiah(activePrice)} di database.
+        </div>
+      )}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <button
+          type="button"
+          disabled={loading || updated}
+          onClick={handleApplyPrice}
+          className="brutal-btn flex-1 bg-bright-green px-4 py-3 text-sm font-heading font-extrabold text-ink disabled:opacity-50"
+        >
+          {loading ? "Menyimpan ke Sistem..." : updated ? `Sudah Pakai ${formatRupiah(suggestedPrice)}` : "Gunakan Harga Ini"}
+        </button>
+        <Link
+          href={`/dashboard/simulator?price=${suggestedPrice}`}
+          className="brutal-btn flex items-center justify-center bg-warning-yellow px-4 py-3 text-xs font-heading font-bold text-ink text-center"
+        >
+          🎚️ Uji di Simulator
+        </Link>
+      </div>
     </div>
   );
 }
