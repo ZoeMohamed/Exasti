@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+      background: #FAFAF9;
+      color: #1C1917;
+      -webkit-font-smoothing: antialiased;
+      font-variant-numeric: tabular-nums;
+    }
+    a { color: oklch(0.48 0.15 27); text-decoration: none; }
+    a:hover { color: oklch(0.40 0.15 27); }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+<div style="display: flex; flex-direction: column; min-height: 100%; padding: 28px 20px 24px; gap: 0">
+  <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; color: #78716C; text-transform: uppercase">Takar</div>
+  <div style="height: 40px"></div>
+  <h1 style="margin: 0; font-size: 26px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em">Warungmu di mana?</h1>
+  <p style="margin: 8px 0 0; font-size: 15px; line-height: 1.5; color: #78716C">
+    Harga bahan beda-beda tiap kota.</p>
+  <div style="height: 24px"></div>
+  <div style="display: flex; align-items: center; min-height: 56px; padding: 0 16px; border: 1.5px solid #D6D3D1; border-radius: 10px; background: #FFFFFF; font-size: 18px; gap: 10px; color: #78716C">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/></svg><span style="color: #1C1917">Kota Semarang</span>
+  </div>
+  <div style="height: 28px"></div>
+  <div style="font-size: 15px; font-weight: 500; margin-bottom: 8px">
+    Namanya? <span style="color: #78716C; font-weight: 400">— boleh dilewati</span></div>
+  <div style="display: flex; align-items: center; min-height: 56px; padding: 0 16px; border: 1.5px solid #D6D3D1; border-radius: 10px; background: #FFFFFF; font-size: 18px; color: #A8A29E">Warungku</div>
+  <div style="flex-grow: 1; min-height: 32px"></div>
+  <button style="display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 10px; font-size: 17px; font-weight: 600; border: none; background: #1C1917; color: #FAFAF9; width: 100%">Lanjut</button>
+</div></x-dc>
+</body>
+</html>

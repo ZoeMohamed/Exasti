@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+      background: #FAFAF9;
+      color: #1C1917;
+      -webkit-font-smoothing: antialiased;
+      font-variant-numeric: tabular-nums;
+    }
+    a { color: oklch(0.48 0.15 27); text-decoration: none; }
+    a:hover { color: oklch(0.40 0.15 27); }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+<div style="display: flex; flex-direction: column; min-height: 100%; padding: 28px 20px 24px; gap: 0; padding-top: 24px">
+  <div style="display: flex; align-items: baseline; justify-content: space-between">
+    <div style="font-size: 20px; font-weight: 600">Warung Bu Sri</div>
+    <div style="font-size: 14px; color: #78716C">12 Sep</div>
+  </div>
+  <div style="display: flex; gap: 7px; align-items: center; font-size: 13px; color: oklch(0.46 0.09 155); margin-top: 6px">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><polyline points="20 6 9 17 4 12"/></svg><span>Harga hari ini sudah masuk</span>
+  </div>
+  <div style="height: 20px"></div>
+  <div style="padding: 16px 0; border-bottom: 1px solid #E7E5E4">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px">
+        <span style="color: oklch(0.55 0.12 70); display: flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+        <span style="flex-grow: 1; font-size: 17px; font-weight: 600">Ayam Geprek</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <div style="flex-grow: 1; height: 10px; background: #E7E5E4; border-radius: 5px; overflow: hidden">
+          <div style="width: 10%; height: 100%; background: oklch(0.55 0.12 70); border-radius: 5px"></div>
+        </div>
+        <div style="font-size: 17px; font-weight: 600; white-space: nowrap">Rp 1.260</div>
+        <div style="font-size: 14px; color: #78716C; width: 40px; text-align: right">(7%)</div>
+      </div>
+      <div style="font-size: 14px; color: #78716C; margin-top: 7px">turun dari Rp 3.085</div>
+    </div>
+  <div style="padding: 16px 0; border-bottom: 1px solid #E7E5E4">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px">
+        <span style="color: oklch(0.46 0.09 155); display: flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span style="flex-grow: 1; font-size: 17px; font-weight: 600">Nasi Goreng</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <div style="flex-grow: 1; height: 10px; background: #E7E5E4; border-radius: 5px; overflow: hidden">
+          <div style="width: 34%; height: 100%; background: oklch(0.46 0.09 155); border-radius: 5px"></div>
+        </div>
+        <div style="font-size: 17px; font-weight: 600; white-space: nowrap">Rp 3.600</div>
+        <div style="font-size: 14px; color: #78716C; width: 40px; text-align: right">(24%)</div>
+      </div>
+      <div style="font-size: 14px; color: #78716C; margin-top: 7px">tetap</div>
+    </div>
+  <div style="padding: 16px 0; border-bottom: 1px solid #E7E5E4">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px">
+        <span style="color: oklch(0.46 0.09 155); display: flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span style="flex-grow: 1; font-size: 17px; font-weight: 600">Rendang</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <div style="flex-grow: 1; height: 10px; background: #E7E5E4; border-radius: 5px; overflow: hidden">
+          <div style="width: 31%; height: 100%; background: oklch(0.46 0.09 155); border-radius: 5px"></div>
+        </div>
+        <div style="font-size: 17px; font-weight: 600; white-space: nowrap">Rp 6.160</div>
+        <div style="font-size: 14px; color: #78716C; width: 40px; text-align: right">(22%)</div>
+      </div>
+      <div style="font-size: 14px; color: #78716C; margin-top: 7px">tetap</div>
+    </div>
+  <div style="padding: 16px 0; border-bottom: 1px solid #E7E5E4">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px">
+        <span style="color: oklch(0.46 0.09 155); display: flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span style="flex-grow: 1; font-size: 17px; font-weight: 600">Es Teh Manis</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <div style="flex-grow: 1; height: 10px; background: #E7E5E4; border-radius: 5px; overflow: hidden">
+          <div style="width: 97%; height: 100%; background: oklch(0.46 0.09 155); border-radius: 5px"></div>
+        </div>
+        <div style="font-size: 17px; font-weight: 600; white-space: nowrap">Rp 2.740</div>
+        <div style="font-size: 14px; color: #78716C; width: 40px; text-align: right">(68%)</div>
+      </div>
+      <div style="font-size: 14px; color: #78716C; margin-top: 7px">tetap</div>
+    </div>
+  <div style="height: 20px"></div>
+  <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.5; color: #78716C">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>Angka untung belum dikurangi sewa dan listrik bulanan.</span>
+  </div>
+</div></x-dc>
+</body>
+</html>

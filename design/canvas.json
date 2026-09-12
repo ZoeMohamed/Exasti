@@ -1,0 +1,25 @@
+{
+  "artboards": [
+    { "file": "Daftar.dc.html",      "title": "S1 · Daftar warung",  "x": 0,    "y": 0,    "w": 375, "h": 812 },
+    { "file": "PilihMenu.dc.html",   "title": "S2 · Pilih menu",     "x": 455,  "y": 0,    "w": 375, "h": 812 },
+    { "file": "HargaJual.dc.html",   "title": "S3 · Harga jual",     "x": 910,  "y": 0,    "w": 375, "h": 812 },
+    { "file": "IsiResep.dc.html",    "title": "S4 · Isi resep",      "x": 1365, "y": 0,    "w": 375, "h": 1000 },
+    { "file": "Main.dc.html",        "title": "S5 · Hasil pertama",  "x": 0,    "y": 1200, "w": 375, "h": 812 },
+    { "file": "Dashboard.dc.html",   "title": "S6 · Dashboard",      "x": 455,  "y": 1200, "w": 375, "h": 812 },
+    { "file": "DetailMenu.dc.html",  "title": "S7 · Detail menu",    "x": 910,  "y": 1200, "w": 375, "h": 1200 },
+    { "file": "MenuPlanner.dc.html", "title": "S12 · Menu planner",  "x": 1365, "y": 1200, "w": 375, "h": 1120 }
+  ],
+  "annotations": [
+    { "id": "sec-onboarding", "x": 0,    "y": -150, "w": 460,
+      "text": "ONBOARDING — target ≤2 menit\n2 ketuk + 1 ketikan + ~3 koreksi sampai angka untung pertama muncul." },
+    { "id": "note-beli", "x": 1365, "y": -150, "w": 375,
+      "text": "Kata \"BELI\", bukan \"pakai\".\nBeli 2 kg ayam, terpakai 1,6 kg setelah dipotong tulang. Kalau resep ditulis yang terpakai, modalnya meleset 20%." },
+    { "id": "sec-produk", "x": 0,    "y": 1050, "w": 460,
+      "text": "PRODUK — setelah data masuk\nBu Sri tidak membuka aplikasi lagi sampai dipanggil." },
+    { "id": "note-garagara", "x": 910, "y": 1050, "w": 375,
+      "text": "Blok \"Gara-gara\" adalah alasan produk ini ada. Baris kedua — \"Bukan cabai\" — itulah pembedanya. Tanpa itu, ini cuma aplikasi harga pangan." },
+    { "id": "note-urutan", "x": 1365, "y": 1050, "w": 375,
+      "text": "Diurut dampak rupiah, bukan persen. Ayam Geprek 7% menggerus Rp 189.000/minggu; Telur Balado −3% cuma Rp 1.700." }
+  ],
+  "launch": { "view": "canvas" }
+}
