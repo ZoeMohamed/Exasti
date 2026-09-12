@@ -82,20 +82,36 @@ export async function syncBiPricesToDatabase(daysBack = 90): Promise<{ count: nu
   let totalUpserted = 0;
   let latestDate = "2026-09-11";
 
-  // Simpan ke Supabase jika terhubung
+  // Simpan ke Supabase. Dikirim per-bongkah, bukan satu baris satu kueri —
+  // versi satu-per-satu memakan 65 detik untuk 14 hari dan melewati batas
+  // waktu fungsi serverless, sehingga cron harian mati di tengah jalan.
+  const baris: Array<[string, number, string, number]> = [];
   for (const [commodityName, dates] of Object.entries(series)) {
     for (const [dateStr, price] of Object.entries(dates)) {
       if (dateStr > latestDate) latestDate = dateStr;
-
-      await queryDb(
-        `INSERT INTO prices (commodity_id, region_id, date, price, source, is_filled)
-         VALUES ($1, $2, $3, $4, 'bi_hargapangan', false)
-         ON CONFLICT (commodity_id, region_id, date) WHERE business_id IS NULL
-         DO UPDATE SET price = EXCLUDED.price, fetched_at = now()`,
-        [commodityName, 1, dateStr, price]
-      );
-      totalUpserted++;
+      baris.push([commodityName, 1, dateStr, price]);
     }
+  }
+
+  const UKURAN = 200;
+  for (let i = 0; i < baris.length; i += UKURAN) {
+    const bongkah = baris.slice(i, i + UKURAN);
+    const nilai: string[] = [];
+    const params: unknown[] = [];
+    bongkah.forEach((b, j) => {
+      const n = j * 4;
+      nilai.push(`($${n + 1}, $${n + 2}, $${n + 3}::date, $${n + 4}, 'bi_hargapangan', false)`);
+      params.push(b[0], b[1], b[2], b[3]);
+    });
+
+    await queryDb(
+      `insert into prices (commodity_id, region_id, date, price, source, is_filled)
+       values ${nilai.join(", ")}
+       on conflict (commodity_id, region_id, date) where business_id is null
+       do update set price = excluded.price, fetched_at = now()`,
+      params,
+    );
+    totalUpserted += bongkah.length;
   }
 
   // Catat ke ingest_runs
