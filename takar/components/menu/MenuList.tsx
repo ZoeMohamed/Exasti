@@ -1,23 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import { menus } from "@/lib/data/menus";
 import { MenuCard } from "@/components/ui/MenuCard";
-import type { MenuStatus } from "@/types/menu";
+import type { Menu, MenuStatus } from "@/types/menu";
 
-const filters: { label: string; status?: MenuStatus }[] = [
-  { label: "Semua (12)" },
-  { label: "Sehat (5)", status: "sehat" },
-  { label: "Tipis (4)", status: "tipis" },
-  { label: "Rugi (0)", status: "rugi" },
-  { label: "Diistirahatkan (3)", status: "diistirahatkan" },
-];
+interface MenuListProps {
+  menus: Menu[];
+}
 
-export function MenuList() {
+export function MenuList({ menus }: MenuListProps) {
   const [active, setActive] = useState<MenuStatus | undefined>();
+
+  const counts = {
+    all: menus.length,
+    sehat: menus.filter((m) => m.status === "sehat").length,
+    tipis: menus.filter((m) => m.status === "tipis").length,
+    rugi: menus.filter((m) => m.status === "rugi").length,
+    diistirahatkan: menus.filter((m) => m.status === "diistirahatkan").length,
+  };
+
+  const filters: { label: string; count: number; status?: MenuStatus }[] = [
+    { label: "Semua", count: counts.all },
+    { label: "Sehat", count: counts.sehat, status: "sehat" },
+    { label: "Tipis", count: counts.tipis, status: "tipis" },
+    { label: "Rugi", count: counts.rugi, status: "rugi" },
+    { label: "Diistirahatkan", count: counts.diistirahatkan, status: "diistirahatkan" },
+  ];
+
   const visibleMenus = active
     ? menus.filter((menu) => menu.status === active)
     : menus;
+
   return (
     <>
       <div className="flex flex-wrap gap-2 border-b-2 border-ink pb-4">
@@ -26,9 +39,13 @@ export function MenuList() {
             type="button"
             key={filter.label}
             onClick={() => setActive(filter.status)}
-            className={`px-4 py-2 font-heading text-xs font-bold brutal-border-2 ${active === filter.status ? "bg-ink text-cream shadow-[2px_2px_0_#111]" : "bg-white"}`}
+            className={`px-4 py-2 font-heading text-xs font-bold brutal-border-2 transition-all ${
+              active === filter.status
+                ? "bg-ink text-cream shadow-[2px_2px_0_#111]"
+                : "bg-white hover:bg-cream"
+            }`}
           >
-            {filter.label}
+            {filter.label} ({filter.count})
           </button>
         ))}
       </div>

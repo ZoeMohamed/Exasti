@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { getMenu } from "@/lib/data/menus";
-import { ayamGeprekIngredients } from "@/lib/data/ingredients";
+import { getDynamicIngredients, MENU_RECIPES } from "@/lib/services/menu-engine";
 import { formatRupiah } from "@/lib/formatRupiah";
 import { MenuPriceActions } from "@/components/menu/MenuPriceActions";
 
@@ -9,9 +8,26 @@ export default async function MenuDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const menu = getMenu((await params).id);
+  const { id } = await params;
+  const data = await getDynamicIngredients(id);
+
+  const menu = data.menu;
+  const sellPrice = data.currentSellPrice;
+  const modal = data.modalTotal;
+  const profit = sellPrice - modal;
+  const margin = Math.round((profit / sellPrice) * 100 * 10) / 10;
+  const status: "sehat" | "tipis" | "rugi" =
+    profit < 0 || margin < 5 ? "rugi" : margin < 15 ? "tipis" : "sehat";
+
+  const suggestedProfit = data.suggestedPrice - modal;
+  const suggestedMargin = Math.round((suggestedProfit / data.suggestedPrice) * 100 * 10) / 10;
+  const priceAdjustment = data.suggestedPrice - sellPrice;
+
+  const driver = data.driverNote;
+
   return (
     <div className="space-y-8">
+      {/* Navigation Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/dashboard"
@@ -20,39 +36,55 @@ export default async function MenuDetailPage({
           ⬅ Kembali ke Beranda
         </Link>
         <span className="bg-warning-yellow px-2 py-1 font-mono text-xs font-bold brutal-border-2">
-          ID: MENU-001 · Dipantau sejak 12 Okt 2024
+          KODE: {menu.shortName} · Pantauan Harga Live Bank Indonesia
         </span>
       </div>
+
+      {/* Main Header Card */}
       <section className="bg-white p-6 sm:p-8 brutal-card">
         <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="bg-critical-red px-2.5 py-0.5 text-xs font-heading font-extrabold text-white brutal-border-2">
-                STATUS: {menu.status.toUpperCase()} (
-                {menu.margin.toLocaleString("id-ID")}%)
+              <span
+                className={`px-2.5 py-0.5 text-xs font-heading font-extrabold text-white brutal-border-2 ${
+                  status === "rugi"
+                    ? "bg-critical-red"
+                    : status === "tipis"
+                      ? "bg-warning-yellow text-ink"
+                      : "bg-bright-green text-ink"
+                }`}
+              >
+                STATUS: {status.toUpperCase()} ({margin.toLocaleString("id-ID")}%)
               </span>
               <span className="font-mono text-xs font-bold text-ink/70">
-                Kategori: {menu.category}
+                Kategori: {menu.category} · {menu.batchYield} Porsi Sekali Masak
               </span>
             </div>
             <h1 className="font-heading text-4xl font-extrabold uppercase tracking-tight sm:text-5xl">
-              {menu.shortName}
+              {menu.name}
             </h1>
             <p className="mt-1 text-sm text-ink/80">
-              Porsi standar: Nasi putih + Ayam goreng krispi + Sambal korek
-              bawang + Lalapan timun
+              Perhitungan modal porsi dihitung otomatis dari resep batch ({menu.batchYield} porsi) dikalikan harga komoditas pasar Kota Semarang hari ini.
             </p>
           </div>
           <div className="min-w-[280px] bg-cream p-5 shadow-[4px_4px_0_#111] brutal-border-2">
             <span className="block font-mono text-xs font-bold uppercase text-ink/70">
               Untung Bersih Saat Ini:
             </span>
-            <strong className="my-1 block font-mono text-4xl text-critical-red sm:text-5xl">
-              {formatRupiah(menu.profit)}
+            <strong
+              className={`my-1 block font-mono text-4xl sm:text-5xl ${
+                status === "rugi"
+                  ? "text-critical-red"
+                  : status === "tipis"
+                    ? "text-critical-red"
+                    : "text-bright-green"
+              }`}
+            >
+              {formatRupiah(profit)}
             </strong>
             <div className="flex justify-between border-t border-ink/20 pt-2 font-mono text-xs font-bold">
-              <span>Harga Jual: {formatRupiah(menu.price)}</span>
-              <span>Modal: {formatRupiah(menu.modal)}</span>
+              <span>Harga Jual: {formatRupiah(sellPrice)}</span>
+              <span>Modal: {formatRupiah(modal)}</span>
             </div>
           </div>
         </div>
@@ -61,285 +93,334 @@ export default async function MenuDetailPage({
           <span>
             PENTING: Modal di atas{" "}
             <u className="decoration-critical-red decoration-2">
-              belum dikurangi sewa dan listrik bulanan.
+              belum dikurangi sewa tempat dan listrik bulanan.
             </u>{" "}
             Untung riil yang kamu bawa pulang lebih tipis lagi!
           </span>
         </div>
       </section>
+
+      {/* Driver Investigation Section (BR-04) */}
       <section className="border-t-8 border-t-critical-red bg-cream-surface p-6 sm:p-8 brutal-card">
         <div className="mb-6 max-w-2xl">
           <span className="inline-block bg-critical-red px-2 py-0.5 font-mono text-xs font-bold uppercase text-white">
-            Penyelidikan Takar
+            Penyelidikan Takar (Atribusi BR-04)
           </span>
           <h2 className="mt-2 font-heading text-3xl font-extrabold sm:text-4xl">
             Kenapa untungnya turun?
           </h2>
           <p className="mt-1 font-medium text-ink/80">
-            Jangan terkecoh oleh persentase berita. Takar menghitung kenaikan
-            dalam satuan <b className="underline">Rupiah per Porsi</b>.
+            Jangan terkecoh oleh persentase berita di media. Takar menghitung kenaikan
+            dalam satuan <b className="underline">Rupiah per Porsi</b> berdasarkan gramatur resep aslimu.
           </p>
         </div>
-        <div className="grid grid-cols-1 items-center gap-4 md:grid-cols-12">
-          <div className="relative bg-critical-red p-6 text-white shadow-[4px_4px_0_#111] brutal-border md:col-span-6">
-            <span className="absolute right-3 -top-3 bg-warning-yellow px-2 py-0.5 text-xs font-heading font-extrabold text-ink brutal-border-2">
-              BIANG KEROK UTAMA
-            </span>
-            <h3 className="font-heading text-2xl font-extrabold">
-              AYAM POTONG
-            </h3>
-            <strong className="my-2 block font-mono text-5xl text-warning-yellow sm:text-6xl">
-              +Rp 1.800
-            </strong>
-            <span className="inline-block bg-ink/30 p-2 font-mono text-sm font-bold uppercase">
-              Penyebab Terbesar Kenaikan Modal
-            </span>
-            <p className="mt-3 text-xs leading-relaxed sm:text-sm">
-              Harga ayam naik dari Rp 36.000 ke Rp 43.200/kg. Karena kamu pakai
-              250g per porsi, dampaknya langsung terasa Rp 1.800 per porsi.
-            </p>
+
+        {driver ? (
+          <div className="grid grid-cols-1 items-center gap-4 md:grid-cols-12">
+            <div className="relative bg-critical-red p-6 text-white shadow-[4px_4px_0_#111] brutal-border md:col-span-6">
+              <span className="absolute right-3 -top-3 bg-warning-yellow px-2 py-0.5 text-xs font-heading font-extrabold text-ink brutal-border-2">
+                BIANG KEROK UTAMA
+              </span>
+              <h3 className="font-heading text-2xl font-extrabold">
+                {driver.driverName.toUpperCase()}
+              </h3>
+              <strong className="my-2 block font-mono text-5xl text-warning-yellow sm:text-6xl">
+                +{formatRupiah(driver.driverRp)}
+              </strong>
+              <span className="inline-block bg-ink/30 p-2 font-mono text-sm font-bold uppercase">
+                Penyebab Terbesar Kenaikan Modal (+{driver.driverPct}%)
+              </span>
+              <p className="mt-3 text-xs leading-relaxed sm:text-sm">
+                Karena resepmu memakai porsi komoditas ini dalam takaran dominan, kenaikan harga per kilogramnya langsung menguras kantong sebesar {formatRupiah(driver.driverRp)} per porsi!
+              </p>
+            </div>
+
+            <div className="flex justify-center md:col-span-1">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl font-heading font-bold shadow-[2px_2px_0_#111] brutal-border-2">
+                VS
+              </span>
+            </div>
+
+            <div className="relative bg-warning-yellow p-5 text-ink shadow-[4px_4px_0_#111] brutal-border md:col-span-5">
+              <h3 className="font-heading text-xl font-extrabold">
+                {driver.altName.toUpperCase()}
+              </h3>
+              <strong className="my-1 block font-mono text-3xl text-critical-red sm:text-4xl">
+                +{formatRupiah(driver.altRp)}
+              </strong>
+              <span className="inline-block bg-white p-1.5 font-mono text-xs font-bold uppercase border border-ink">
+                Persentase {driver.altPct}%, tapi dampaknya kecil
+              </span>
+              <p className="mt-3 text-xs leading-relaxed">
+                Meskipun berita menghebohkan lonjakan persentase komoditas ini, porsi yang dipakai per porsi sedikit, sehingga kontribusi kenaikannya hanya {formatRupiah(driver.altRp)}.
+              </p>
+            </div>
           </div>
-          <div className="flex justify-center md:col-span-1">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl font-heading font-bold shadow-[2px_2px_0_#111] brutal-border-2">
-              VS
-            </span>
+        ) : (
+          <div className="bg-white p-6 font-mono text-sm brutal-border-2">
+            ✅ Biaya bahan baku untuk menu ini terpantau stabil dalam 7 hari terakhir. Tidak ada lonjakan bahan yang signifikan.
           </div>
-          <div className="relative bg-warning-yellow p-5 text-ink shadow-[4px_4px_0_#111] brutal-border md:col-span-5">
-            <h3 className="font-heading text-xl font-extrabold">
-              CABAI RAWIT MERAH
-            </h3>
-            <strong className="my-1 block font-mono text-3xl text-critical-red sm:text-4xl">
-              +Rp 480
-            </strong>
-            <span className="inline-block bg-white p-1.5 font-mono text-xs font-bold uppercase border border-ink">
-              Naik tinggi, tapi dampaknya kecil
-            </span>
-            <p className="mt-3 text-xs leading-relaxed">
-              Cabai melonjak 58%, tetapi satu porsi hanya membutuhkan 15 gram
-              sambal. Kenaikan modalnya cuma Rp 480.
-            </p>
-          </div>
-        </div>
+        )}
+
         <div className="mt-6 flex flex-col items-center justify-between gap-4 bg-ink p-4 text-cream brutal-border sm:flex-row">
           <div>
             <strong className="font-heading text-lg text-warning-yellow sm:text-xl">
-              “Ayam yang bikin modal naik — bukan cabai.”
+              {driver
+                ? `“${driver.driverName} yang bikin modal naik — bukan ${driver.altName}.”`
+                : "“Biaya bahan baku saat ini berada di batas wajar.”"}
             </strong>
             <p className="text-xs text-cream/80">
-              Fokus cari supplier ayam karkas lebih murah atau sesuaikan ukuran
-              potong.
+              Fokus bernegosiasi dengan pemasok bahan utama atau sesuaikan harga jual di simulator.
             </p>
           </div>
           <Link
-            href="/dashboard/simulator"
+            href={`/dashboard/simulator?price=${sellPrice}`}
             className="brutal-btn whitespace-nowrap bg-bright-green px-4 py-2 text-xs font-heading font-extrabold text-ink"
           >
             Coba di Simulator ➔
           </Link>
         </div>
       </section>
+
+      {/* Ingredient Breakdown & Recommendation */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        {/* Ingredients Table */}
         <section className="bg-white p-6 brutal-card lg:col-span-7">
           <div className="mb-4 flex items-center justify-between border-b-2 border-dashed border-ink pb-4">
             <div>
               <span className="font-mono text-xs font-bold uppercase text-ink/70">
-                Rincian Resep & Modal
+                Rincian Resep & Modal Dinamis
               </span>
               <h2 className="font-heading text-2xl font-extrabold">
-                Modal Menu Ini
+                Komposisi Modal Menu
               </h2>
             </div>
             <span className="bg-cream p-1.5 font-mono text-xs font-bold border border-ink">
-              Total: {formatRupiah(menu.modal)}
+              Total: {formatRupiah(modal)}
             </span>
           </div>
+
           <div className="space-y-3">
-            {ayamGeprekIngredients.map((item, index) => (
-              <div
-                key={item.name}
-                className={`flex flex-col justify-between gap-2 p-3 brutal-border-2 sm:flex-row ${index === 0 ? "bg-critical-red/10" : index === 4 ? "bg-cream" : "bg-white"}`}
-              >
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <strong className="font-heading text-base">
-                      {item.name}
+            {data.ingredients.map((item, index) => {
+              const pct = modal > 0 ? ((item.cost / modal) * 100).toFixed(1) : "0";
+              return (
+                <div
+                  key={item.name}
+                  className={`flex flex-col justify-between gap-2 p-3 brutal-border-2 sm:flex-row ${
+                    index === 0 ? "bg-critical-red/10" : item.source === "PERKIRAAN" ? "bg-cream" : "bg-white"
+                  }`}
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <strong className="font-heading text-base">
+                        {item.name}
+                      </strong>
+                      <span
+                        className={`px-1.5 text-[10px] font-mono font-bold border border-ink ${
+                          item.source === "DATA PASAR"
+                            ? "bg-accent-green text-white"
+                            : "bg-cream text-ink"
+                        }`}
+                      >
+                        {item.source}
+                      </span>
+                    </div>
+                    <div className="font-mono text-xs text-ink/70">
+                      {item.quantity}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <strong className="font-mono">
+                      {formatRupiah(item.cost)}
                     </strong>
-                    <span
-                      className={`px-1.5 text-[10px] font-mono font-bold border border-ink ${item.source === "DATA PASAR" ? "bg-accent-green text-white" : "bg-cream"}`}
-                    >
-                      {item.source}
+                    <span className="block text-[11px] font-bold text-ink/80">
+                      {pct}% dari total modal
                     </span>
                   </div>
-                  <div className="font-mono text-xs text-ink/70">
-                    {item.quantity}
-                  </div>
                 </div>
-                <div className="text-right">
-                  <strong className="font-mono">
-                    {formatRupiah(item.cost)}
-                  </strong>
-                  <span className="block text-[11px] font-bold">
-                    {((item.cost / menu.modal) * 100).toFixed(1)}% dari modal
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+
           <div className="mt-4 flex justify-between border-t-2 border-ink pt-3 font-mono font-bold">
             <span>TOTAL MODAL SEKARANG:</span>
-            <span className="text-critical-red">
-              {formatRupiah(menu.modal)}
+            <span className="text-critical-red text-lg">
+              {formatRupiah(modal)}
             </span>
           </div>
         </section>
+
+        {/* Aside: Smart Recommendation & Price Action */}
         <aside className="space-y-6 lg:col-span-5">
           <div className="bg-warning-yellow p-5 brutal-card">
             <h3 className="font-heading text-xl font-extrabold">
-              “Angka ini masih perkiraan.”
+              “Hitungan Berdasarkan Resep Asli”
             </h3>
             <p className="mt-1 text-xs leading-relaxed">
-              Sebagian modal berasal dari bahan yang belum punya harga pasar
-              otomatis, seperti bumbu racik dan minyak goreng.
+              Resep menu ini dihitung dari takaran sekali masak (batch yield: {menu.batchYield} porsi). Data harga bahan segar diperbarui otomatis setiap hari kerja dari Bank Indonesia.
             </p>
-            <Link
-              href="/dashboard/belanja"
-              className="brutal-btn mt-3 inline-flex bg-white px-3 py-1.5 text-xs font-heading font-bold"
-            >
-              Lengkapi harga bahan ➔
-            </Link>
           </div>
+
           <div className="border-t-8 border-t-bright-green bg-ink p-6 text-cream brutal-card">
             <span className="font-mono text-xs font-bold uppercase text-warning-yellow">
-              Rekomendasi Cerdas Takar
+              Rekomendasi Cerdas Takar (BR-07)
             </span>
             <h3 className="mt-1 font-heading text-2xl font-extrabold text-white">
-              “Kalau mau untungmu kembali seperti dulu…”
+              “Kalau mau untungmu kembali sehat…”
             </h3>
             <div className="my-5 border-2 border-white bg-white/10 p-4">
               <span className="font-mono text-xs text-cream/70">
                 SARAN HARGA JUAL BARU:
               </span>
               <strong className="my-1 block font-mono text-4xl text-bright-green sm:text-5xl">
-                Rp 20.000
+                {formatRupiah(data.suggestedPrice)}
               </strong>
               <div className="flex justify-between border-t border-white/20 pt-2 font-mono text-xs">
-                <span>Harga Sekarang: {formatRupiah(menu.price)}</span>
+                <span>Harga Sekarang: {formatRupiah(sellPrice)}</span>
                 <span className="font-bold text-warning-yellow">
-                  +Rp 2.000 penyesuaian
+                  {priceAdjustment > 0 ? `+${formatRupiah(priceAdjustment)} penyesuaian` : "Harga sudah ideal"}
                 </span>
               </div>
             </div>
             <p className="mb-4 text-xs leading-relaxed text-cream/80">
-              Dengan harga Rp 20.000, untungmu kembali ke{" "}
+              Dengan harga {formatRupiah(data.suggestedPrice)}, untungmu kembali ke{" "}
               <b className="font-mono text-bright-green">
-                Rp 3.260 / porsi (16,3%)
+                {formatRupiah(suggestedProfit)} / porsi ({suggestedMargin}%)
               </b>
               .
             </p>
-            <MenuPriceActions />
+            <MenuPriceActions
+              menuId={id}
+              menuName={menu.name}
+              currentPrice={sellPrice}
+              suggestedPrice={data.suggestedPrice}
+            />
           </div>
         </aside>
       </div>
-      <ProfitHistory />
+
+      {/* Dynamic Profit History Chart */}
+      <DynamicProfitHistory
+        menuName={menu.name}
+        history={data.history}
+        currentProfit={profit}
+      />
     </div>
   );
 }
 
-function ProfitHistory() {
+function DynamicProfitHistory({
+  menuName,
+  history,
+  currentProfit,
+}: {
+  menuName: string;
+  history: Array<{ date: string; label: string; hpp: number; profit: number; marginPct: number }>;
+  currentProfit: number;
+}) {
+  if (!history || history.length === 0) {
+    return null;
+  }
+
+  const profits = history.map((h) => h.profit);
+  const minProfit = Math.min(...profits, 0);
+  const maxProfit = Math.max(...profits, 4000);
+  const range = maxProfit - minProfit || 1;
+
+  // Build SVG points: X from 30 to 570, Y from 170 (min) to 30 (max)
+  const width = 600;
+  const height = 200;
+  const paddingX = 40;
+  const paddingY = 30;
+
+  const points = history.map((h, i) => {
+    const x = paddingX + (i / (history.length - 1 || 1)) * (width - 2 * paddingX);
+    const normalizedY = (h.profit - minProfit) / range;
+    const y = height - paddingY - normalizedY * (height - 2 * paddingY);
+    return { x: Math.round(x), y: Math.round(y), profit: h.profit, label: h.label };
+  });
+
+  const polylineStr = points.map((p) => `${p.x},${p.y}`).join(" ");
+
+  const peak = Math.max(...profits);
+  const firstLabel = history[0]?.label || "";
+  const lastLabel = history[history.length - 1]?.label || "Hari Ini";
+
   return (
     <section className="bg-white p-6 sm:p-8 brutal-card">
       <div className="mb-6 flex flex-col justify-between gap-2 sm:flex-row">
         <div>
           <h2 className="font-heading text-2xl font-extrabold">
-            Untung 30 Hari Terakhir
+            Riwayat Untung 30 Hari Terakhir
           </h2>
           <p className="text-xs font-medium text-ink/70">
-            Tren rupiah untung per porsi Ayam Geprek (10 September – Hari ini).
+            Tren rupiah untung per porsi {menuName} berdasarkan data historis harian Bank Indonesia.
           </p>
         </div>
         <span className="w-fit bg-cream p-1.5 font-mono text-xs border border-ink">
-          Puncak: Rp 3.200 ➔ Hari Ini:{" "}
-          <b className="text-critical-red">Rp 1.260</b>
+          Puncak: {formatRupiah(peak)} ➔ Hari Ini:{" "}
+          <b className={currentProfit < 1500 ? "text-critical-red" : "text-bright-green"}>
+            {formatRupiah(currentProfit)}
+          </b>
         </span>
       </div>
+
       <div className="overflow-x-auto">
         <div className="relative h-64 min-w-[600px] bg-cream p-4 brutal-border-2">
           <svg
             className="relative h-full w-full"
-            viewBox="0 0 600 200"
+            viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="none"
-            aria-label="Grafik untung 30 hari"
+            aria-label={`Grafik untung 30 hari ${menuName}`}
           >
-            <rect width="600" height="90" fill="#66BB6A" fillOpacity=".1" />
-            <rect
-              y="140"
-              width="600"
-              height="60"
-              fill="#D62828"
-              fillOpacity=".1"
-            />
+            {/* Green safe area (top) */}
+            <rect width={width} height="80" fill="#66BB6A" fillOpacity=".12" />
+            {/* Red alert area (bottom) */}
+            <rect y="130" width={width} height="70" fill="#D62828" fillOpacity=".12" />
+
+            {/* Connecting Polyline */}
             <polyline
               fill="none"
               stroke="#111"
               strokeWidth="4"
               strokeLinecap="round"
               strokeLinejoin="round"
-              points="20,50 80,55 150,45 220,60 290,110 360,115 430,155 500,165 570,172"
+              points={polylineStr}
             />
-            <circle
-              cx="20"
-              cy="50"
-              r="5"
-              fill="#2E7D32"
-              stroke="#111"
-              strokeWidth="2"
-            />
-            <circle
-              cx="150"
-              cy="45"
-              r="5"
-              fill="#2E7D32"
-              stroke="#111"
-              strokeWidth="2"
-            />
-            <circle
-              cx="290"
-              cy="110"
-              r="6"
-              fill="#FFC107"
-              stroke="#111"
-              strokeWidth="2"
-            />
-            <circle
-              cx="430"
-              cy="155"
-              r="6"
-              fill="#D62828"
-              stroke="#111"
-              strokeWidth="2"
-            />
-            <circle
-              cx="570"
-              cy="172"
-              r="8"
-              fill="#D62828"
-              stroke="#111"
-              strokeWidth="3"
-            />
+
+            {/* Individual Data Points */}
+            {points.map((p, idx) => {
+              const isFirst = idx === 0;
+              const isLast = idx === points.length - 1;
+              const isKeyPoint = isFirst || isLast || idx % 7 === 0;
+
+              if (!isKeyPoint) return null;
+
+              const dotColor = p.profit < 1500 ? "#D62828" : p.profit < 2500 ? "#FFC107" : "#2E7D32";
+
+              return (
+                <circle
+                  key={idx}
+                  cx={p.x}
+                  cy={p.y}
+                  r={isLast ? 7 : 5}
+                  fill={dotColor}
+                  stroke="#111"
+                  strokeWidth={isLast ? 3 : 2}
+                />
+              );
+            })}
           </svg>
-          <span className="absolute left-[43%] top-20 bg-warning-yellow px-2 py-1 text-[11px] font-bold shadow-[2px_2px_0_#111] brutal-border-2">
-            🍗 Ayam naik Rp 3.000/kg ➔
-          </span>
-          <span className="absolute right-2 top-32 bg-critical-red px-2 py-1 text-xs font-mono font-bold text-white brutal-border-2">
-            Hari Ini: Rp 1.260!
+
+          <span className="absolute right-4 top-2 bg-critical-red px-2 py-1 text-xs font-mono font-bold text-white brutal-border-2">
+            Hari Ini: {formatRupiah(currentProfit)}
           </span>
         </div>
+
         <div className="flex min-w-[600px] justify-between px-4 pt-2 font-mono text-[11px] text-ink/70">
-          <span>10 Sep (Rp 3.100)</span>
-          <span>17 Sep</span>
-          <span>24 Sep (Ayam naik)</span>
-          <span>01 Okt</span>
-          <span>Hari Ini (Rp 1.260)</span>
+          <span>{firstLabel}</span>
+          <span>{history[Math.floor(history.length / 2)]?.label}</span>
+          <span>{lastLabel} (Hari Ini: {formatRupiah(currentProfit)})</span>
         </div>
       </div>
     </section>

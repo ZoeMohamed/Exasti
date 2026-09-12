@@ -1,14 +1,37 @@
 import Link from "next/link";
-import { menus } from "@/lib/data/menus";
+import type { Menu } from "@/types/menu";
 import { formatRupiah } from "@/lib/formatRupiah";
 import { MenuCard } from "@/components/ui/MenuCard";
 
-export function DashboardHome() {
+interface DashboardHomeProps {
+  menus: Menu[];
+  latestDate: string;
+}
+
+export function DashboardHome({ menus, latestDate }: DashboardHomeProps) {
+  const activeCount = menus.length;
+  const criticalMenus = menus.filter((m) => m.status === "tipis" || m.status === "rugi");
+  const avgProfit = Math.round(menus.reduce((acc, m) => acc + m.profit, 0) / (menus.length || 1));
+  const topCritical = criticalMenus[0] || menus[0];
+
+  // Format tanggal BI
+  const formattedDate = (() => {
+    try {
+      const d = new Date(latestDate);
+      if (!isNaN(d.getTime())) {
+        const day = d.getDate();
+        const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+        return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
+      }
+    } catch {}
+    return latestDate;
+  })();
+
   return (
     <div className="space-y-8">
       <section className="relative bg-white p-6 sm:p-8 brutal-card">
         <span className="absolute right-6 -top-3 rotate-2 bg-warning-yellow px-3 py-1 font-mono text-xs font-bold brutal-border">
-          📍 Semarang · Pasar Johar Update
+          📍 Semarang · Update Harga BI ({formattedDate})
         </span>
         <span className="mb-3 inline-block bg-ink px-2.5 py-1 font-mono text-xs font-bold uppercase text-cream">
           Analisis Keuangan Warung Hari Ini
@@ -16,74 +39,81 @@ export function DashboardHome() {
         <h1 className="max-w-3xl font-heading text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
           “Hari ini, ada{" "}
           <span className="inline-block -rotate-1 bg-critical-red px-2 py-0.5 text-white brutal-border-2">
-            3 menu
+            {criticalMenus.length} menu
           </span>{" "}
           yang perlu kamu lihat.”
         </h1>
         <p className="mt-4 max-w-2xl text-base font-medium leading-relaxed text-ink/80 sm:text-lg">
-          Harga daging ayam dan cabai di Semarang bergerak cepat minggu ini.
-          Jangan sampai jualan laris manis tapi pas dihitung uangnya malah habis
-          untuk modal.
+          Harga daging ayam dan cabai di Semarang bergerak dinamis dari data Bank Indonesia.
+          Jangan sampai jualan laris manis tapi pas dihitung uangnya malah habis untuk modal.
         </p>
         <div className="mt-8 grid grid-cols-1 gap-4 border-t-2 border-ink/20 pt-6 sm:grid-cols-3">
           <Metric
             label="Menu Aktif Jualan"
-            value="12 Menu"
+            value={`${activeCount} Menu`}
             note="Dipantau otomatis harian"
           />
           <Metric
             label="Untung Rata-Rata"
-            value={formatRupiah(3240)}
+            value={formatRupiah(avgProfit)}
             note="per porsi (semua menu)"
             tone="green"
           />
           <Metric
             label="Kondisi Genting"
-            value="4 Menu"
+            value={`${criticalMenus.length} Menu`}
             note="Untung tipis & rawan rugi"
             tone="red"
           />
         </div>
       </section>
+
       <section>
         <SectionTitle
           title="Yang Perlu Kamu Perhatikan"
           note="Diurutkan dari dampak rupiah terbesar"
         />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <Alert
-            title="AYAM GEPREK"
-            status="KRITIS"
-            tone="red"
-            value="Rp 1.260"
-            body="Daging ayam menyumbang kenaikan modal terbesar (+Rp 1.800/porsi)."
-            href="/dashboard/menu/ayam-geprek"
-            action="Lihat Kenapa"
-          />
-          <Alert
-            title="NASI GORENG SPESIAL"
-            status="PERLU DICEK"
-            tone="yellow"
-            value="Rp 2.100"
-            body="Harga telur naik dan margin untung mulai masuk zona tipis."
-            href="/dashboard/simulator"
-            action="Simulasikan Porsi"
-          />
-          <Alert
-            title="ES TEH JUMBO"
-            status="INFO AMAN"
-            tone="green"
-            value="Rp 2.450"
-            body="Untung stabil. Jadikan menu bundling untuk menambal menu makanan utama."
-            href="/dashboard/menu"
-            action="Lihat Detail Menu"
-          />
+          {topCritical && (
+            <Alert
+              title={topCritical.shortName}
+              status={topCritical.status.toUpperCase()}
+              tone={topCritical.status === "rugi" ? "red" : "yellow"}
+              value={formatRupiah(topCritical.profit)}
+              body={`Pendorong utama: ${topCritical.driver} naik dan menekan margin menjadi ${topCritical.margin.toFixed(1)}%.`}
+              href={`/dashboard/menu/${topCritical.id}`}
+              action="Lihat Kenapa"
+            />
+          )}
+          {menus[1] && (
+            <Alert
+              title={menus[1].shortName}
+              status={menus[1].status.toUpperCase()}
+              tone={menus[1].status === "rugi" ? "red" : menus[1].status === "tipis" ? "yellow" : "green"}
+              value={formatRupiah(menus[1].profit)}
+              body={`Pendorong: ${menus[1].driver}. Margin untung ${menus[1].margin.toFixed(1)}%.`}
+              href={`/dashboard/menu/${menus[1].id}`}
+              action="Cek Rincian"
+            />
+          )}
+          {menus.find((m) => m.status === "sehat") && (
+            <Alert
+              title={menus.find((m) => m.status === "sehat")!.shortName}
+              status="INFO AMAN"
+              tone="green"
+              value={formatRupiah(menus.find((m) => m.status === "sehat")!.profit)}
+              body="Untung stabil. Jadikan menu bundling untuk menambal menu makanan utama."
+              href={`/dashboard/menu/${menus.find((m) => m.status === "sehat")!.id}`}
+              action="Lihat Detail Menu"
+            />
+          )}
         </div>
       </section>
+
       <section>
         <SectionTitle
           title="Kondisi Menu Kamu"
-          note="Diurutkan dari untung terkecil ke terbesar."
+          note="Diurutkan dari margin untung terkecil ke terbesar."
           action={
             <Link
               href="/dashboard/menu/tambah"
@@ -201,7 +231,7 @@ function Alert({
       </span>
       <div>
         <span className="font-mono text-xs font-bold uppercase text-ink/60">
-          Menu Favorit
+          Prioritas Pantauan
         </span>
         <h3 className="mt-0.5 font-heading text-2xl font-extrabold">{title}</h3>
         <div className="mt-4 bg-cream p-3.5 brutal-border-2">

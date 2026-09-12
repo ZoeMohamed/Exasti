@@ -1,91 +1,59 @@
 import type { Menu } from "@/types/menu";
+import { MENU_RECIPES, FALLBACK_LATEST_PRICES, FALLBACK_THEN_PRICES } from "../services/menu-engine";
 
-export const menus: Menu[] = [
-  {
-    id: "ayam-geprek",
-    name: "Ayam Geprek Sambal Korek",
-    shortName: "AYAM GEPREK",
-    icon: "🍗",
-    price: 18000,
-    modal: 16740,
-    profit: 1260,
-    margin: 7,
-    status: "tipis",
-    driver: "Daging Ayam",
-    servingsPerWeek: 150,
-    category: "Makanan Utama",
-  },
-  {
-    id: "ayam-bakar-madu",
-    name: "Ayam Bakar Madu",
-    shortName: "AYAM BAKAR MADU",
-    icon: "🍗",
-    price: 20000,
-    modal: 18160,
-    profit: 1840,
-    margin: 9.2,
-    status: "tipis",
-    driver: "Ayam & Gas",
-    servingsPerWeek: 80,
-    category: "Makanan Utama",
-  },
-  {
-    id: "nasi-goreng",
-    name: "Nasi Goreng Spesial",
-    shortName: "NASI GORENG SPESIAL",
-    icon: "🍳",
-    price: 15000,
-    modal: 12900,
-    profit: 2100,
-    margin: 14,
-    status: "tipis",
-    driver: "Telur Ayam",
-    servingsPerWeek: 110,
-    category: "Makanan Utama",
-  },
-  {
-    id: "pecel-lele",
-    name: "Pecel Lele Goreng Crispy",
-    shortName: "PECEL LELE GORENG",
-    icon: "🐟",
-    price: 16000,
-    modal: 11800,
-    profit: 4200,
-    margin: 26.3,
-    status: "sehat",
-    driver: "Ikan Lele",
-    servingsPerWeek: 95,
-    category: "Makanan Utama",
-  },
-  {
-    id: "mie-dok-dok",
-    name: "Mie Dok-Dok Pedas",
-    shortName: "MIE DOK-DOK PEDAS",
-    icon: "🍜",
-    price: 13000,
-    modal: 8900,
-    profit: 4100,
-    margin: 31.5,
-    status: "sehat",
-    driver: "Mie & Sayur",
-    servingsPerWeek: 130,
-    category: "Mie",
-  },
-  {
-    id: "es-teh-jumbo",
-    name: "Es Teh Manis Jumbo",
-    shortName: "ES TEH MANIS JUMBO",
-    icon: "🧊",
-    price: 4000,
-    modal: 1550,
-    profit: 2450,
-    margin: 61.2,
-    status: "sehat",
-    driver: "Cup & Gula",
-    servingsPerWeek: 260,
-    category: "Minuman",
-  },
-];
+function computeBaseMenus(): Menu[] {
+  return MENU_RECIPES.map((item) => {
+    let modalPerPortion = 0;
+    const candidates: Array<{ name: string; diff: number }> = [];
 
-export const getMenu = (id: string) =>
+    for (const r of item.recipe) {
+      const pNow = FALLBACK_LATEST_PRICES[r.commodityName] || 20000;
+      const pThen = FALLBACK_THEN_PRICES[r.commodityName] || pNow;
+      const portionQty = r.batchQty / item.batchYield;
+      const sub = portionQty * pNow;
+      modalPerPortion += sub;
+
+      const diff = portionQty * (pNow - pThen);
+      candidates.push({ name: r.commodityName, diff });
+    }
+
+    for (const f of item.fixedCosts) {
+      modalPerPortion += f.amount;
+    }
+
+    modalPerPortion = Math.round(modalPerPortion);
+    const profit = item.sellPrice - modalPerPortion;
+    const margin = (profit / item.sellPrice) * 100;
+
+    let status: "sehat" | "tipis" | "rugi" = "sehat";
+    if (profit < 0 || margin < 5) status = "rugi";
+    else if (margin < 15) status = "tipis";
+
+    let driver = "Biaya Bahan Stabil";
+    if (candidates.length > 0) {
+      const top = candidates.reduce((prev, curr) => (curr.diff > prev.diff ? curr : prev));
+      if (top.diff > 50) driver = top.name;
+    }
+
+    return {
+      id: item.id,
+      name: item.name,
+      shortName: item.shortName,
+      icon: item.icon,
+      price: item.sellPrice,
+      modal: modalPerPortion,
+      profit,
+      margin: Math.round(margin * 10) / 10,
+      status,
+      driver,
+      servingsPerWeek: item.servingsPerWeek,
+      category: item.category,
+    };
+  });
+}
+
+// Menus dihitung dinamis dari takaran resep batch & harga Bank Indonesia
+export const menus: Menu[] = computeBaseMenus();
+
+export const getMenu = (id: string): Menu =>
   menus.find((menu) => menu.id === id) ?? menus[0];

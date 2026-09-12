@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+      background: #FAFAF9;
+      color: #1C1917;
+      -webkit-font-smoothing: antialiased;
+      font-variant-numeric: tabular-nums;
+    }
+    a { color: oklch(0.48 0.15 27); text-decoration: none; }
+    a:hover { color: oklch(0.40 0.15 27); }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+<div style="display: flex; flex-direction: column; min-height: 100%; padding: 28px 20px 24px; gap: 0">
+  <div style="font-size: 13px; color: #78716C">Langkah 3 dari 4</div>
+  <div style="height: 20px"></div>
+  <h1 style="margin: 0; font-size: 26px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em">Ayam Geprek dijual<br>berapa seporsi?</h1>
+  <div style="height: 32px"></div>
+  <div style="display: flex; align-items: baseline; gap: 10px; padding: 20px 18px;
+              border: 2px solid #1C1917; border-radius: 12px; background: #FFFFFF">
+    <span style="font-size: 22px; font-weight: 500; color: #78716C">Rp</span>
+    <span style="font-size: 40px; font-weight: 600; letter-spacing: -0.02em">18.000</span>
+  </div>
+  <div style="height: 16px"></div>
+  <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 14px;
+              line-height: 1.5; color: #78716C">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>Harga yang tertulis di bannermu sekarang.</span>
+  </div>
+  <div style="flex-grow: 1; min-height: 24px"></div>
+  <button style="display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 10px; font-size: 17px; font-weight: 600; border: none; background: #1C1917; color: #FAFAF9; width: 100%">Lanjut</button>
+</div></x-dc>
+</body>
+</html>
