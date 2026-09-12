@@ -270,6 +270,34 @@ create policy alert_tandai on alerts for update
 -- ai_cache: hanya service role. Tanpa policy = tidak ada akses dari klien.
 
 -- ══════════════════════════════════════════════════════════════
+-- HAK AKSES PERAN
+-- ══════════════════════════════════════════════════════════════
+-- Di Supabase, RLS saja TIDAK CUKUP. Peran juga butuh hak tabel —
+-- tanpa ini hasilnya "permission denied" meski policy sudah benar.
+-- Default privileges Supabase biasanya menutupinya kalau migrasi
+-- dijalankan sebagai postgres, tapi ditulis eksplisit supaya pasti.
+
+grant usage on schema public to anon, authenticated;
+
+-- Referensi publik: baca saja, termasuk untuk pengunjung belum login.
+grant select on commodities, catalog_items, regions, ingest_runs
+  to anon, authenticated;
+
+-- Data warung: hanya pengguna terautentikasi. RLS yang menyaring barisnya.
+grant select, insert, update, delete on
+  businesses, menu_items, recipe_items, fixed_costs, prices
+  to authenticated;
+
+grant select on margin_snapshots to authenticated;
+grant select, update on alerts to authenticated;   -- update = tandai sudah dibaca
+
+grant usage, select on all sequences in schema public to authenticated;
+grant execute on function public.punya_warung(uuid), public.punya_menu(uuid)
+  to authenticated;
+
+-- ai_cache sengaja tidak diberi hak apa pun: hanya service role.
+
+-- ══════════════════════════════════════════════════════════════
 -- VIEW
 -- ══════════════════════════════════════════════════════════════
 
@@ -335,3 +363,6 @@ from   biaya b
 join   total t on t.menu_item_id = b.menu_item_id
 left join commodities   c  on c.id  = b.commodity_id
 left join catalog_items ci on ci.id = b.commodity_id;
+
+-- View memakai security_invoker, jadi RLS pemanggil tetap berlaku.
+grant select on latest_prices, price_change_7d, menu_exposure to authenticated;
