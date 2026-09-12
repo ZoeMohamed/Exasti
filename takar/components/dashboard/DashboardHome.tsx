@@ -2,17 +2,19 @@ import Link from "next/link";
 import type { Menu } from "@/types/menu";
 import { formatRupiah } from "@/lib/formatRupiah";
 import { MenuCard } from "@/components/ui/MenuCard";
+import { AlertInbox } from "@/components/dashboard/AlertInbox";
+import type { AlertTampil } from "@/lib/services/alerts";
 
 interface DashboardHomeProps {
   menus: Menu[];
   latestDate: string;
+  alerts: AlertTampil[];
 }
 
-export function DashboardHome({ menus, latestDate }: DashboardHomeProps) {
+export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps) {
   const activeCount = menus.length;
   const criticalMenus = menus.filter((m) => m.status === "tipis" || m.status === "rugi");
   const avgProfit = Math.round(menus.reduce((acc, m) => acc + m.profit, 0) / (menus.length || 1));
-  const topCritical = criticalMenus[0] || menus[0];
 
   // Format tanggal BI
   const formattedDate = (() => {
@@ -71,49 +73,19 @@ export function DashboardHome({ menus, latestDate }: DashboardHomeProps) {
       <section>
         <SectionTitle
           title="Yang Perlu Kamu Perhatikan"
-          note="Diurutkan dari dampak rupiah terbesar"
+          note={
+            alerts.length > 0
+              ? "Paling mendesak di atas · maksimal tiga sehari"
+              : "Kosong berarti aman"
+          }
         />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {topCritical && (
-            <Alert
-              title={topCritical.shortName}
-              status={topCritical.status.toUpperCase()}
-              tone={topCritical.status === "rugi" ? "red" : "yellow"}
-              value={formatRupiah(topCritical.profit)}
-              body={`Pendorong utama: ${topCritical.driver} naik dan menekan margin menjadi ${topCritical.margin.toFixed(1)}%.`}
-              href={`/dashboard/menu/${topCritical.id}`}
-              action="Lihat Kenapa"
-            />
-          )}
-          {menus[1] && (
-            <Alert
-              title={menus[1].shortName}
-              status={menus[1].status.toUpperCase()}
-              tone={menus[1].status === "rugi" ? "red" : menus[1].status === "tipis" ? "yellow" : "green"}
-              value={formatRupiah(menus[1].profit)}
-              body={`Pendorong: ${menus[1].driver}. Margin untung ${menus[1].margin.toFixed(1)}%.`}
-              href={`/dashboard/menu/${menus[1].id}`}
-              action="Cek Rincian"
-            />
-          )}
-          {menus.find((m) => m.status === "sehat") && (
-            <Alert
-              title={menus.find((m) => m.status === "sehat")!.shortName}
-              status="INFO AMAN"
-              tone="green"
-              value={formatRupiah(menus.find((m) => m.status === "sehat")!.profit)}
-              body="Untung stabil. Jadikan menu bundling untuk menambal menu makanan utama."
-              href={`/dashboard/menu/${menus.find((m) => m.status === "sehat")!.id}`}
-              action="Lihat Detail Menu"
-            />
-          )}
-        </div>
+        <AlertInbox alerts={alerts} />
       </section>
 
       <section>
         <SectionTitle
           title="Kondisi Menu Kamu"
-          note="Diurutkan dari margin untung terkecil ke terbesar."
+          note="Diurutkan dari untung paling tipis ke paling tebal."
           action={
             <Link
               href="/dashboard/menu/tambah"
