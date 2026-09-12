@@ -6,6 +6,7 @@
     "dev": "npm --prefix takar run dev",
     "build": "npm --prefix takar run build",
     "start": "npm --prefix takar run start",
-    "lint": "npm --prefix takar run lint"
+    "lint": "npm --prefix takar run lint",
+    "db:check": "npm --prefix takar run db:check"
   }
 }

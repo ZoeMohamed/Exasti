@@ -1,208 +1,447 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { formatRupiah } from "@/lib/formatRupiah";
 
-type IngredientRow = {
+export interface IngredientRow {
+  commodityId: string;
   name: string;
-  icon: string;
   price: number;
-  amount: string;
-  portions: string;
-  question: string;
+  batchQty: number;
   unit: string;
-};
-type CostKey = "kemasan" | "gas" | "bumbu" | "plastik";
+  note?: string;
+}
 
-const templates: IngredientRow[][] = [
-  [
-    {
-      name: "Daging Ayam Ras Segar",
-      icon: "🍗",
-      price: 40500,
-      amount: "2",
-      portions: "8",
-      question: "Sekali masak, kamu beli berapa?",
-      unit: "Kilogram (kg)",
-    },
-    {
-      name: "Cabai Rawit Hijau",
-      icon: "🌶️",
-      price: 63750,
-      amount: "0.12",
-      portions: "8",
-      question: "Sekali racik sambal, beli berapa?",
-      unit: "Kilogram (kg)",
-    },
-  ],
-  [
-    {
-      name: "Telur Ayam Ras Segar",
-      icon: "🥚",
-      price: 28500,
-      amount: "1",
-      portions: "10",
-      question: "Sekali masak, kamu beli berapa?",
-      unit: "Kilogram (kg)",
-    },
-    {
-      name: "Minyak Goreng Curah",
-      icon: "🫗",
-      price: 21500,
-      amount: "0.5",
-      portions: "10",
-      question: "Sekali masak, kamu beli berapa?",
-      unit: "Liter",
-    },
-  ],
-];
+interface CommodityOption {
+  id: string;
+  name: string;
+  unit: string;
+  current_price: string;
+}
 
-export function MenuForm({ edit = false }: { edit?: boolean }) {
-  const [template, setTemplate] = useState(0);
-  const [rows, setRows] = useState(templates[0]);
+interface MenuFormProps {
+  edit?: boolean;
+  menuId?: string;
+  initialName?: string;
+  initialPrice?: number;
+  initialYield?: number;
+  initialVolume?: number;
+  initialRows?: IngredientRow[];
+}
+
+export function MenuForm({
+  edit = false,
+  menuId,
+  initialName = "",
+  initialPrice = 18000,
+  initialYield = 8,
+  initialVolume = 100,
+  initialRows,
+}: MenuFormProps) {
+  const router = useRouter();
+
+  const [name, setName] = useState(initialName);
+  const [sellPrice, setSellPrice] = useState(initialPrice);
+  const [batchYield, setBatchYield] = useState(initialYield);
+  const [weeklyVolume, setWeeklyVolume] = useState(initialVolume);
+
+  const [availableCommodities, setAvailableCommodities] = useState<CommodityOption[]>([]);
+  const [rows, setRows] = useState<IngredientRow[]>(
+    initialRows || [
+      {
+        commodityId: "Daging Ayam Ras Segar",
+        name: "Daging Ayam Ras Segar",
+        price: 40500,
+        batchQty: 2,
+        unit: "kg",
+      },
+      {
+        commodityId: "Cabai Rawit Hijau",
+        name: "Cabai Rawit Hijau",
+        price: 63750,
+        batchQty: 0.12,
+        unit: "kg",
+      },
+    ]
+  );
+
   const [smallCosts, setSmallCosts] = useState({
     kemasan: true,
     gas: true,
     bumbu: true,
     plastik: false,
   });
+
+  const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  function chooseTemplate(index: number) {
-    setTemplate(index);
-    setRows(templates[index]);
-  }
-  function updateRow(
-    index: number,
-    field: "amount" | "portions",
-    value: string,
-  ) {
+  // Ambil komoditas langsung dari database Supabase
+  useEffect(() => {
+    fetch("/api/commodities")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.status === "ok" && data.commodities) {
+          setAvailableCommodities(data.commodities);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  function handleCommodityChange(index: number, commodityId: string) {
+    const found = availableCommodities.find((c) => c.id === commodityId);
+    if (!found) return;
+
     setRows((current) =>
-      current.map((row, rowIndex) =>
-        rowIndex === index ? { ...row, [field]: value } : row,
-      ),
+      current.map((r, i) =>
+        i === index
+          ? {
+              ...r,
+              commodityId: found.id,
+              name: found.name,
+              price: Number(found.current_price) || 25000,
+              unit: found.unit,
+            }
+          : r
+      )
     );
   }
+
+  function updateRowQty(index: number, batchQty: number) {
+    setRows((current) =>
+      current.map((r, i) => (i === index ? { ...r, batchQty } : r))
+    );
+  }
+
+  function removeRow(index: number) {
+    if (rows.length <= 1) return;
+    setRows((current) => current.filter((_, i) => i !== index));
+  }
+
   function addIngredient() {
+    const defaultItem = availableCommodities[0] || {
+      id: "Beras Kualitas Medium I",
+      name: "Beras Kualitas Medium I",
+      unit: "kg",
+      current_price: "15750",
+    };
+
     setRows((current) => [
       ...current,
       {
-        name: "Bahan Baku Lainnya",
-        icon: "🥬",
-        price: 10000,
-        amount: "1",
-        portions: "8",
-        question: "Sekali masak, kamu beli berapa?",
-        unit: "Kilogram (kg)",
+        commodityId: defaultItem.id,
+        name: defaultItem.name,
+        price: Number(defaultItem.current_price) || 15750,
+        batchQty: 1,
+        unit: defaultItem.unit,
       },
     ]);
+  }
+
+  // Hitung perkiraan modal per porsi
+  const ingredientsCostPerPortion = rows.reduce((acc, r) => {
+    const portionQty = r.batchQty / (batchYield || 1);
+    return acc + portionQty * r.price;
+  }, 0);
+
+  const fixedCostTotal =
+    (smallCosts.kemasan ? 350 : 0) +
+    (smallCosts.gas ? 450 : 0) +
+    (smallCosts.bumbu ? 300 : 0) +
+    (smallCosts.plastik ? 250 : 0);
+
+  const totalModalPerPortion = Math.round(ingredientsCostPerPortion + fixedCostTotal);
+  const estimatedProfit = sellPrice - totalModalPerPortion;
+  const estimatedMargin = sellPrice > 0 ? ((estimatedProfit / sellPrice) * 100).toFixed(1) : "0";
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) {
+      alert("Nama menu tidak boleh kosong!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const fixedCostsList: Array<{ label: string; amount: number }> = [];
+      if (smallCosts.kemasan) fixedCostsList.push({ label: "Kemasan / Kertas Bungkus", amount: 350 });
+      if (smallCosts.gas) fixedCostsList.push({ label: "Gas Elpiji Kompor", amount: 450 });
+      if (smallCosts.bumbu) fixedCostsList.push({ label: "Bumbu Dapur", amount: 300 });
+      if (smallCosts.plastik) fixedCostsList.push({ label: "Plastik & Sendok", amount: 250 });
+
+      const payload = {
+        name,
+        sellPrice: Number(sellPrice),
+        batchYield: Number(batchYield),
+        weeklyVolume: Number(weeklyVolume),
+        recipe: rows.map((r) => ({
+          commodityId: r.commodityId,
+          batchQty: Number(r.batchQty),
+          note: r.note,
+        })),
+        fixedCosts: fixedCostsList,
+      };
+
+      const url = edit && menuId ? `/api/menus/${menuId}` : "/api/menus";
+      const method = edit ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => {
+          router.push("/dashboard/menu");
+          router.refresh();
+        }, 1200);
+      } else {
+        alert(data.error || "Gagal menyimpan menu");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan jaringan saat menyimpan ke database.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="space-y-8">
       <section className="bg-white p-6 sm:p-8 brutal-card">
         <span className="mb-2 inline-block bg-accent-green px-2.5 py-0.5 font-mono text-xs font-bold uppercase text-white">
-          Cara Isi Gaya Buku Kas Warung
+          Simpan Langsung ke Supabase Database
         </span>
         <h1 className="font-heading text-3xl font-extrabold sm:text-4xl">
-          {edit
-            ? "Edit catatan menu kamu"
-            : "“Kamu biasanya masak berapa banyak?”"}
+          {edit ? "Edit Catatan Resep Menu" : "“Sekali masak, kamu belanja berapa banyak?”"}
         </h1>
         <p className="mt-2 max-w-2xl text-sm font-medium text-ink/80 sm:text-lg">
-          Takar tidak menyuruhmu menghitung gram cabai per piring. Isi berapa
-          kilo belanjaan sekali masak, biar kami yang hitung per porsinya.
+          Isi takaran belanja sekali masak dalam satuan kilogram atau liter. Takar akan otomatis menghitung modal per porsi berdasarkan harga komoditas pasar Bank Indonesia hari ini.
         </p>
-        {!edit && (
-          <div className="mt-6 border-t-2 border-ink pt-6">
-            <span className="mb-3 block font-mono text-xs font-bold uppercase text-ink/70">
-              Pilih Template Cepat (otomatis terisi bahan standar):
-            </span>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              {[
-                ["🍗", "AYAM GEPREK", "8 porsi/batch"],
-                ["🍳", "NASI GORENG", "10 porsi/batch"],
-                ["🍜", "MIE AYAM", "15 mangkok"],
-                ["🐟", "PECEL LELE", "10 ekor"],
-                ["🍱", "WARTEG / SAYUR", "Wajan besar"],
-              ].map(([icon, name, note], index) => (
-                <button
-                  type="button"
-                  key={name}
-                  onClick={() => chooseTemplate(index === 0 ? 0 : 1)}
-                  className={`brutal-btn p-3 text-left ${template === (index === 0 ? 0 : 1) ? "bg-warning-yellow" : "bg-white"}`}
-                >
-                  <span className="block text-xl">{icon}</span>
-                  <span className="block font-heading text-xs font-extrabold">
-                    {name}
-                  </span>
-                  <span className="font-mono text-[10px] text-ink/70">
-                    {note}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </section>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSaved(true);
-        }}
-        className="relative space-y-6 bg-cream-surface p-6 sm:p-8 brutal-card"
-      >
+
+      <form onSubmit={handleSubmit} className="relative space-y-6 bg-cream-surface p-6 sm:p-8 brutal-card">
         <span className="absolute -top-3 left-6 bg-ink px-3 py-1 font-mono text-xs font-bold text-cream">
           CATATAN MASAK WARUNG
         </span>
+
         <div className="grid gap-4 pt-2 sm:grid-cols-2">
-          <Field label="Nama Menu" defaultValue="Ayam Geprek Sambal Bawang" />
-          <Field
-            label="Rencana Harga Jual ke Pembeli"
-            defaultValue="18000"
-            type="number"
-          />
-        </div>
-        <div className="space-y-4 bg-cream p-5 brutal-border-2">
-          <h2 className="font-heading text-lg font-extrabold">
-            Pertanyaan Sekali Masak:
-          </h2>
-          {rows.map((row, index) => (
-            <IngredientInput
-              key={`${row.name}-${index}`}
-              row={row}
-              index={index}
-              onChange={updateRow}
+          <label className="font-heading text-sm font-bold">
+            Nama Menu Makanan / Minuman
+            <input
+              required
+              placeholder="Contoh: Soto Ayam Semarang"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
             />
-          ))}
+          </label>
+
+          <label className="font-heading text-sm font-bold">
+            Rencana Harga Jual ke Pembeli (Rp)
+            <input
+              required
+              type="number"
+              min="1000"
+              step="500"
+              value={sellPrice}
+              onChange={(e) => setSellPrice(Number(e.target.value))}
+              className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
+            />
+          </label>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="font-heading text-sm font-bold">
+            Hasil Sekali Masak (Berapa Porsi?)
+            <input
+              required
+              type="number"
+              min="1"
+              value={batchYield}
+              onChange={(e) => setBatchYield(Number(e.target.value))}
+              className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
+            />
+            <span className="font-mono text-xs text-ink/60 mt-1 block">
+              Contoh: 2 kg ayam dipotong jadi 8 porsi piring
+            </span>
+          </label>
+
+          <label className="font-heading text-sm font-bold">
+            Perkiraan Laku Mingguan (Porsi / Minggu)
+            <input
+              type="number"
+              min="0"
+              value={weeklyVolume}
+              onChange={(e) => setWeeklyVolume(Number(e.target.value))}
+              className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
+            />
+            <span className="font-mono text-xs text-ink/60 mt-1 block">
+              Dipakai untuk pembobotan prioritas menu
+            </span>
+          </label>
+        </div>
+
+        {/* Dynamic Ingredients Section */}
+        <div className="space-y-4 bg-cream p-5 brutal-border-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-heading text-lg font-extrabold">
+              Bahan Pokok Sekali Masak:
+            </h2>
+            <span className="font-mono text-xs text-ink/70">
+              Harga ditarik langsung dari tabel commodities Supabase
+            </span>
+          </div>
+
+          {rows.map((row, index) => {
+            const portionQty = row.batchQty / (batchYield || 1);
+            const cost = Math.round(portionQty * row.price);
+
+            return (
+              <div key={index} className="space-y-3 bg-white p-4 brutal-border-2">
+                <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="font-heading font-bold text-sm">Bahan {index + 1}:</span>
+                    <select
+                      value={row.commodityId}
+                      onChange={(e) => handleCommodityChange(index, e.target.value)}
+                      className="bg-cream font-heading font-bold p-2 text-xs brutal-border-2 flex-1 max-w-sm"
+                    >
+                      {availableCommodities.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.unit})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="w-fit bg-bright-green/30 px-2 py-1 font-mono text-xs border border-ink">
+                      Harga Pasar: {formatRupiah(row.price)}/{row.unit}
+                    </span>
+                    {rows.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeRow(index)}
+                        className="text-critical-red hover:underline font-heading text-xs font-bold"
+                      >
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="text-xs font-bold">
+                    “Sekali masak kamu beli berapa {row.unit}?”
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={row.batchQty}
+                      onChange={(e) => updateRowQty(index, Number(e.target.value))}
+                      className="mt-1 w-full bg-white p-2 text-center font-mono text-lg brutal-border-2"
+                    />
+                  </label>
+
+                  <div className="flex flex-col justify-center bg-cream p-3 font-mono text-xs brutal-border-2">
+                    <div className="text-ink/70">Perkiraan Takaran Per Porsi:</div>
+                    <strong className="text-sm">
+                      {portionQty.toFixed(3)} {row.unit} / porsi
+                    </strong>
+                    <div className="text-critical-red font-bold mt-1">
+                      Modal: {formatRupiah(cost)} / porsi
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
           <button
             type="button"
             onClick={addIngredient}
-            className="brutal-btn bg-white px-3 py-2 text-xs font-heading font-bold"
+            className="brutal-btn bg-white px-4 py-2 text-xs font-heading font-bold"
           >
-            + Tambah Bahan Baku Lainnya
+            + Tambah Bahan Lain dari Database
           </button>
         </div>
-        <SmallCosts
-          values={smallCosts}
-          onChange={(key) =>
-            setSmallCosts((current) => ({ ...current, [key]: !current[key] }))
-          }
-        />
-        <div className="flex flex-col gap-3 pt-4 sm:flex-row">
+
+        {/* Small costs */}
+        <section className="space-y-3 bg-white p-5 brutal-border-2">
+          <h2 className="font-heading text-lg font-extrabold">
+            Biaya Kecil & Kemasan Per Porsi:
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              ["kemasan", "Kemasan / Kertas Bungkus (Rp 350)"],
+              ["gas", "Gas Elpiji Kompor (Rp 450)"],
+              ["bumbu", "Bumbu Dapur & Garam (Rp 300)"],
+              ["plastik", "Plastik & Sendok Bebek (Rp 250)"],
+            ].map(([key, label]) => (
+              <label
+                key={key}
+                className={`flex cursor-pointer items-center justify-between gap-2 p-2.5 brutal-border-2 ${
+                  smallCosts[key as keyof typeof smallCosts] ? "bg-cream" : "bg-white"
+                }`}
+              >
+                <span className="flex items-center gap-2 text-xs font-bold">
+                  <input
+                    type="checkbox"
+                    checked={smallCosts[key as keyof typeof smallCosts]}
+                    onChange={() =>
+                      setSmallCosts((c) => ({
+                        ...c,
+                        [key]: !c[key as keyof typeof smallCosts],
+                      }))
+                    }
+                  />
+                  {label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </section>
+
+        {/* Dynamic Summary Live Box */}
+        <div className="bg-ink p-4 text-cream brutal-card space-y-2 font-mono text-xs sm:text-sm">
+          <div className="flex justify-between border-b border-white/20 pb-2">
+            <span>PERKIRAAN MODAL PER PORSI:</span>
+            <strong className="text-critical-red text-base">{formatRupiah(totalModalPerPortion)}</strong>
+          </div>
+          <div className="flex justify-between border-b border-white/20 pb-2">
+            <span>HARGA JUALMU:</span>
+            <strong>{formatRupiah(sellPrice)}</strong>
+          </div>
+          <div className="flex justify-between pt-1">
+            <span>UNTUNG BERSIH PER PORSI:</span>
+            <strong className={estimatedProfit > 0 ? "text-bright-green text-base" : "text-critical-red text-base"}>
+              {formatRupiah(estimatedProfit)} ({estimatedMargin}%)
+            </strong>
+          </div>
+        </div>
+
+        {saved && (
+          <div className="bg-bright-green p-3 font-mono text-sm font-bold text-ink brutal-border-2 text-center">
+            ✅ Sukses! Menu & takaran resep telah berhasil disimpan ke database Supabase. Mengalihkan...
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row">
           <button
             type="submit"
-            className="brutal-btn flex-1 bg-critical-red px-6 py-3.5 font-heading font-extrabold text-white"
+            disabled={loading || saved}
+            className="brutal-btn flex-1 bg-critical-red px-6 py-3.5 font-heading font-extrabold text-white disabled:opacity-50"
           >
-            {saved
-              ? "Menu Berhasil Disimpan ✓"
-              : edit
-                ? "Simpan Perubahan ➔"
-                : "Simpan & Lihat Hitungan Untung ➔"}
+            {loading ? "Menyimpan ke Supabase..." : saved ? "Tersimpan ✓" : edit ? "Simpan Perubahan ke Database ➔" : "Simpan Menu Baru ke Supabase ➔"}
           </button>
           <Link
-            href="/dashboard"
+            href="/dashboard/menu"
             className="brutal-btn bg-white px-6 py-3.5 text-center font-heading font-bold"
           >
             Batal
@@ -210,142 +449,5 @@ export function MenuForm({ edit = false }: { edit?: boolean }) {
         </div>
       </form>
     </div>
-  );
-}
-
-function Field({
-  label,
-  defaultValue,
-  type = "text",
-}: {
-  label: string;
-  defaultValue: string;
-  type?: string;
-}) {
-  return (
-    <label className="font-heading text-sm font-bold">
-      {label}
-      <input
-        required
-        defaultValue={defaultValue}
-        type={type}
-        className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
-      />
-    </label>
-  );
-}
-function IngredientInput({
-  row,
-  index,
-  onChange,
-}: {
-  row: IngredientRow;
-  index: number;
-  onChange: (
-    index: number,
-    field: "amount" | "portions",
-    value: string,
-  ) => void;
-}) {
-  const amount = Number(row.amount) || 0;
-  const portions = Number(row.portions) || 1;
-  const cost = Math.round((amount * row.price) / portions);
-  return (
-    <div className="space-y-3 bg-white p-4 brutal-border-2">
-      <div className="flex flex-col justify-between gap-2 sm:flex-row">
-        <strong className="font-heading text-base">
-          Bahan {index + 1}: {row.name}
-        </strong>
-        <span className="w-fit bg-bright-green/30 px-2 py-0.5 font-mono text-xs border border-ink">
-          Harga Pasar: {formatRupiah(row.price)}/kg
-        </span>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="text-xs font-bold">
-          “{row.question}”
-          <input
-            aria-label={`${row.name} jumlah`}
-            value={row.amount}
-            onChange={(event) => onChange(index, "amount", event.target.value)}
-            type="number"
-            min="0"
-            step="0.1"
-            className="mt-1 w-full bg-white p-2 text-center font-mono text-lg brutal-border-2"
-          />
-          <span className="font-mono text-xs">{row.unit}</span>
-        </label>
-        <label className="text-xs font-bold">
-          “Biasanya jadi berapa porsi?”
-          <input
-            aria-label={`${row.name} porsi`}
-            value={row.portions}
-            onChange={(event) =>
-              onChange(index, "portions", event.target.value)
-            }
-            type="number"
-            min="1"
-            className="mt-1 w-full bg-white p-2 text-center font-mono text-lg brutal-border-2"
-          />
-          <span className="font-mono text-xs">Porsi</span>
-        </label>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-warning-yellow/40 p-2 font-mono text-xs font-bold brutal-border-2">
-        <span>🔄 Konversi Otomatis:</span>
-        <span>
-          {amount} kg ➔ {portions} porsi = ≈{" "}
-          {Math.round((amount * 1000) / portions)} gram / porsi
-        </span>
-        <span className="text-critical-red">
-          Modal: {formatRupiah(cost)} / porsi
-        </span>
-      </div>
-    </div>
-  );
-}
-function SmallCosts({
-  values,
-  onChange,
-}: {
-  values: Record<CostKey, boolean>;
-  onChange: (key: CostKey) => void;
-}) {
-  const costs: readonly [CostKey, string, number][] = [
-    ["kemasan", "Kemasan / Kertas Bungkus", 350],
-    ["gas", "Gas Elpiji (Kompor)", 450],
-    ["bumbu", "Bumbu Dapur (Garam, Micin)", 300],
-    ["plastik", "Plastik & Sendok Bebek", 250],
-  ];
-  return (
-    <section className="space-y-3 bg-white p-5 brutal-border-2">
-      <h2 className="font-heading text-lg font-extrabold">
-        “Ada biaya kecil yang ikut setiap porsi?”
-      </h2>
-      <p className="text-xs text-ink/70">
-        Centang perlengkapan kecil yang ikut terpakai saat menyajikan menu ini.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {costs.map(([key, label, cost]) => (
-          <label
-            key={key}
-            className={`flex cursor-pointer items-center justify-between gap-2 p-2.5 brutal-border-2 ${values[key] ? "bg-cream" : "bg-white"}`}
-          >
-            <span className="flex items-center gap-2 text-xs font-bold">
-              <input
-                type="checkbox"
-                checked={values[key]}
-                onChange={() => onChange(key)}
-              />
-              {label}
-            </span>
-            <span className="font-mono text-xs text-ink/70">
-              Perkiraan {formatRupiah(cost)}
-            </span>
-          </label>
-        ))}
-      </div>
-      <p className="font-mono text-[11px] text-ink/70">
-        * Nilai perkiraan bisa diubah kapan saja di Pengaturan.
-      </p>
-    </section>
   );
 }

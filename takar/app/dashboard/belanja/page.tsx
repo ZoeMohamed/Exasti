@@ -1,26 +1,77 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { formatRupiah } from "@/lib/formatRupiah";
 import type { ParsedItem, OcrResponsePayload } from "@/lib/ai/ocr";
 
+interface CommodityOption {
+  id: string;
+  name: string;
+  unit: string;
+  current_price: string;
+}
+
+interface UserPriceHistory {
+  commodity_id: string;
+  name: string;
+  unit: string;
+  price: number;
+  date: string;
+  source: string;
+}
+
 export default function BelanjaPage() {
+  const [commodities, setCommodities] = useState<CommodityOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusStep, setStatusStep] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OcrResponsePayload | null>(null);
   const [items, setItems] = useState<ParsedItem[]>([]);
-  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [receiptHistory, setReceiptHistory] = useState<UserPriceHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fungsi memanggil API OCR /api/ai/parse-nota
-  async function processReceipt(payload: { imageBase64?: string; sampleId?: string; mimeType?: string }) {
+  // 1. Ambil komoditas & riwayat harga nota dari database Supabase
+  useEffect(() => {
+    fetch("/api/commodities")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.status === "ok" && data.commodities) {
+          setCommodities(data.commodities);
+        }
+      })
+      .catch(console.error);
+
+    fetchHistory();
+  }, []);
+
+  function fetchHistory() {
+    setHistoryLoading(true);
+    fetch("/api/prices")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.status === "ok" && data.prices) {
+          setReceiptHistory(data.prices);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setHistoryLoading(false));
+  }
+
+  // 2. Memanggil AI OCR /api/ai/parse-nota (Gemini Flash Vision + Komoditas BI)
+  async function processReceipt(payload: {
+    imageBase64?: string;
+    sampleId?: string;
+    mimeType?: string;
+  }) {
     setLoading(true);
     setErrorMsg(null);
-    setSavedSuccess(false);
+    setSaveSuccess(null);
     setStatusStep("Mengirim gambar nota...");
 
     try {
@@ -88,6 +139,25 @@ export default function BelanjaPage() {
     );
   }
 
+  // Ubah kecocokan komoditas secara manual jika diinginkan
+  function updateItemCommodity(id: string, commodityId: string) {
+    const comm = commodities.find((c) => c.id === commodityId);
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== id) return it;
+        return {
+          ...it,
+          match: {
+            ...it.match,
+            matchedName: comm ? comm.name : commodityId,
+            isBiCommodity: true,
+            standardUnit: comm?.unit || it.match.standardUnit || "kg",
+          },
+        };
+      }),
+    );
+  }
+
   // Hapus baris item
   function removeItem(id: string) {
     setItems((prev) => prev.filter((it) => it.id !== id));
@@ -95,72 +165,124 @@ export default function BelanjaPage() {
 
   // Tambah baris manual jika ada yang terlewat di nota
   function addNewItem() {
+    const defaultComm = commodities[0];
+    const defaultName = defaultComm?.name || "Bahan Baru";
     const newItem: ParsedItem = {
       id: `item-${Date.now()}`,
-      nameRaw: "Bahan Baru",
+      nameRaw: defaultName,
       qty: 1,
-      unit: "kg",
-      totalPrice: 20000,
+      unit: defaultComm?.unit || "kg",
+      totalPrice: Number(defaultComm?.current_price) || 20000,
       match: {
-        matchedName: "Bahan Warung",
+        matchedName: defaultName,
         isBiCommodity: false,
-        standardUnit: "kg",
+        standardUnit: defaultComm?.unit || "kg",
         normalizedQty: 1,
-        pricePerUnit: 20000,
+        pricePerUnit: Number(defaultComm?.current_price) || 20000,
       },
       isConfirmed: true,
     };
     setItems((prev) => [...prev, newItem]);
   }
 
-  // Simpan harga hasil konfirmasi
-  function handleSavePrices() {
-    setSavedSuccess(true);
-    // Gulir ke atas
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  // Simpan harga hasil konfirmasi ke tabel prices di Supabase
+  async function handleSavePrices() {
+    if (items.length === 0) return;
+    setSaving(true);
+    setSaveSuccess(null);
+    setErrorMsg(null);
+
+    try {
+      // Map item ke komoditas database jika tersedia
+      const payloadItems = items.map((it) => {
+        const comm = commodities.find(
+          (c) =>
+            c.name.toLowerCase() === it.match.matchedName.toLowerCase() ||
+            c.id.toLowerCase() === it.match.matchedName.toLowerCase(),
+        );
+
+        const price =
+          it.match.pricePerUnit > 0
+            ? it.match.pricePerUnit
+            : it.totalPrice && it.qty
+            ? Math.round(Number(it.totalPrice) / Number(it.qty))
+            : Number(it.totalPrice) || 0;
+
+        return {
+          commodity_id: comm ? comm.id : it.match.matchedName,
+          price,
+        };
+      });
+
+      const res = await fetch("/api/prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: payloadItems }),
+      });
+
+      const data = await res.json();
+      if (data.status === "ok") {
+        setSaveSuccess(data.message || "Harga bahan berhasil dicatat ke database Supabase!");
+        fetchHistory();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        setErrorMsg(data.message || "Gagal menyimpan harga ke database.");
+      }
+    } catch (err: unknown) {
+      setErrorMsg("Terjadi kesalahan saat menyimpan harga ke Supabase.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const totalRupiah = items.reduce((acc, curr) => acc + (Number(curr.totalPrice) || 0), 0);
 
   return (
     <div className="space-y-8 pb-12">
-      {/* HEADER SECTION */}
+      {/* HEADER NAV & DATABASE BADGE */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href="/dashboard"
+          className="brutal-btn bg-white px-3 py-1.5 font-mono text-xs font-bold"
+        >
+          ← Kembali ke Dashboard
+        </Link>
+        <span className="bg-warning-yellow px-2.5 py-1 font-mono text-xs font-bold brutal-border-2">
+          Terhubung ke Supabase: {commodities.length} Komoditas Terdaftar
+        </span>
+      </div>
+
+      {/* BANNER UTAMA */}
       <section className="relative bg-white p-6 sm:p-8 brutal-card">
         <span className="inline-block bg-bright-green px-3 py-1 font-mono text-xs font-bold brutal-border-2 text-ink">
-          FITUR AI · CINCIN 1 (GEMINI FLASH)
+          FITUR AI OCR · GOOGLE GEMINI FLASH + SUPABASE
         </span>
         <h1 className="mt-3 font-heading text-3xl font-extrabold sm:text-4xl lg:text-5xl">
-          “Foto nota, biar Takar yang catat.”
+          “Foto nota, biar Takar yang catat ke database.”
         </h1>
         <p className="mt-3 max-w-3xl text-base font-medium leading-relaxed text-ink/80 sm:text-lg">
           Unggah foto nota dari pasar atau toko kelontong. Gemini Flash akan membaca nama barang,
-          jumlah, dan harganya, lalu mencocokkannya ke 21 komoditas Bank Indonesia dan resep warungmu.
+          jumlah, dan harganya, lalu mencocokkannya ke 21 komoditas Bank Indonesia dan resep warungmu di database.
         </p>
 
         {/* Banner Sukses Simpan */}
-        {savedSuccess && (
+        {saveSuccess && (
           <div className="mt-6 bg-bright-green/20 border-3 border-ink p-5 brutal-border shadow-[4px_4px_0_#111]">
             <div className="flex items-center gap-3">
               <span className="text-3xl">🎉</span>
               <div>
                 <h3 className="font-heading text-lg font-bold text-ink">
-                  {items.length} Harga Belanja Berhasil Disimpan ke Warungmu!
+                  {saveSuccess}
                 </h3>
                 <p className="text-sm text-ink/80 mt-1">
-                  Modal menu Ayam Geprek dan menu lainnya otomatis diperbarui menggunakan harga belanjamu hari ini.
+                  Modal menu warung dan perhitungan margin keuntungan otomatis diperbarui menggunakan harga belanja terbaru ini.
                 </p>
                 <div className="mt-3 flex gap-3">
                   <Link
-                    href="/dashboard/menu/ayam-geprek"
+                    href="/dashboard"
                     className="brutal-btn bg-bright-green px-3 py-1.5 text-xs font-heading font-bold"
                   >
-                    Lihat Dampak di Ayam Geprek →
-                  </Link>
-                  <Link
-                    href="/dashboard"
-                    className="brutal-btn bg-white px-3 py-1.5 text-xs font-heading font-bold"
-                  >
-                    Kembali ke Dashboard
+                    Lihat Dashboard Menu →
                   </Link>
                 </div>
               </div>
@@ -174,7 +296,7 @@ export default function BelanjaPage() {
             <span className="inline-block h-2 w-2 rounded-full bg-bright-green"></span>
             <span>Didukung: Google Gemini Flash Vision + Cache Cerdas</span>
           </div>
-          <div>🛡️ Prinsip Takar: AI hanya membaca, pemilik selalu menyetujui.</div>
+          <div>🛡️ Prinsip Takar: AI hanya membaca, pemilik selalu memverifikasi sebelum simpan.</div>
         </div>
       </section>
 
@@ -298,7 +420,7 @@ export default function BelanjaPage() {
             </div>
 
             <h2 className="mt-1 font-heading text-2xl font-extrabold">
-              “Cek dulu sebelum disimpan.”
+              “Cek dulu sebelum disimpan ke database.”
             </h2>
             <p className="mt-1 text-xs text-ink/70">
               Takar tidak pernah langsung menyimpan hasil scan tanpa persetujuanmu. Pastikan angka
@@ -356,9 +478,33 @@ export default function BelanjaPage() {
                             />
                           </div>
 
-                          {/* Pencocokan ke 21 Komoditas BI */}
+                          {/* Pencocokan ke Komoditas Database / BI */}
                           <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                            {item.match.isBiCommodity ? (
+                            {commodities.length > 0 ? (
+                              <select
+                                value={
+                                  commodities.find(
+                                    (c) =>
+                                      c.name.toLowerCase() === itLower(item.match.matchedName) ||
+                                      c.id.toLowerCase() === itLower(item.match.matchedName),
+                                  )?.id || ""
+                                }
+                                onChange={(e) => {
+                                  if (e.target.value) updateItemCommodity(item.id, e.target.value);
+                                }}
+                                className="bg-cream font-mono text-[10px] font-bold py-0.5 px-1 border border-ink"
+                              >
+                                <option value="">
+                                  {item.match.isBiCommodity ? "✓ Komoditas BI: " : "📦 Warung: "}
+                                  {item.match.matchedName}
+                                </option>
+                                {commodities.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    Petakan ke: {c.name} ({c.unit})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : item.match.isBiCommodity ? (
                               <span className="bg-bright-green/20 px-2 py-0.5 font-mono text-[10px] font-bold text-accent-green border border-accent-green">
                                 ✓ Komoditas BI: {item.match.matchedName}
                               </span>
@@ -460,9 +606,12 @@ export default function BelanjaPage() {
                 <button
                   type="button"
                   onClick={handleSavePrices}
-                  className="brutal-btn mt-2 w-full bg-bright-green px-4 py-3.5 font-heading text-base font-extrabold text-ink shadow-[4px_4px_0_#111]"
+                  disabled={saving}
+                  className="brutal-btn mt-2 w-full bg-bright-green px-4 py-3.5 font-heading text-base font-extrabold text-ink shadow-[4px_4px_0_#111] disabled:opacity-50"
                 >
-                  ✓ Simpan Harga Ini ke Resep Warung
+                  {saving
+                    ? "Menyimpan ke Supabase..."
+                    : "💾 Simpan ke Database & Update Untung Menu"}
                 </button>
               </div>
             ) : (
@@ -479,6 +628,57 @@ export default function BelanjaPage() {
           </div>
         </div>
       </div>
+
+      {/* Riwayat Belanja Warung dari Database Supabase */}
+      <section className="bg-white p-6 sm:p-8 brutal-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-dashed border-ink pb-4">
+          <div>
+            <h2 className="font-heading text-2xl font-extrabold">
+              Riwayat Harga Nota Warungmu
+            </h2>
+            <p className="text-xs text-ink/70">
+              Data harga yang telah kamu catat di database Supabase (prioritas di atas harga rata-rata BI).
+            </p>
+          </div>
+          <button
+            onClick={fetchHistory}
+            className="brutal-btn bg-cream px-3 py-1.5 font-mono text-xs font-bold"
+          >
+            🔄 Muat Ulang
+          </button>
+        </div>
+
+        {historyLoading ? (
+          <div className="py-8 text-center font-mono text-xs">Memuat riwayat dari database...</div>
+        ) : receiptHistory.length > 0 ? (
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {receiptHistory.map((rec, i) => (
+              <div key={i} className="bg-cream p-3 brutal-border-2 flex justify-between items-center">
+                <div>
+                  <strong className="font-heading text-sm block">{rec.name}</strong>
+                  <span className="font-mono text-[11px] text-ink/70">
+                    {new Date(rec.date).toISOString().split("T")[0]} · {rec.source}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <strong className="font-mono text-base text-critical-red">
+                    {formatRupiah(rec.price)}
+                  </strong>
+                  <span className="block font-mono text-[10px] text-ink/60">/{rec.unit}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 bg-cream p-6 text-center font-mono text-xs text-ink/70 brutal-border-2">
+            Belum ada riwayat nota yang tersimpan. Setiap kali kamu memindai nota, harga belanjamu akan muncul di sini.
+          </div>
+        )}
+      </section>
     </div>
   );
+}
+
+function itLower(str: string | undefined): string {
+  return (str || "").toLowerCase();
 }
