@@ -18,7 +18,9 @@ interface CommodityOption {
   id: string;
   name: string;
   unit: string;
-  current_price: string;
+  /** null bila bahan ini belum punya harga sama sekali — jangan diisi tebakan. */
+  current_price: string | null;
+  sumber_harga?: string;
 }
 
 interface MenuFormProps {
@@ -100,7 +102,9 @@ export function MenuForm({
               ...r,
               commodityId: found.id,
               name: found.name,
-              price: Number(found.current_price) || 25000,
+              // Tanpa harga, biarkan 0 dan katakan apa adanya di layar.
+              // Menyuntik angka karangan membuat modal terlihat pasti padahal bukan.
+              price: found.current_price === null ? 0 : Number(found.current_price),
               unit: found.unit,
             }
           : r
@@ -120,19 +124,15 @@ export function MenuForm({
   }
 
   function addIngredient() {
-    const defaultItem = availableCommodities[0] || {
-      id: "Beras Kualitas Medium I",
-      name: "Beras Kualitas Medium I",
-      unit: "kg",
-      current_price: "15750",
-    };
+    const defaultItem = availableCommodities[0];
+    if (!defaultItem) return; // daftar bahan belum termuat
 
     setRows((current) => [
       ...current,
       {
         commodityId: defaultItem.id,
         name: defaultItem.name,
-        price: Number(defaultItem.current_price) || 15750,
+        price: defaultItem.current_price === null ? 0 : Number(defaultItem.current_price),
         batchQty: 1,
         unit: defaultItem.unit,
       },
@@ -315,6 +315,7 @@ export function MenuForm({
                       {availableCommodities.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name} ({c.unit})
+                          {c.current_price === null ? " — belum ada harga" : ""}
                         </option>
                       ))}
                     </select>
