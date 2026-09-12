@@ -8,8 +8,12 @@ export const dynamic = "force-dynamic";
 export default async function DashboardLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const profile = await getDbBusinessProfile();
-  const { menus } = await getDbMenus();
+  // Berurutan berarti dua perjalanan ke Mumbai yang saling menunggu.
+  // Keduanya tidak saling bergantung, jadi jalankan bersamaan.
+  const [profile, { menus }] = await Promise.all([
+    getDbBusinessProfile(),
+    getDbMenus(),
+  ]);
 
   const criticalCount = menus.filter((m) => m.status === "tipis" || m.status === "rugi").length;
   const menuCount = menus.length;

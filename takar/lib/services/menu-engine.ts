@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { queryDb } from "../db/client";
 import { keIsoTanggal } from "../tanggal";
 import { formatRupiah } from "../formatRupiah";
@@ -13,7 +14,7 @@ import {
  * pembanding 7 hari untuk BR-04. Menggantikan kueri per-menu yang lama
  * berikut fallback harga karangan Rp 25.000.
  */
-async function muatSemuaBahan(): Promise<Map<string, BahanResep[]>> {
+const muatSemuaBahan = cache(async function (): Promise<Map<string, BahanResep[]>> {
   const res = await queryDb(
     `select menu_item_id, commodity_id, nama, qty, harga, harga_lalu, dari_data
      from resep_efektif`,
@@ -32,9 +33,9 @@ async function muatSemuaBahan(): Promise<Map<string, BahanResep[]>> {
     peta.set(r.menu_item_id, daftar);
   }
   return peta;
-}
+});
 
-async function muatSemuaBiayaTetap(): Promise<Map<string, number>> {
+const muatSemuaBiayaTetap = cache(async function (): Promise<Map<string, number>> {
   const res = await queryDb(
     `select menu_item_id, coalesce(sum(amount), 0) total
      from fixed_costs group by menu_item_id`,
@@ -42,7 +43,7 @@ async function muatSemuaBiayaTetap(): Promise<Map<string, number>> {
   const peta = new Map<string, number>();
   for (const r of res?.rows ?? []) peta.set(r.menu_item_id, Number(r.total));
   return peta;
-}
+});
 
 export interface ProfitHistoryPoint {
   date: string;
@@ -115,7 +116,12 @@ function getMenuIcon(name: string): string {
 /**
  * [Q5a] Mengambil semua menu aktif dari Supabase terurut dari untung terkecil
  */
-export async function getDbMenus(): Promise<{ menus: Menu[]; latestDate: string }> {
+/**
+ * Dibungkus cache() dari React: layout dan halaman sama-sama memanggil ini
+ * dalam satu permintaan yang sama. Tanpa dedup, seluruh perhitungan menu
+ * berjalan dua kali — enam perjalanan ke Mumbai, bukan tiga.
+ */
+export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; latestDate: string }> {
   try {
     const res = await queryDb(
       `select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active,
@@ -165,7 +171,7 @@ export async function getDbMenus(): Promise<{ menus: Menu[]; latestDate: string 
     console.error("Error getDbMenus:", err);
     return { menus: [], latestDate: "" };
   }
-}
+});
 
 /**
  * Rincian satu menu. Memakai view resep_efektif (BR-09) dan lib/margin.ts,
@@ -186,6 +192,26 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
 
     const m = menuRes.rows[0];
     const sellPrice = Math.round(Number(m.sell_price));
+
+    // Empat kueri berikut tidak saling bergantung. Dijalankan berurutan,
+    // masing-masing menunggu ~180 ms ke Mumbai; dijalankan bersamaan,
+    // totalnya tinggal satu kali tunggu.
+    const fcPromise = queryDb(
+      `select label, amount, is_estimated from fixed_costs where menu_item_id = $1`,
+      [m.id],
+    );
+    const margin30Promise = queryDb(
+      `select margin_pct from margin_snapshots
+       where menu_item_id = $1 and date <= current_date - 30
+       order by date desc limit 1`,
+      [m.id],
+    );
+    const histPromise = queryDb(
+      `select date, hpp, sell_price, margin_pct, round(sell_price - hpp) as untung
+       from margin_snapshots where menu_item_id = $1
+       order by date desc limit 30`,
+      [m.id],
+    );
 
     // ── bahan lewat resep_efektif ──
     const bahanRes = await queryDb(
@@ -241,10 +267,7 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     }
 
     // ── biaya tetap ──
-    const fcRes = await queryDb(
-      `select label, amount, is_estimated from fixed_costs where menu_item_id = $1`,
-      [m.id],
-    );
+    const fcRes = await fcPromise;
     let biayaTetap = 0;
     for (const fc of fcRes?.rows ?? []) {
       const amt = Math.round(Number(fc.amount));
@@ -266,21 +289,11 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     const pembanding = pendorong ? cariPembanding(bahan, pendorong.komoditasId) : null;
 
     // BR-07 — saran harga memakai margin 30 hari lalu, minimum 15%
-    const lamaRes = await queryDb(
-      `select margin_pct from margin_snapshots
-       where menu_item_id = $1 and date <= current_date - 30
-       order by date desc limit 1`,
-      [m.id],
-    );
+    const lamaRes = await margin30Promise;
     const margin30 = lamaRes?.rows?.[0]?.margin_pct ?? null;
 
     // FR-26 — riwayat 30 hari
-    const histRes = await queryDb(
-      `select date, hpp, sell_price, margin_pct, round(sell_price - hpp) as untung
-       from margin_snapshots where menu_item_id = $1
-       order by date desc limit 30`,
-      [m.id],
-    );
+    const histRes = await histPromise;
     const history: ProfitHistoryPoint[] = (histRes?.rows ?? [])
       .map((r) => {
         const iso = keIsoTanggal(r.date) as string;
@@ -484,7 +497,7 @@ export async function updateDbMenuComplete(
 /**
  * Mengambil profil warung aktif dari Supabase
  */
-export async function getDbBusinessProfile() {
+export const getDbBusinessProfile = cache(async function () {
   try {
     const res = await queryDb(`
       SELECT b.id,
@@ -514,7 +527,7 @@ export async function getDbBusinessProfile() {
     active_menus_count: 6,
     latest_price_date: "2026-09-11",
   };
-}
+});
 
 /**
  * Memperbarui profil warung di Supabase
