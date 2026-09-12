@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { getDynamicIngredients, MENU_RECIPES } from "@/lib/services/menu-engine";
+import { notFound } from "next/navigation";
+import { getDbMenuDetail } from "@/lib/services/menu-engine";
 import { formatRupiah } from "@/lib/formatRupiah";
 import { MenuPriceActions } from "@/components/menu/MenuPriceActions";
+
+export const dynamic = "force-dynamic";
 
 export default async function MenuDetailPage({
   params,
@@ -9,32 +12,42 @@ export default async function MenuDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = await getDynamicIngredients(id);
+  const menu = await getDbMenuDetail(id);
 
-  const menu = data.menu;
-  const sellPrice = data.currentSellPrice;
-  const modal = data.modalTotal;
-  const profit = sellPrice - modal;
-  const margin = Math.round((profit / sellPrice) * 100 * 10) / 10;
-  const status: "sehat" | "tipis" | "rugi" =
-    profit < 0 || margin < 5 ? "rugi" : margin < 15 ? "tipis" : "sehat";
+  if (!menu) {
+    notFound();
+  }
 
-  const suggestedProfit = data.suggestedPrice - modal;
-  const suggestedMargin = Math.round((suggestedProfit / data.suggestedPrice) * 100 * 10) / 10;
-  const priceAdjustment = data.suggestedPrice - sellPrice;
+  const sellPrice = menu.sellPrice;
+  const modal = menu.modal;
+  const profit = menu.profit;
+  const margin = menu.margin;
+  const status = menu.status;
 
-  const driver = data.driverNote;
+  const suggestedProfit = menu.suggestedPrice - modal;
+  const suggestedMargin = Math.round((suggestedProfit / menu.suggestedPrice) * 100 * 10) / 10;
+  const priceAdjustment = menu.suggestedPrice - sellPrice;
+
+  const driver = menu.driverNote;
 
   return (
     <div className="space-y-8">
       {/* Navigation Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/dashboard"
-          className="brutal-btn bg-white px-3 py-1.5 font-mono text-xs font-bold"
-        >
-          ⬅ Kembali ke Beranda
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard"
+            className="brutal-btn bg-white px-3 py-1.5 font-mono text-xs font-bold"
+          >
+            ⬅ Kembali ke Beranda
+          </Link>
+          <Link
+            href={`/dashboard/menu/${id}/edit`}
+            className="brutal-btn bg-warning-yellow px-3 py-1.5 font-mono text-xs font-bold"
+          >
+            ✏️ Edit Resep & Porsi
+          </Link>
+        </div>
         <span className="bg-warning-yellow px-2 py-1 font-mono text-xs font-bold brutal-border-2">
           KODE: {menu.shortName} · Pantauan Harga Live Bank Indonesia
         </span>
@@ -201,7 +214,7 @@ export default async function MenuDetailPage({
           </div>
 
           <div className="space-y-3">
-            {data.ingredients.map((item, index) => {
+            {menu.ingredients.map((item, index) => {
               const pct = modal > 0 ? ((item.cost / modal) * 100).toFixed(1) : "0";
               return (
                 <div
@@ -273,7 +286,7 @@ export default async function MenuDetailPage({
                 SARAN HARGA JUAL BARU:
               </span>
               <strong className="my-1 block font-mono text-4xl text-bright-green sm:text-5xl">
-                {formatRupiah(data.suggestedPrice)}
+                {formatRupiah(menu.suggestedPrice)}
               </strong>
               <div className="flex justify-between border-t border-white/20 pt-2 font-mono text-xs">
                 <span>Harga Sekarang: {formatRupiah(sellPrice)}</span>
@@ -283,7 +296,7 @@ export default async function MenuDetailPage({
               </div>
             </div>
             <p className="mb-4 text-xs leading-relaxed text-cream/80">
-              Dengan harga {formatRupiah(data.suggestedPrice)}, untungmu kembali ke{" "}
+              Dengan harga {formatRupiah(menu.suggestedPrice)}, untungmu kembali ke{" "}
               <b className="font-mono text-bright-green">
                 {formatRupiah(suggestedProfit)} / porsi ({suggestedMargin}%)
               </b>
@@ -293,7 +306,7 @@ export default async function MenuDetailPage({
               menuId={id}
               menuName={menu.name}
               currentPrice={sellPrice}
-              suggestedPrice={data.suggestedPrice}
+              suggestedPrice={menu.suggestedPrice}
             />
           </div>
         </aside>
@@ -302,7 +315,7 @@ export default async function MenuDetailPage({
       {/* Dynamic Profit History Chart */}
       <DynamicProfitHistory
         menuName={menu.name}
-        history={data.history}
+        history={menu.history}
         currentProfit={profit}
       />
     </div>

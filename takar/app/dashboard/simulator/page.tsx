@@ -3,43 +3,108 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { simulatePrice } from "@/lib/calculations/simulator";
 import { formatRupiah } from "@/lib/formatRupiah";
+
+interface MenuItemOption {
+  id: string;
+  name: string;
+  price: number;
+  modal: number;
+  profit: number;
+  margin: number;
+  status: "sehat" | "tipis" | "rugi";
+}
 
 function SimulatorContent() {
   const searchParams = useSearchParams();
   const initialPrice = Number(searchParams.get("price")) || 18000;
 
-  const [ayam, setAyam] = useState(20);
-  const [cabai, setCabai] = useState(30);
+  const [menus, setMenus] = useState<MenuItemOption[]>([]);
+  const [selectedMenuId, setSelectedMenuId] = useState("ayam-geprek");
+  const [loadingMenu, setLoadingMenu] = useState(true);
+
+  // Ingredient 1 & 2 definitions for the selected menu
+  const [ing1, setIng1] = useState({ name: "Daging Ayam Ras Segar", basePrice: 40500, portionQty: 0.25, unit: "kg" });
+  const [ing2, setIng2] = useState({ name: "Cabai Rawit Hijau", basePrice: 63750, portionQty: 0.015, unit: "kg" });
+  const [otherCost, setOtherCost] = useState(4308);
+
+  const [slider1Pct, setSlider1Pct] = useState(20);
+  const [slider2Pct, setSlider2Pct] = useState(30);
   const [jual, setJual] = useState(initialPrice);
 
-  const baseAyam = 40500;
-  const baseCabai = 48000;
-  const baselineProfit = 18000 - (0.25 * baseAyam + 0.015 * baseCabai + 4308); // Real baseline
-
+  // 1. Ambil daftar menu dari database
   useEffect(() => {
-    const qPrice = Number(searchParams.get("price"));
-    if (qPrice && !isNaN(qPrice)) {
-      setJual(qPrice);
-    }
-  }, [searchParams]);
+    fetch("/api/menus")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.status === "ok" && data.menus) {
+          setMenus(data.menus);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
-  const result = simulatePrice({
-    ayamPercent: ayam,
-    cabaiPercent: cabai,
-    sellingPrice: jual,
-    baseAyamPrice: baseAyam,
-    baseCabaiPrice: baseCabai,
-  });
+  // 2. Ambil komposisi resep menu yang dipilih dari database
+  useEffect(() => {
+    setLoadingMenu(true);
+    fetch(`/api/menus/${selectedMenuId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.status === "ok" && data.ingredients) {
+          const mainIngs = data.ingredients.filter((i: any) => i.source === "DATA PASAR");
+          if (mainIngs.length > 0) {
+            const first = mainIngs[0];
+            const q1 = parseFloat(first.quantity.split(" ")[0]) || 0.25;
+            setIng1({
+              name: first.name,
+              basePrice: first.unitPrice || 40500,
+              portionQty: q1,
+              unit: "kg",
+            });
+          }
+          if (mainIngs.length > 1) {
+            const second = mainIngs[1];
+            const q2 = parseFloat(second.quantity.split(" ")[0]) || 0.015;
+            setIng2({
+              name: second.name,
+              basePrice: second.unitPrice || 63750,
+              portionQty: q2,
+              unit: "kg",
+            });
+          }
 
-  const healthy = result.status === "sehat";
-  const loss = result.status === "rugi";
-  const profitDiff = Math.round(result.profit - baselineProfit);
+          const fixedTotal = data.ingredients
+            .filter((i: any) => i.source === "PERKIRAAN")
+            .reduce((acc: number, curr: any) => acc + curr.cost, 0);
+          setOtherCost(fixedTotal || 1500);
+
+          if (data.menu?.sellPrice) {
+            setJual(data.menu.sellPrice);
+          }
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoadingMenu(false));
+  }, [selectedMenuId]);
+
+  // Kalkulasi Simulasi
+  const simPrice1 = Math.round(ing1.basePrice * (1 + slider1Pct / 100));
+  const simPrice2 = Math.round(ing2.basePrice * (1 + slider2Pct / 100));
+
+  const cost1 = Math.round(ing1.portionQty * simPrice1);
+  const cost2 = Math.round(ing2.portionQty * simPrice2);
+
+  const totalModal = cost1 + cost2 + otherCost;
+  const profit = jual - totalModal;
+  const margin = jual > 0 ? (profit / jual) * 100 : 0;
+
+  const healthy = margin >= 15;
+  const loss = profit < 0;
+  const status = loss ? "rugi" : healthy ? "sehat" : "tipis";
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           href="/dashboard"
           className="brutal-btn bg-white px-3 py-1.5 font-mono text-xs font-bold"
@@ -47,7 +112,7 @@ function SimulatorContent() {
           ⬅ Kembali ke Beranda
         </Link>
         <span className="bg-warning-yellow px-2 py-1 font-mono text-xs font-bold brutal-border-2">
-          Simulator Dinamis · Mengacu Data BI Kota Semarang
+          Simulator Dinamis · Terhubung Penuh ke Database Supabase
         </span>
       </div>
 
@@ -59,116 +124,140 @@ function SimulatorContent() {
           “Kalau harga bahan naik, untungmu jadi berapa?”
         </h1>
         <p className="mt-2 max-w-3xl text-ink/80 text-sm sm:text-base">
-          Geser tuas untuk melihat dampak kenaikan harga pasar terhadap margin Ayam Geprek Sambal Korek (resep batch: 2 kg ayam & 0,12 kg cabai jadi 8 porsi).
+          Pilih menu apa saja dari warungmu, lalu geser tuas harga bahan untuk menguji ketahanan margin keuntunganmu.
         </p>
+
+        {/* Menu Selector */}
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-t-2 border-ink/20 pt-4">
+          <span className="font-heading font-bold text-sm">PILIH MENU DARI DATABASE:</span>
+          <select
+            value={selectedMenuId}
+            onChange={(e) => setSelectedMenuId(e.target.value)}
+            className="bg-cream font-heading font-extrabold text-sm p-2.5 brutal-border-2 max-w-md"
+          >
+            {menus.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} ({formatRupiah(m.price)})
+              </option>
+            ))}
+          </select>
+        </div>
       </section>
 
-      <div className="grid items-start gap-8 lg:grid-cols-12">
-        <div className="space-y-8 bg-white p-6 sm:p-8 brutal-card lg:col-span-7">
-          <Slider
-            label="1. SIMULASI HARGA AYAM POTONG"
-            subtext={`Dasar BI: ${formatRupiah(baseAyam)}/kg ➔ Simulasi: ${formatRupiah(result.simAyamPrice)}/kg`}
-            value={ayam}
-            min={-20}
-            max={50}
-            onChange={setAyam}
-          />
-          <Slider
-            label="2. SIMULASI HARGA CABAI RAWIT"
-            subtext={`Dasar BI: ${formatRupiah(baseCabai)}/kg ➔ Simulasi: ${formatRupiah(result.simCabaiPrice)}/kg`}
-            value={cabai}
-            min={-30}
-            max={100}
-            onChange={setCabai}
-          />
-          <Slider
-            label="3. UBAH HARGA JUAL SENDIRI"
-            subtext="Tentukan target harga jual per porsi di warungmu"
-            value={jual}
-            min={14000}
-            max={25000}
-            step={500}
-            onChange={setJual}
-            money
-          />
-
-          <div className="bg-cream p-4 font-mono text-xs border border-ink space-y-1">
-            <div className="font-bold text-ink uppercase">Rincian Komposisi Resep Per Porsi:</div>
-            <div>🍗 Ayam: 0.25 kg × {formatRupiah(result.simAyamPrice)} = <b>{formatRupiah(result.ayamCost)}</b></div>
-            <div>🌶️ Cabai: 0.015 kg × {formatRupiah(result.simCabaiPrice)} = <b>{formatRupiah(result.cabaiCost)}</b></div>
-            <div>📦 Beras, Minyak, Bumbu & Kemasan: <b>Rp 4.308</b></div>
-          </div>
+      {loadingMenu ? (
+        <div className="p-12 font-mono text-center bg-white brutal-card">
+          Memuat resep menu dari database Supabase...
         </div>
-
-        <div className="space-y-6 bg-ink p-6 text-cream brutal-card lg:col-span-5">
-          <div className="flex justify-between border-b border-white/20 pb-3 font-mono text-xs">
-            <span>HASIL DAMPAK NYATA:</span>
-            <b
-              className={`px-2 py-0.5 ${
-                healthy
-                  ? "bg-bright-green text-ink"
-                  : loss
-                    ? "bg-critical-red text-white"
-                    : "bg-warning-yellow text-ink"
-              }`}
-            >
-              STATUS: {result.status.toUpperCase()}
-            </b>
-          </div>
-
-          <div>
-            <span className="font-mono text-xs text-cream/70">
-              PERKIRAAN UNTUNG BERSIH:
-            </span>
-            <div
-              className={`font-mono text-5xl font-black ${
-                healthy
-                  ? "text-bright-green"
-                  : loss
-                    ? "text-critical-red"
-                    : "text-warning-yellow"
-              }`}
-            >
-              {formatRupiah(result.profit)}
-            </div>
-            <span className="font-mono text-xs text-cream/70">
-              per porsi ({result.margin.toFixed(1)}% margin)
-            </span>
-          </div>
-
-          <div className="space-y-3 bg-white/10 p-4 font-mono text-xs brutal-border-2">
-            <Row label="Harga Jualmu" value={formatRupiah(jual)} />
-            <Row label="Total Modal Baru" value={formatRupiah(result.modal)} />
-            <Row
-              label="Selisih vs Kondisi Sekarang"
-              value={`${profitDiff >= 0 ? "+" : ""}${formatRupiah(profitDiff)} / porsi`}
+      ) : (
+        <div className="grid items-start gap-8 lg:grid-cols-12">
+          <div className="space-y-8 bg-white p-6 sm:p-8 brutal-card lg:col-span-7">
+            <Slider
+              label={`1. SIMULASI ${ing1.name.toUpperCase()}`}
+              subtext={`Dasar BI: ${formatRupiah(ing1.basePrice)}/${ing1.unit} ➔ Simulasi: ${formatRupiah(simPrice1)}/${ing1.unit}`}
+              value={slider1Pct}
+              min={-20}
+              max={50}
+              onChange={setSlider1Pct}
             />
+
+            <Slider
+              label={`2. SIMULASI ${ing2.name.toUpperCase()}`}
+              subtext={`Dasar BI: ${formatRupiah(ing2.basePrice)}/${ing2.unit} ➔ Simulasi: ${formatRupiah(simPrice2)}/${ing2.unit}`}
+              value={slider2Pct}
+              min={-30}
+              max={100}
+              onChange={setSlider2Pct}
+            />
+
+            <Slider
+              label="3. UBAH RENCANA HARGA JUAL"
+              subtext="Tentukan target harga jual per porsi di warungmu"
+              value={jual}
+              min={Math.max(1000, Math.round(totalModal * 0.7))}
+              max={Math.round(totalModal * 2.5)}
+              step={500}
+              onChange={setJual}
+              money
+            />
+
+            <div className="bg-cream p-4 font-mono text-xs border border-ink space-y-1.5">
+              <div className="font-bold text-ink uppercase">Komposisi Takaran Resep Per Porsi:</div>
+              <div>• {ing1.name}: {ing1.portionQty.toFixed(3)} {ing1.unit} × {formatRupiah(simPrice1)} = <b>{formatRupiah(cost1)}</b></div>
+              <div>• {ing2.name}: {ing2.portionQty.toFixed(3)} {ing2.unit} × {formatRupiah(simPrice2)} = <b>{formatRupiah(cost2)}</b></div>
+              <div>• Biaya bahan pelengkap & kemasan: <b>{formatRupiah(otherCost)}</b></div>
+            </div>
           </div>
 
-          <div
-            className={`p-3 text-xs leading-relaxed border-2 ${
-              loss
-                ? "bg-critical-red/30 border-critical-red text-cream"
+          <div className="space-y-6 bg-ink p-6 text-cream brutal-card lg:col-span-5">
+            <div className="flex justify-between border-b border-white/20 pb-3 font-mono text-xs">
+              <span>HASIL DAMPAK NYATA:</span>
+              <b
+                className={`px-2 py-0.5 ${
+                  healthy
+                    ? "bg-bright-green text-ink"
+                    : loss
+                      ? "bg-critical-red text-white"
+                      : "bg-warning-yellow text-ink"
+                }`}
+              >
+                STATUS: {status.toUpperCase()}
+              </b>
+            </div>
+
+            <div>
+              <span className="font-mono text-xs text-cream/70">
+                PERKIRAAN UNTUNG BERSIH:
+              </span>
+              <div
+                className={`font-mono text-5xl font-black ${
+                  healthy
+                    ? "text-bright-green"
+                    : loss
+                      ? "text-critical-red"
+                      : "text-warning-yellow"
+                }`}
+              >
+                {formatRupiah(profit)}
+              </div>
+              <span className="font-mono text-xs text-cream/70">
+                per porsi ({margin.toFixed(1)}% margin)
+              </span>
+            </div>
+
+            <div className="space-y-3 bg-white/10 p-4 font-mono text-xs brutal-border-2">
+              <Row label="Harga Jualmu" value={formatRupiah(jual)} />
+              <Row label="Total Modal Baru" value={formatRupiah(totalModal)} />
+              <Row
+                label="Untung Bersih"
+                value={`${profit >= 0 ? "+" : ""}${formatRupiah(profit)} / porsi`}
+              />
+            </div>
+
+            <div
+              className={`p-3 text-xs leading-relaxed border-2 ${
+                loss
+                  ? "bg-critical-red/30 border-critical-red text-cream"
+                  : healthy
+                    ? "bg-bright-green/20 border-bright-green text-bright-green"
+                    : "bg-warning-yellow/20 border-warning-yellow text-warning-yellow"
+              }`}
+            >
+              {loss
+                ? "🚨 RUGI: Harga jual tidak menutup modal porsi. Segera naikkan harga jual atau kurangi takaran bahan."
                 : healthy
-                  ? "bg-bright-green/20 border-bright-green text-bright-green"
-                  : "bg-warning-yellow/20 border-warning-yellow text-warning-yellow"
-            }`}
-          >
-            {loss
-              ? "🚨 RUGI: Harga jual tidak menutup modal. Segera naikkan harga atau kurangi gramatur potong ayam."
-              : healthy
-                ? `✅ AMAN & SEHAT (${result.margin.toFixed(1)}%): Margin di atas 15%, bisnis stabil dari gejolak pasar.`
-                : `⚠️ UNTUNG TIPIS (${result.margin.toFixed(1)}%): Sangat rentan jika harga ayam naik lagi. Disarankan jual di ${formatRupiah(Math.ceil((result.modal / 0.85) / 500) * 500)}.`}
-          </div>
+                  ? `✅ AMAN & SEHAT (${margin.toFixed(1)}%): Margin di atas 15%, bisnis siap menahan fluktuasi harga pasar.`
+                  : `⚠️ UNTUNG TIPIS (${margin.toFixed(1)}%): Sangat rentan tergerus jika harga bahan naik lagi. Disarankan jual di ${formatRupiah(Math.ceil((totalModal / 0.85) / 500) * 500)}.`}
+            </div>
 
-          <Link
-            href={`/dashboard/menu/ayam-geprek`}
-            className="brutal-btn block w-full bg-white text-center py-2.5 text-xs font-heading font-extrabold text-ink"
-          >
-            Lihat Rincian Detail Ayam Geprek ➔
-          </Link>
+            <Link
+              href={`/dashboard/menu/${selectedMenuId}`}
+              className="brutal-btn block w-full bg-white text-center py-2.5 text-xs font-heading font-extrabold text-ink"
+            >
+              Lihat Rincian Lengkap Menu Ini ➔
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

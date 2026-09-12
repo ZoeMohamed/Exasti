@@ -13,8 +13,8 @@ export function getDbPool(): Pool | null {
     pool = new Pool({
       connectionString,
       ssl: { rejectUnauthorized: false },
-      max: 10,
-      idleTimeoutMillis: 30000,
+      max: 5,
+      idleTimeoutMillis: 5000,
       connectionTimeoutMillis: 5000,
     });
   }

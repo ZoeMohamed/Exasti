@@ -1,29 +1,32 @@
 import { NextResponse } from "next/server";
-import { getDynamicIngredients, updateMenuPrice, MENU_RECIPES } from "@/lib/services/menu-engine";
+import { getDbMenuDetail, updateDbMenuPrice, updateDbMenuComplete } from "@/lib/services/menu-engine";
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const def = MENU_RECIPES.find((m) => m.id === id || m.uuid === id);
+  const data = await getDbMenuDetail(id);
 
-  if (!def) {
-    return NextResponse.json({ error: "Menu tidak ditemukan" }, { status: 404 });
+  if (!data) {
+    return NextResponse.json({ error: "Menu tidak ditemukan di database" }, { status: 404 });
   }
-
-  const data = await getDynamicIngredients(id);
-  const profit = data.currentSellPrice - data.modalTotal;
-  const margin = Math.round((profit / data.currentSellPrice) * 100 * 10) / 10;
 
   return NextResponse.json({
     status: "ok",
     menu: {
-      ...def,
-      sellPrice: data.currentSellPrice,
-      modal: data.modalTotal,
-      profit,
-      margin,
+      id: data.id,
+      name: data.name,
+      shortName: data.shortName,
+      icon: data.icon,
+      category: data.category,
+      sellPrice: data.sellPrice,
+      batchYield: data.batchYield,
+      servingsPerWeek: data.weeklyVolume,
+      modal: data.modal,
+      profit: data.profit,
+      margin: data.margin,
+      status: data.status,
     },
     ingredients: data.ingredients,
     driverNote: data.driverNote,
@@ -37,24 +40,42 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const def = MENU_RECIPES.find((m) => m.id === id || m.uuid === id);
-
-  if (!def) {
-    return NextResponse.json({ error: "Menu tidak ditemukan" }, { status: 404 });
-  }
 
   try {
     const body = await req.json();
-    if (body.price && typeof body.price === "number") {
-      await updateMenuPrice(id, body.price);
+
+    // 1. Jika hanya update harga jual cepat (quick action)
+    if (body.price && typeof body.price === "number" && !body.name && !body.recipe) {
+      const ok = await updateDbMenuPrice(id, body.price);
+      if (ok) {
+        return NextResponse.json({
+          status: "ok",
+          message: `Harga jual berhasil diperbarui ke ${body.price} di database`,
+        });
+      }
+      return NextResponse.json({ error: "Gagal memperbarui harga di database" }, { status: 500 });
+    }
+
+    // 2. Jika update lengkap menu dari formulir edit
+    const ok = await updateDbMenuComplete(id, {
+      name: body.name,
+      sellPrice: body.sellPrice,
+      batchYield: body.batchYield,
+      weeklyVolume: body.weeklyVolume,
+      recipe: body.recipe,
+      fixedCosts: body.fixedCosts,
+    });
+
+    if (ok) {
       return NextResponse.json({
         status: "ok",
-        message: `Harga ${def.name} berhasil diperbarui ke ${body.price} di database`,
+        message: "Data menu dan resep berhasil diperbarui di database Supabase!",
       });
     }
-    return NextResponse.json({ error: "Format harga tidak valid" }, { status: 400 });
+
+    return NextResponse.json({ error: "Gagal memperbarui menu di database" }, { status: 500 });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Gagal memperbarui harga";
+    const message = err instanceof Error ? err.message : "Gagal memperbarui menu";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
