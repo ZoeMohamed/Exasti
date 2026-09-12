@@ -245,7 +245,7 @@ function SimulatorContent() {
               {loss
                 ? "🚨 RUGI: Harga jual tidak menutup modal porsi. Segera naikkan harga jual atau kurangi takaran bahan."
                 : healthy
-                  ? `✅ AMAN & SEHAT (${margin.toFixed(1)}%): Margin di atas 15%, bisnis siap menahan fluktuasi harga pasar.`
+                  ? `AMAN. Untungnya ${margin.toFixed(1)} dari tiap seratus rupiah penjualan — masih kuat menahan harga naik.`
                   : `⚠️ UNTUNG TIPIS (${margin.toFixed(1)}%): Sangat rentan tergerus jika harga bahan naik lagi. Disarankan jual di ${formatRupiah(Math.ceil((totalModal / 0.85) / 500) * 500)}.`}
             </div>
 

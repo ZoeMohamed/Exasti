@@ -60,12 +60,13 @@ export const OCR_RESPONSE_SCHEMA = {
       items: {
         type: "OBJECT",
         properties: {
-          nameRaw: { type: "STRING" },
-          qty: { type: "NUMBER" },
-          unit: { type: "STRING" },
-          totalPrice: { type: "NUMBER" },
+          nameRaw: { type: "STRING", description: "Nama barang persis seperti tertulis di nota, tanpa tambahan apa pun." },
+          qty: { type: "NUMBER", description: "Jumlah dalam angka saja, misal 2 atau 0.25." },
+          unit: { type: "STRING", description: "Satuan saja, misal kg, liter, pcs. Tanpa angka, tanpa penjelasan." },
+          totalPrice: { type: "NUMBER", description: "Total rupiah baris ini, angka saja tanpa titik atau Rp." },
         },
-        required: ["nameRaw"],
+        propertyOrdering: ["nameRaw", "qty", "unit", "totalPrice"],
+        required: ["nameRaw", "qty", "unit", "totalPrice"],
       },
     },
   },

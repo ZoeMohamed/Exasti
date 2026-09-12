@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { keIsoTanggal } from "@/lib/tanggal";
 import Link from "next/link";
 import { formatRupiah } from "@/lib/formatRupiah";
 import type { ParsedItem, OcrResponsePayload } from "@/lib/ai/ocr";
@@ -76,7 +77,7 @@ export default function BelanjaPage() {
 
     try {
       setTimeout(() => setStatusStep("Google Gemini Flash sedang membaca baris nota..."), 500);
-      setTimeout(() => setStatusStep("Mencocokkan bahan dengan 21 komoditas Bank Indonesia..."), 1200);
+      setTimeout(() => setStatusStep("Mencocokkan belanjaanmu dengan harga pasar Bank Indonesia..."), 1200);
 
       const res = await fetch("/api/ai/parse-nota", {
         method: "POST",
@@ -495,7 +496,7 @@ export default function BelanjaPage() {
                                 className="bg-cream font-mono text-[10px] font-bold py-0.5 px-1 border border-ink"
                               >
                                 <option value="">
-                                  {item.match.isBiCommodity ? "✓ Komoditas BI: " : "📦 Warung: "}
+                                  {item.match.isBiCommodity ? "Harga pasar: " : "Barang warung: "}
                                   {item.match.matchedName}
                                 </option>
                                 {commodities.map((c) => (
@@ -657,7 +658,7 @@ export default function BelanjaPage() {
                 <div>
                   <strong className="font-heading text-sm block">{rec.name}</strong>
                   <span className="font-mono text-[11px] text-ink/70">
-                    {new Date(rec.date).toISOString().split("T")[0]} · {rec.source}
+                    {keIsoTanggal(rec.date)} · {rec.source}
                   </span>
                 </div>
                 <div className="text-right">

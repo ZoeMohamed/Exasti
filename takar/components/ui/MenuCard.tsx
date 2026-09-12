@@ -20,6 +20,20 @@ export function MenuCard({ menu }: { menu: Menu }) {
         </span>
       </div>
       <h3 className="mt-2 font-heading text-xl font-extrabold">{menu.name}</h3>
+
+      {/* FR-22 — penanda ketiga: panjang bar proporsional.
+          Hilangkan seluruh warna dari layar, keadaan menu harus tetap terbaca
+          dari label teks, panjang bar, dan angka rupiah. */}
+      <div
+        className="mt-2 h-2 w-full overflow-hidden bg-ink/10 brutal-border"
+        role="img"
+        aria-label={`Untung ${menu.margin} dari tiap seratus rupiah penjualan`}
+      >
+        <div
+          className="h-full bg-ink"
+          style={{ width: `${Math.max(0, Math.min(100, menu.margin))}%` }}
+        />
+      </div>
       <div className="mt-3 flex items-baseline justify-between bg-cream p-3 brutal-border-2">
         <div>
           <span className="font-mono text-[11px] uppercase text-ink/70">

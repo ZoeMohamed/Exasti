@@ -4,9 +4,9 @@ import { queryDb } from "../db/client";
 // Rantai fallback model sesuai docs/02-ARCHITECTURE.md & docs/10-AI-VALIDATION.md
 // Jika model sibuk (503), kuota habis (429), atau pensiun (404), lanjut ke model berikutnya.
 export const GEMINI_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
   "gemini-flash-latest",
 ] as const;
 

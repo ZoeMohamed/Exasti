@@ -213,6 +213,25 @@ export default async function MenuDetailPage({
             </span>
           </div>
 
+          {/* FR-28 / BR-10 — peringatan cakupan data.
+              Kalau sebagian besar modal berasal dari perkiraan, angka di atas
+              harus dibaca sebagai perkiraan juga. Diam soal ini = menyesatkan. */}
+          {typeof menu.cakupan === "number" && menu.cakupan < 70 && (
+            <div className="mb-4 bg-warning-yellow p-3 brutal-border-2">
+              <p className="font-heading text-sm font-bold">
+                Angka ini masih banyak tebakannya
+              </p>
+              <p className="mt-1 text-xs">
+                Baru {menu.cakupan} dari tiap 100 rupiah modal menu ini yang punya harga
+                pasar harian
+                {menu.bahanTanpaHarga && menu.bahanTanpaHarga > 0
+                  ? `, dan ${menu.bahanTanpaHarga} bahan belum ada harganya`
+                  : ""}
+                . Isi harga belanjamu lewat Scan Nota supaya lebih tepat.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-3">
             {menu.ingredients.map((item, index) => {
               const pct = modal > 0 ? ((item.cost / modal) * 100).toFixed(1) : "0";
