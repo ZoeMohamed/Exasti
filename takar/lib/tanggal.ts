@@ -20,3 +20,28 @@ export function tanggalIndonesia(nilai: Date | string | null | undefined): strin
   const [t, b, h] = iso.split("-");
   return `${Number(h)} ${BULAN[Number(b) - 1]} ${t}`;
 }
+
+/** Zona waktu warung. Database Supabase juga disetel ke sini. */
+export const ZONA_WARUNG = "Asia/Jakarta";
+
+/**
+ * Tanggal hari ini menurut Jakarta, bukan menurut jam server.
+ *
+ * new Date() memberi tanggal di zona tempat proses kebetulan berjalan.
+ * Di Vercel itu UTC, yang tujuh jam di belakang WIB — antara pukul 00:00
+ * dan 07:00 WIB, server masih menganggap kemarin. Snapshot harian dan
+ * alert akan tertulis ke tanggal yang salah, dan tidak akan cocok dengan
+ * current_date di SQL yang kini memakai Asia/Jakarta.
+ *
+ * 'sv-SE' dipakai karena format bakunya sudah YYYY-MM-DD.
+ */
+export function hariIniJakarta(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: ZONA_WARUNG }).format(new Date());
+}
+
+/** Jam:menit sekarang di Jakarta, untuk label "Hari ini, 13:30 WIB". */
+export function jamJakarta(nilai?: Date): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: ZONA_WARUNG, hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(nilai ?? new Date());
+}

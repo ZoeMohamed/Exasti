@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { keIsoTanggal } from "@/lib/tanggal";
+import { keIsoTanggal, hariIniJakarta } from "@/lib/tanggal";
 import { queryDb } from "@/lib/db/client";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const targetDate = date || (keIsoTanggal(new Date()) as string);
+    const targetDate = date || hariIniJakarta();
 
     // Ambil region_id warung
     const bRes = await queryDb(

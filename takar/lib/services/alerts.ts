@@ -15,18 +15,37 @@ export interface AlertTampil {
   pendorong: string | null;
   saran: { tipe: string; harga_sekarang: number; harga_saran: number } | null;
   sudahDibaca: boolean;
+  /** Berapa hari berturut-turut masalah ini sudah muncul. 1 = baru hari ini. */
+  sudahBerapaHari: number;
+  tanggalMulai: string;
 }
 
 /** FR-33: kotak masuk hanya berisi yang belum dibaca. */
 export async function ambilAlert(opsi?: { semua?: boolean }): Promise<AlertTampil[]> {
+  // Satu baris per menu, yang terbaru. Masalah yang belum diselesaikan akan
+  // menghasilkan alert lagi setiap hari; menampilkan semuanya membuat kotak
+  // masuk berisi keluhan yang sama berulang-ulang. Yang berguna bagi pemilik
+  // bukan "sudah dikeluhkan lima kali", tapi "ini sudah berjalan lima hari".
   const res = await queryDb(
-    `select a.id, a.menu_item_id, m.name as nama_menu, a.date, a.severity,
-            a.headline, a.detail, a.driver_commodity_id, a.suggestion, a.read_at
-     from alerts a
-     left join menu_items m on m.id = a.menu_item_id
-     ${opsi?.semua ? "" : "where a.read_at is null"}
-     order by case a.severity when 'critical' then 0 when 'warning' then 1 else 2 end,
-              a.date desc
+    `with terpilih as (
+       select distinct on (a.menu_item_id)
+              a.id, a.menu_item_id, a.date, a.severity, a.headline, a.detail,
+              a.driver_commodity_id, a.suggestion, a.read_at
+       from alerts a
+       ${opsi?.semua ? "" : "where a.read_at is null"}
+       order by a.menu_item_id, a.date desc
+     )
+     select t.*, m.name as nama_menu,
+            (select count(*) from alerts b
+             where b.menu_item_id = t.menu_item_id
+               and b.severity = t.severity) as jumlah_hari,
+            (select min(b.date) from alerts b
+             where b.menu_item_id = t.menu_item_id
+               and b.severity = t.severity) as tanggal_mulai
+     from terpilih t
+     left join menu_items m on m.id = t.menu_item_id
+     order by case t.severity when 'critical' then 0 when 'warning' then 1 else 2 end,
+              t.date desc
      limit 20`,
   );
 
@@ -42,13 +61,20 @@ export async function ambilAlert(opsi?: { semua?: boolean }): Promise<AlertTampi
     pendorong: r.driver_commodity_id,
     saran: r.suggestion ?? null,
     sudahDibaca: Boolean(r.read_at),
+    sudahBerapaHari: Number(r.jumlah_hari ?? 1),
+    tanggalMulai: keIsoTanggal(r.tanggal_mulai) ?? (keIsoTanggal(r.date) as string),
   }));
 }
 
 /** FR-33: tandai sudah dibaca. */
 export async function tandaiDibaca(id: string): Promise<boolean> {
+  // Menandai satu alert sekaligus menutup alert lama untuk menu yang sama.
+  // Kalau tidak, keluhan kemarin akan muncul kembali besok pagi seolah baru.
   const res = await queryDb(
-    `update alerts set read_at = now() where id = $1 and read_at is null`,
+    `update alerts set read_at = now()
+     where read_at is null
+       and (id = $1
+            or menu_item_id = (select menu_item_id from alerts where id = $1))`,
     [id],
   );
   return Boolean(res?.rowCount);

@@ -1,4 +1,5 @@
 import { getDbBusinessProfile, getDbMenus } from "@/lib/services/menu-engine";
+import { jamJakarta } from "@/lib/tanggal";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MobileNav } from "@/components/layout/MobileNav";
@@ -21,10 +22,9 @@ export default async function DashboardLayout({
   let lastSyncText = "Hari ini";
   if (profile.last_ingest_time) {
     try {
-      const d = new Date(profile.last_ingest_time);
-      const hours = String(d.getHours()).padStart(2, "0");
-      const mins = String(d.getMinutes()).padStart(2, "0");
-      lastSyncText = `Hari ini, ${hours}:${mins} WIB`;
+      // Jam harus WIB, bukan jam server. Di Vercel server berjalan di UTC,
+      // sehingga "13:30 WIB" akan tertulis 06:30.
+      lastSyncText = `Hari ini, ${jamJakarta(new Date(profile.last_ingest_time))} WIB`;
     } catch {
       // fallback
     }

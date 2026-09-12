@@ -60,7 +60,11 @@ export function AlertInbox({ alerts }: { alerts: AlertTampil[] }) {
             <span className="bg-ink px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-cream">
               {LABEL[a.keparahan]}
             </span>
-            <span className="font-mono text-xs text-ink/60">{a.tanggal}</span>
+            <span className="font-mono text-xs text-ink/60">
+              {a.sudahBerapaHari > 1
+                ? `sudah ${a.sudahBerapaHari} hari begini`
+                : "baru hari ini"}
+            </span>
           </div>
 
           <h3 className="mt-3 font-heading text-xl font-extrabold leading-snug">{a.headline}</h3>

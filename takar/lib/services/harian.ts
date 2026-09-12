@@ -3,7 +3,7 @@
 // seluruh keputusan angkanya diambil oleh lib/margin.ts yang murni.
 
 import { queryDb } from "../db/client";
-import { keIsoTanggal } from "../tanggal";
+import { keIsoTanggal, hariIniJakarta } from "../tanggal";
 import {
   hitungHpp, hitungMargin, cariPendorong, cariPembanding,
   nilaiKeparahan, batasiAlert, saranHarga, susunKalimat, penyumbangTerbesar,
@@ -215,7 +215,7 @@ export async function buatAlert(tanggal: string): Promise<number> {
 
 /** Satu pekerjaan harian utuh. Dipanggil cron, atau manual dari pengaturan. */
 export async function jalankanHarian(tanggal?: string): Promise<HasilHarian> {
-  const hari = tanggal ?? (keIsoTanggal(new Date()) as string);
+  const hari = tanggal ?? hariIniJakarta();
   const pesan: string[] = [];
 
   const diisiMundur = await isiMundurHarga(hari);

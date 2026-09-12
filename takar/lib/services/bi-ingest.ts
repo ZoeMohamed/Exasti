@@ -1,4 +1,5 @@
 import { queryDb } from "../db/client";
+import { hariIniJakarta } from "../tanggal";
 
 const BASE_URL = "https://www.bi.go.id/hargapangan/WebSite/TabelHarga";
 export const JATENG_PROVINCE_ID = 13;
@@ -74,7 +75,9 @@ export async function fetchBiDataRaw(startDate: Date, endDate: Date): Promise<Re
 }
 
 export async function syncBiPricesToDatabase(daysBack = 90): Promise<{ count: number; latestDate: string }> {
-  const today = new Date();
+  // BI menerbitkan menurut hari Indonesia. Memakai jam server (UTC di Vercel)
+  // membuat permintaan meleset sehari saat dijalankan dini hari WIB.
+  const today = new Date(hariIniJakarta() + "T12:00:00+07:00");
   const start = new Date(today);
   start.setDate(start.getDate() - daysBack);
 
