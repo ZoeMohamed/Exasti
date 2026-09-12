@@ -119,3 +119,15 @@ kelontong dan pasar, yang notanya coretan tangan. Itu bagian paling berisiko dan
 masih harus diuji dengan nota yang dikumpulkan sendiri.
 
 Jangan mengklaim OCR "bekerja" sebelum bagian ini diuji.
+
+---
+
+## 12 September 2026 — Integrasi OCR Nota ke Next.js (Cincin 1)
+
+### Komponen yang dibangun
+1. **`lib/ai/client.ts`**: Pembungkus tunggal provider Google Gemini Flash dengan model fallback chain (`gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-1.5-flash`, `gemini-flash-latest`), penanganan 404/503/429, serta lapisan `ai_cache` berbasis SHA-256 hash dan memory fallback.
+2. **`lib/ai/match.ts`**: Pencocokan string deterministik tanpa AI (FR-39) untuk memetakan hasil bacaan mentah nota ke 21 komoditas Bank Indonesia dan katalog non-BI menggunakan algoritma *Longest Match First* guna mencegah benturan kata (contoh: "telur ayam ras" tidak salah dicocokkan sebagai "ayam").
+3. **`lib/ai/ocr.ts`**: Eksekusi parsing gambar nota dengan skema structured output JSON, normalisasi harga per satuan standar (kg/liter), serta 3 data sampel nota pasar siap uji untuk simulasi offline / mode pesawat (NFR-19 & FR-41).
+4. **`app/api/ai/parse-nota/route.ts`**: Endpoint API POST resmi yang menerima file gambar `multipart/form-data` maupun JSON Base64.
+5. **`app/dashboard/belanja/page.tsx`**: Layar konfirmasi belanja interaktif (S11) yang mematuhi prinsip FR-38 (*"AI hanya menyarankan, pemilik selalu menyetujui"*), memungkinkan pengeditan angka rupiah, jumlah, dan penambahan item secara langsung.
+
