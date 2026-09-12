@@ -22,10 +22,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MODELS = [
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-3.8-flash",
+    "gemini-flash-latest",
     "gemini-flash-lite-latest",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
 ]
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
 BURST = 20
@@ -84,13 +84,13 @@ def main() -> int:
         kode, dtk, catatan = panggil(key, model, prompt)
         hasil.append((kode, dtk))
         tanda = "✓" if kode == 200 else "✗"
-        print(f"  {i:>2}. {tanda} HTTP {kode:<4} {dtk:>6.2f}s", end="")
+        print(f"  {i:>2}. {tanda} HTTP {kode:<4} {dtk:>6.2f}s", end="", flush=True)
         if kode != 200:
-            print(f"   {catatan[:60]}")
+            print(f"   {catatan[:60]}", flush=True)
             if tolak_pertama is None:
                 tolak_pertama = i
         else:
-            print()
+            print(flush=True)
 
     ok = [d for k, d in hasil if k == 200]
     kode_gagal = {}
