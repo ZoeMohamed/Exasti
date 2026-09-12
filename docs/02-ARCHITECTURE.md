@@ -41,7 +41,13 @@
                     │
                     ▼
            ┌──────────────────┐
-           │   Web Dashboard  │◀── peta eksposur · simulator  (Cincin 1)
+           │  PRIORITAS       │  BR-14: untung × weekly_volume
+           │  & PENGELOMPOKAN │  BR-15: sehat / tipis / rugi
+           └────────┬─────────┘
+                    ▼
+           ┌──────────────────┐
+           │   Web Dashboard  │◀── menu planner · simulator ·
+           │                  │    peta eksposur   (Cincin 1)
            └────────┬─────────┘
                     ▲
       menu + resep ─┤  (input BATCH: "2 kg → 8 porsi")
@@ -114,6 +120,8 @@ erDiagram
         text    name "Ayam Geprek"
         numeric sell_price "18000"
         int     batch_yield "8 porsi sekali masak"
+        int     weekly_volume "perkiraan kasar, BR-14"
+        bool    active "false = diistirahatkan, BR-15"
     }
     recipe_items {
         uuid    id PK
@@ -123,12 +131,12 @@ erDiagram
     }
     fixed_costs {
         uuid    id PK
-        text    label "gas + kemasan"
-        numeric amount "per porsi"
-        numeric pack_price "22000"
-        numeric pack_qty "340"
-        numeric usage_qty "15"
-        bool    is_estimated
+        text    label "kertas nasi"
+        numeric amount "per porsi, turunan"
+        numeric pack_price "28000"
+        numeric pack_qty "500"
+        numeric usage_qty "1 — disembunyikan utk kemasan"
+        bool    is_estimated "true = perkiraan sistem"
     }
     margin_snapshots {
         uuid    menu_item_id FK
@@ -375,6 +383,131 @@ Latih skenario ini sampai 30 detik: *"Tambahkan tingkat `urgent` di bawah 5%."*
 
 ---
 
+## Modul pendukung
+
+Tiga hal kecil yang kalau tidak ada akan menghancurkan onboarding.
+
+### `lib/commodities.ts` — nama tampilan ≠ nama BI
+
+```ts
+// Bu Sri bilang "ayam", bukan "Daging Ayam Ras Segar".
+export const TAMPIL: Record<string, string> = {
+  "Daging Ayam Ras Segar":      "Ayam",
+  "Beras Kualitas Medium I":    "Beras",
+  "Cabai Rawit Hijau":          "Cabai rawit",
+  "Cabai Merah Keriting":       "Cabai merah",   // ⚠ nama BI punya spasi di belakang
+  "Bawang Merah Ukuran Sedang": "Bawang merah",
+  "Minyak Goreng Curah":        "Minyak goreng",
+  "Telur Ayam Ras Segar":       "Telur",
+  // …
+}
+
+// Pencarian harus menerima KEDUANYA plus salah ketik lokal:
+export const ALIAS: Record<string, string> = {
+  cabe: "Cabai Rawit Hijau", telor: "Telur Ayam Ras Segar",
+  brambang: "Bawang Merah Ukuran Sedang", mgrg: "Minyak Goreng Curah",
+}
+```
+
+### `lib/units.ts` — satuan yang dia pakai
+
+```ts
+export const KE_KG: Record<string, number> = {
+  kg: 1, gram: 0.001, ons: 0.1,        // aman
+  liter_minyak: 0.9,
+  liter_beras: 0.8,                     // ⚠ tergantung jenis
+  butir_telur: 0.06,                    // ⚠ bervariasi
+  ekor_ayam: 1.2,                       // 🔴 SANGAT bervariasi
+}
+
+// Satuan berisiko WAJIB menampilkan asumsinya, jangan konversi diam-diam:
+//   "1 ekor ≈ 1,2 kg → total 2,4 kg   [betulkan]"
+export const BERISIKO = new Set(["liter_beras", "butir_telur", "ekor_ayam"])
+```
+
+### `lib/packaging.ts` — kalkulator pack
+
+```ts
+// Pemilik tahu "1 pack 500 lembar Rp 28.000". Dia TIDAK tahu "Rp 56/porsi".
+export const perPorsi = (packPrice: number, packQty: number, usageQty = 1) =>
+  (packPrice / packQty) * usageQty
+
+// usageQty untuk kemasan hampir selalu 1 → kolomnya DISEMBUNYIKAN di UI (FR-44).
+// Untuk saus/bumbu, usageQty harus ditanya (15 g dari botol 340 g).
+```
+
+### Pagar pengaman salah satuan — FR-57
+
+```ts
+// Ketik 2000 maksudnya gram tapi satuannya masih kg → modal 1000× lipat.
+export function cekWajar(biayaBahanPerPorsi: number, hargaJual: number) {
+  if (biayaBahanPerPorsi > hargaJual)
+    throw new SalahSatuan(biayaBahanPerPorsi, hargaJual)  // tolak simpan, tanya dulu
+}
+```
+
+---
+
+## Prioritas dan pengelompokan
+
+### BR-14 — pembobotan volume
+
+```ts
+// lib/priority.ts
+export const dampakMingguan = (untungPerPorsi: number, weeklyVolume: number | null) =>
+  weeklyVolume == null ? null : untungPerPorsi * weeklyVolume
+
+// Urutan dashboard:
+//   weekly_volume ADA    → urut dampak rupiah menaik   (paling menggerus di atas)
+//   weekly_volume KOSONG → urut margin % menaik        (perilaku Cincin 0)
+```
+
+**Jangan mengurutkan berdasarkan persentase kalau volume tersedia.** Menu margin
+7% yang laku 150/minggu menggerus Rp 189.000; menu margin −3% yang laku 5 hanya
+Rp 1.700. Mengurutkan berdasarkan persen membuat pemilik memperbaiki yang salah.
+
+Ini **pembobotan yang sama dengan BR-04**, satu lapis di atasnya.
+
+### BR-15 — pengelompokan kesehatan
+
+```ts
+export const KESEHATAN = { sehat: 20, tipis: 0 } as const   // ambang margin %
+
+export const kelompok = (marginPct: number) =>
+  marginPct >= KESEHATAN.sehat ? "sehat"
+  : marginPct >= KESEHATAN.tipis ? "tipis"
+  : "rugi"
+```
+
+**Menu yang `active = false` tetap masuk recompute harian** — supaya sistem bisa
+memanggil balik: *"Telur Balado sudah untung lagi. Jual lagi?"* (FR-53).
+
+Yang **tidak boleh**: menyarankan menu mana yang dipromosikan. Itu butuh data
+penjualan yang tidak dimiliki (C-4).
+
+---
+
+## Batas modal per porsi — BR-13
+
+Pembatasnya: **apakah biaya itu ikut jumlah porsi.**
+
+```
+MASUK ke HPP                        TIDAK MASUK
+bahan pangan                        sewa tempat
+kemasan, sendok, plastik            listrik langganan
+gas, air masak                      gaji karyawan
+bumbu & bahan kecil
+```
+
+Yang tidak masuk nilainya bergantung berapa porsi terjual, dan sistem tidak tahu
+itu (C-4). Memasukkannya berarti mengarang.
+
+**Konsekuensi untuk API dan UI:** setiap respons yang memuat angka untung harus
+membawa penanda agar antarmuka menampilkan *"belum dikurangi sewa dan listrik
+bulanan"* (FR-48).
+
+---
+
 ## Ketahanan — demo tidak boleh bergantung API live
 
 Rate limit, jaringan panitia, kuota habis — semuanya terjadi tepat saat
@@ -484,6 +617,10 @@ Ganti provider = ubah satu file. Juga menang di live coding kalau juri bertanya
 | `/api/menu/[id]/margin` | GET | Untung hari ini + riwayat 30 hari | 0 |
 | `/api/alerts` | GET | Alert aktif | 0 |
 | `/api/alerts/[id]/read` | POST | Tandai dibaca | 0 |
+| `/api/menu/[id]/active` | POST | Istirahatkan / jual lagi | 1 |
+| `/api/menu/volume` | POST | Simpan perkiraan volume mingguan | 1 |
+| `/api/business/packaging` | POST | makan di tempat / bungkus / campur | 1 |
+| `/api/planner` | GET | Menu dikelompokkan sehat/tipis/rugi | 1 |
 | `/api/exposure` | GET | Peta eksposur menu × bahan | 1 |
 | `/api/simulate` | POST | What-if harga | 1 |
 | `/api/ai/parse-nota` | POST | Foto nota → item + harga | 1 |
@@ -528,6 +665,39 @@ Ganti provider = ubah satu file. Juga menang di live coding kalau juri bertanya
 
 Perhatikan `notDriver` — antarmuka **wajib** menampilkan kontras ini. Tanpa
 kalimat kedua, produk ini cuma aplikasi harga pangan biasa.
+
+### Contoh respons `/api/planner` *(Cincin 1)*
+
+```json
+{
+  "date": "2026-09-12",
+  "hasVolume": true,
+  "groups": {
+    "sehat": [
+      { "id": "…", "name": "Nasi Goreng", "profitPerPorsi": 3600,
+        "marginPct": 24.0, "weeklyVolume": 80, "weeklyImpact": 288000 }
+    ],
+    "tipis": [
+      { "id": "…", "name": "Ayam Geprek", "profitPerPorsi": 1260,
+        "marginPct": 7.0, "weeklyVolume": 150, "weeklyImpact": 189000,
+        "suggestion": { "type": "reprice", "value": 20000 } }
+    ],
+    "rugi": [
+      { "id": "…", "name": "Telur Balado", "profitPerPorsi": -340,
+        "marginPct": -3.0, "weeklyVolume": 5, "weeklyImpact": -1700 }
+    ]
+  },
+  "resting": [
+    { "id": "…", "name": "Rendang", "marginPct": 22.0,
+      "readyToResume": true }
+  ],
+  "netProfitDisclaimer": true
+}
+```
+
+`weeklyImpact` yang menentukan urutan di dalam tiap kelompok, bukan `marginPct`.
+`readyToResume` memicu notifikasi FR-53. `netProfitDisclaimer` memaksa UI
+menampilkan catatan BR-13.
 
 ---
 

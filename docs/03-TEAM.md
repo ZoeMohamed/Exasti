@@ -93,10 +93,14 @@ persona, prinsip teks, dan rancangan layar beserta alasannya.
 5. **Transparansi sumber** — tiap modal menampilkan persentase dari data BI dan
    penanda biaya perkiraan.
 
-### Cincin 1
+### Cincin 1 — urut prioritas
 
-6. **Simulator (S10)** — slider harga, angka berubah **saat digeser**.
-7. **Peta eksposur (S9)** — heatmap menu × bahan.
+6. **Menu planner (S12)** — kelompok sehat/tipis/rugi + tombol istirahatkan.
+   Urutan di dalam kelompok memakai **dampak rupiah** (BR-14), bukan persen —
+   `lib/priority.ts`. Ini tempat pemilik mengambil keputusan, dan menurut
+   [04-EXECUTION](04-EXECUTION.md#cincin) lebih diutamakan daripada peta eksposur.
+7. **Simulator (S10)** — slider harga, angka berubah **saat digeser**.
+8. **Peta eksposur (S9)** — heatmap menu × bahan. Potong duluan kalau waktu habis.
 
 ### Selesai jika
 
@@ -105,6 +109,9 @@ persona, prinsip teks, dan rancangan layar beserta alasannya.
 - [ ] Kontras ≥4,5:1 (WCAG AA)
 - [ ] Setiap keadaan kosong ada teks penjelasnya
 - [ ] Tidak ada kata "margin", "HPP", atau "komoditas" di antarmuka
+- [ ] Setiap tampilan untung menyertakan "belum dikurangi sewa dan listrik" (BR-13)
+- [ ] **Uji BR-14 lolos**: dengan volume terisi, Ayam Geprek (Rp 189.000) berada
+      di atas Telur Balado (−Rp 1.700), meski marginnya lebih tinggi
 
 **File milikmu:** `app/(dashboard)/**` · `components/charts/**` ·
 `components/alerts/**` · `components/ui/**`
@@ -183,16 +190,26 @@ itu syarat produk dipakai.**
 
    Simpan `batch_qty` **dan** `qty` turunan. Saat pemilik mengedit, tampilkan
    kembali angka aslinya.
-4. **Biaya tetap** — dengan kalkulator kemasan: harga kemasan + isi + pakai per
-   porsi → sistem yang membagi.
+4. **Kemasan dirinci** — kalkulator pack: harga kemasan + isi → sistem membagi.
+   **Kolom "pakai per porsi" disembunyikan** (default 1) — FR-44.
+5. **Baris perkiraan gas/bumbu/listrik** — **teks read-only, BUKAN disabled
+   field** (FR-45). Field abu-abu terbaca sebagai rusak.
+6. **Nama tampilan & satuan** — pakai `lib/commodities.ts` dan `lib/units.ts`.
+   Satuan berisiko (ekor, butir, liter beras) wajib menampilkan asumsinya
+   untuk dibetulkan — FR-56.
+7. **Pagar pengaman salah satuan** — bila modal satu bahan melebihi harga jual,
+   tolak simpan dan tanya dulu — FR-57.
 5. **Layar hasil pertama (S5)** — momen terpenting di seluruh produk.
 6. **`scripts/seed.ts`** — 5 menu demo (tabel di bawah).
 
 ### Cincin 1
 
-7. **Template onboarding (S2)** — pilih jenis warung, takaran umum sudah terisi.
-8. **Tunda biaya tetap** — jangan tanyakan saat menu pertama. Beri perkiraan
-   Rp 1.200, tandai `is_estimated`.
+8. **Template onboarding (S2)** — "Menu apa yang paling laku?", takaran terisi.
+9. **Pertanyaan kemasan sekali per warung** — makan di tempat / bungkus / campur.
+   Satu ketukan, selisihnya Rp 600 per porsi — FR-47.
+10. **Input volume kasar (S13)** — "seminggu kira-kira laku berapa?".
+    Selalu ditandai perkiraan saat ditampilkan — FR-49, FR-51.
+11. **Tombol istirahatkan / jual lagi** — `POST /api/menu/[id]/active`.
 
 ### Sepanjang waktu
 
@@ -223,6 +240,9 @@ membuktikan produkmu bekerja.
 - [ ] Warung baru bisa didaftarkan sampai punya menu bermargin tanpa bantuan developer
 - [ ] **Waktu sampai angka untung pertama muncul ≤2 menit**
 - [ ] Editor resep tidak pernah meminta takaran per porsi
+- [ ] Label berbunyi "kamu **BELI** berapa", bukan "pakai berapa" (FR-54)
+- [ ] Tidak ada satu pun `<input disabled>` di alur onboarding (FR-45)
+- [ ] Isi ayam 2.000 kg → muncul peringatan salah satuan, tidak tersimpan
 - [ ] Seed menghasilkan ≥5 menu dengan eksposur berbeda
 - [ ] Aplikasi live di URL publik, cron berjalan otomatis
 - [ ] Video ≤3 menit selesai **H-1**, bukan hari-H
