@@ -317,15 +317,34 @@ Pengelompokan: sehat ≥20% · tipis 0–20% · rugi <0%.
 **Utilitarian tenang.** Dirancang supaya terbaca di layar retak, di bawah
 matahari, oleh mata 45 tahun.
 
+**Hijau adalah warna merek. Hijau BUKAN warna status.**
+
+Alasannya dua. Pertama, merah+hijau adalah kombinasi buta warna paling umum
+(±8% pria) — dilarang dipakai sebagai penanda status. Kedua, kalau hijau
+dipakai untuk merek sekaligus untuk "sehat", tidak ada yang bisa membedakan
+tombol dari penilaian.
+
+Penyelesaiannya juga sesuai filosofi produk — **Takar hanya bersuara kalau ada
+masalah, jadi menu sehat seharusnya diam, bukan diberi lencana hijau.**
+
 ```
-Latar      putih hangat, saturasi sangat rendah
-Teks       hitam kehangatan, kontras tinggi
-Sekunder   abu hangat
-Aksen      maksimal tiga, satu per status:
-             merah tua    — rugi
-             kuning tua   — perlu dicek
-             hijau tua    — sehat
+Hijau daun    #22683B   oklch(0.46 0.100 152)   MEREK — tombol, logo
+Oker          #956300   oklch(0.54 0.115  75)   perlu dicek
+Bata          #9A3322   oklch(0.47 0.140  32)   rugi
+Sehat         tanpa warna — teks netral, tenang
+
+Latar         #F8FBF9   oklch(0.985 0.004 150)  putih bernada hijau tipis
+Teks          #191F1A   oklch(0.230 0.012 150)  kontras 16,1
+Teks lembut   #646B65   oklch(0.520 0.012 150)  kontras  5,3
+Garis         #DAE0DA   oklch(0.900 0.010 150)
 ```
+
+Hijaunya **hijau daun pisang**, bukan hijau SaaS (`#10B981` emerald). Warna
+yang sudah akrab di warung: pembungkus nasi, daun pandan. Chroma ditahan di
+0,10 supaya tidak jadi hijau plastik.
+
+Seluruh kontras sudah dihitung dan lolos WCAG 2.1 AA. **Lima warna inti,
+tidak lebih.**
 
 - **Angka uang selalu jauh lebih besar dari labelnya.** Itu yang dia cari.
 - Angka pakai `font-variant-numeric: tabular-nums` supaya kolom rapi.
@@ -363,6 +382,10 @@ kosong tanpa teks.
 ❌  Disabled field untuk angka perkiraan — pakai baris teks biasa
 ❌  Meminta semua menu sebelum menampilkan hasil apa pun
 ❌  Status yang hanya dibedakan warna
+❌  Merah dan hijau berpasangan sebagai status
+❌  Hijau sebagai penanda "sehat" — hijau itu warna merek
+❌  Lencana pada menu yang sehat — yang sehat diam saja
+❌  Gradien, border-left 4px sebagai kartu default, lebih dari lima warna
 ❌  Menyembunyikan bahwa sebagian angka adalah perkiraan
 ❌  Menampilkan untung tanpa catatan "belum dikurangi sewa"
 ❌  Menyebut datanya "real-time" — data BI terbit sekali per hari kerja
