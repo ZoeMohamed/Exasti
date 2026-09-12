@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+      background: #FAFAF9;
+      color: #1C1917;
+      -webkit-font-smoothing: antialiased;
+      font-variant-numeric: tabular-nums;
+    }
+    a { color: oklch(0.48 0.15 27); text-decoration: none; }
+    a:hover { color: oklch(0.40 0.15 27); }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+<div style="display: flex; flex-direction: column; min-height: 100%; padding: 28px 20px 24px; gap: 0; justify-content: center; padding-top: 48px">
+  <div style="font-size: 17px; font-weight: 600; color: #78716C">Ayam Geprek</div>
+  <div style="height: 36px"></div>
+  <div style="font-size: 19px; font-weight: 500">Untungmu</div>
+  <div style="height: 6px"></div>
+  <div style="font-size: 64px; font-weight: 700; letter-spacing: -0.035em; line-height: 1">Rp 3.085</div>
+  <div style="height: 6px"></div>
+  <div style="font-size: 19px; color: #78716C">per porsi</div>
+  <div style="height: 32px"></div>
+  <div style="display: flex; gap: 28px; font-size: 16px">
+    <div><span style="color: #78716C">Modal</span> <span style="font-weight: 500">Rp 14.915</span></div>
+    <div><span style="color: #78716C">Jual</span> <span style="font-weight: 500">Rp 18.000</span></div>
+  </div>
+  <div style="height: 28px"></div>
+  <div style="border-top: 1.5px solid #E7E5E4; padding-top: 18px;
+              display: flex; flex-direction: column; gap: 10px; font-size: 14px; line-height: 1.5">
+    <div style="display: flex; gap: 8px; align-items: flex-start; color: #78716C">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><polyline points="20 6 9 17 4 12"/></svg><span><span style="color: #1C1917; font-weight: 500">92%</span> harga dari data Bank Indonesia</span>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: flex-start; color: #78716C">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span>Belum dikurangi sewa dan listrik bulanan</span>
+    </div>
+  </div>
+  <div style="flex-grow: 1; min-height: 28px"></div>
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <button style="display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 10px; font-size: 17px; font-weight: 600; border: none; background: #1C1917; color: #FAFAF9; width: 100%">Tambah menu lain</button>
+    <button style="display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 10px; font-size: 17px; font-weight: 500; border: 1.5px solid #D6D3D1; background: transparent; color: #1C1917; width: 100%">Nanti saja</button>
+  </div>
+</div></x-dc>
+</body>
+</html>

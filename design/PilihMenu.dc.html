@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+      background: #FAFAF9;
+      color: #1C1917;
+      -webkit-font-smoothing: antialiased;
+      font-variant-numeric: tabular-nums;
+    }
+    a { color: oklch(0.48 0.15 27); text-decoration: none; }
+    a:hover { color: oklch(0.40 0.15 27); }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+<div style="display: flex; flex-direction: column; min-height: 100%; padding: 28px 20px 24px; gap: 0">
+  <div style="font-size: 13px; color: #78716C">Langkah 2 dari 4</div>
+  <div style="height: 20px"></div>
+  <h1 style="margin: 0; font-size: 26px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em">Menu apa yang<br>paling laku?</h1>
+  <p style="margin: 10px 0 0; font-size: 15px; line-height: 1.5; color: #78716C">
+    Satu dulu saja. Yang lain bisa ditambah nanti.</p>
+  <div style="height: 28px"></div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+    <div style="display: flex; align-items: center; justify-content: center; min-height: 60px; border-radius: 10px; font-size: 17px; font-weight: 500; padding: 0 12px; text-align: center; border: 2px solid #1C1917; background: #FFFFFF">Ayam Geprek</div>
+    <div style="display: flex; align-items: center; justify-content: center; min-height: 60px; border-radius: 10px; font-size: 17px; font-weight: 500; padding: 0 12px; text-align: center; border: 1.5px solid #D6D3D1; background: #FFFFFF">Nasi Goreng</div>
+    <div style="display: flex; align-items: center; justify-content: center; min-height: 60px; border-radius: 10px; font-size: 17px; font-weight: 500; padding: 0 12px; text-align: center; border: 1.5px solid #D6D3D1; background: #FFFFFF">Soto</div>
+    <div style="display: flex; align-items: center; justify-content: center; min-height: 60px; border-radius: 10px; font-size: 17px; font-weight: 500; padding: 0 12px; text-align: center; border: 1.5px solid #D6D3D1; background: #FFFFFF">Bakso</div>
+    <div style="display: flex; align-items: center; justify-content: center; min-height: 60px; border-radius: 10px; font-size: 17px; font-weight: 500; padding: 0 12px; text-align: center; border: 1.5px solid #D6D3D1; background: #FFFFFF">Nasi Rames</div>
+    <div style="display: flex; align-items: center; justify-content: center; min-height: 60px; border-radius: 10px; font-size: 17px; font-weight: 500; padding: 0 12px; text-align: center; border: 1.5px solid #D6D3D1; background: #FFFFFF">Lainnya</div>
+  </div>
+  <div style="flex-grow: 1; min-height: 24px"></div>
+  <button style="display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 10px; font-size: 17px; font-weight: 600; border: none; background: #1C1917; color: #FAFAF9; width: 100%">Lanjut</button>
+</div></x-dc>
+</body>
+</html>
