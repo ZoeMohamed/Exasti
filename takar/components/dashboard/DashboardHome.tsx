@@ -1,0 +1,225 @@
+import Link from "next/link";
+import { menus } from "@/lib/data/menus";
+import { formatRupiah } from "@/lib/formatRupiah";
+import { MenuCard } from "@/components/ui/MenuCard";
+
+export function DashboardHome() {
+  return (
+    <div className="space-y-8">
+      <section className="relative bg-white p-6 sm:p-8 brutal-card">
+        <span className="absolute right-6 -top-3 rotate-2 bg-warning-yellow px-3 py-1 font-mono text-xs font-bold brutal-border">
+          📍 Semarang · Pasar Johar Update
+        </span>
+        <span className="mb-3 inline-block bg-ink px-2.5 py-1 font-mono text-xs font-bold uppercase text-cream">
+          Analisis Keuangan Warung Hari Ini
+        </span>
+        <h1 className="max-w-3xl font-heading text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
+          “Hari ini, ada{" "}
+          <span className="inline-block -rotate-1 bg-critical-red px-2 py-0.5 text-white brutal-border-2">
+            3 menu
+          </span>{" "}
+          yang perlu kamu lihat.”
+        </h1>
+        <p className="mt-4 max-w-2xl text-base font-medium leading-relaxed text-ink/80 sm:text-lg">
+          Harga daging ayam dan cabai di Semarang bergerak cepat minggu ini.
+          Jangan sampai jualan laris manis tapi pas dihitung uangnya malah habis
+          untuk modal.
+        </p>
+        <div className="mt-8 grid grid-cols-1 gap-4 border-t-2 border-ink/20 pt-6 sm:grid-cols-3">
+          <Metric
+            label="Menu Aktif Jualan"
+            value="12 Menu"
+            note="Dipantau otomatis harian"
+          />
+          <Metric
+            label="Untung Rata-Rata"
+            value={formatRupiah(3240)}
+            note="per porsi (semua menu)"
+            tone="green"
+          />
+          <Metric
+            label="Kondisi Genting"
+            value="4 Menu"
+            note="Untung tipis & rawan rugi"
+            tone="red"
+          />
+        </div>
+      </section>
+      <section>
+        <SectionTitle
+          title="Yang Perlu Kamu Perhatikan"
+          note="Diurutkan dari dampak rupiah terbesar"
+        />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Alert
+            title="AYAM GEPREK"
+            status="KRITIS"
+            tone="red"
+            value="Rp 1.260"
+            body="Daging ayam menyumbang kenaikan modal terbesar (+Rp 1.800/porsi)."
+            href="/dashboard/menu/ayam-geprek"
+            action="Lihat Kenapa"
+          />
+          <Alert
+            title="NASI GORENG SPESIAL"
+            status="PERLU DICEK"
+            tone="yellow"
+            value="Rp 2.100"
+            body="Harga telur naik dan margin untung mulai masuk zona tipis."
+            href="/dashboard/simulator"
+            action="Simulasikan Porsi"
+          />
+          <Alert
+            title="ES TEH JUMBO"
+            status="INFO AMAN"
+            tone="green"
+            value="Rp 2.450"
+            body="Untung stabil. Jadikan menu bundling untuk menambal menu makanan utama."
+            href="/dashboard/menu"
+            action="Lihat Detail Menu"
+          />
+        </div>
+      </section>
+      <section>
+        <SectionTitle
+          title="Kondisi Menu Kamu"
+          note="Diurutkan dari untung terkecil ke terbesar."
+          action={
+            <Link
+              href="/dashboard/menu/tambah"
+              className="brutal-btn bg-warning-yellow px-4 py-2 text-xs font-heading font-bold"
+            >
+              + Tambah Menu Baru
+            </Link>
+          }
+        />
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {menus.map((menu) => (
+            <MenuCard key={menu.id} menu={menu} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  note,
+  tone,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  tone?: "green" | "red";
+}) {
+  return (
+    <div
+      className={`p-4 brutal-border-2 ${tone === "green" ? "bg-bright-green/20" : tone === "red" ? "bg-critical-red/10" : "bg-cream"}`}
+    >
+      <span className="font-mono text-xs font-bold uppercase text-ink/70">
+        {label}
+      </span>
+      <div
+        className={`mt-1 font-heading text-3xl font-extrabold ${tone === "green" ? "text-accent-green" : tone === "red" ? "text-critical-red" : ""}`}
+      >
+        {value}
+      </div>
+      <span className="text-xs text-ink/70">{note}</span>
+    </div>
+  );
+}
+
+function SectionTitle({
+  title,
+  note,
+  action,
+}: {
+  title: string;
+  note: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 className="font-heading text-2xl font-extrabold sm:text-3xl">
+          {title}
+        </h2>
+        <p className="text-xs text-ink/70 sm:text-sm">{note}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function Alert({
+  title,
+  status,
+  tone,
+  value,
+  body,
+  href,
+  action,
+}: {
+  title: string;
+  status: string;
+  tone: "red" | "yellow" | "green";
+  value: string;
+  body: string;
+  href: string;
+  action: string;
+}) {
+  const styles = {
+    red: {
+      border: "border-t-critical-red",
+      badge: "bg-critical-red text-white",
+      value: "text-critical-red",
+      button: "bg-ink text-cream",
+    },
+    yellow: {
+      border: "border-t-warning-yellow",
+      badge: "bg-warning-yellow text-ink",
+      value: "text-ink",
+      button: "bg-warning-yellow",
+    },
+    green: {
+      border: "border-t-accent-green",
+      badge: "bg-white text-ink",
+      value: "text-accent-green",
+      button: "bg-cream-surface",
+    },
+  }[tone];
+  return (
+    <div
+      className={`relative flex flex-col justify-between border-t-8 bg-white p-6 brutal-card ${styles.border}`}
+    >
+      <span
+        className={`absolute right-4 -top-5 px-3 py-1 text-xs font-heading font-extrabold brutal-border-2 ${styles.badge}`}
+      >
+        {status}
+      </span>
+      <div>
+        <span className="font-mono text-xs font-bold uppercase text-ink/60">
+          Menu Favorit
+        </span>
+        <h3 className="mt-0.5 font-heading text-2xl font-extrabold">{title}</h3>
+        <div className="mt-4 bg-cream p-3.5 brutal-border-2">
+          <span className="block text-xs font-bold">Untung sekarang:</span>
+          <strong className={`font-mono text-3xl ${styles.value}`}>
+            {value}
+          </strong>
+        </div>
+        <div className="my-4 bg-cream p-3 brutal-border-2">
+          <p className="text-xs font-semibold text-ink/80">{body}</p>
+        </div>
+      </div>
+      <Link
+        href={href}
+        className={`brutal-btn w-full py-2.5 text-center text-sm font-heading font-bold ${styles.button}`}
+      >
+        {action} ➔
+      </Link>
+    </div>
+  );
+}

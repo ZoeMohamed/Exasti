@@ -1,26 +1,89 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fff8eb;
+  --foreground: #111111;
+  --cream: #fff8eb;
+  --cream-surface: #fffdf9;
+  --ink: #111111;
+  --accent-green: #2e7d32;
+  --bright-green: #66bb6a;
+  --warning-yellow: #ffc107;
+  --critical-red: #d62828;
+  --warung-brown: #4a3728;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-cream: var(--cream);
+  --color-cream-surface: var(--cream-surface);
+  --color-ink: var(--ink);
+  --color-accent-green: var(--accent-green);
+  --color-bright-green: var(--bright-green);
+  --color-warning-yellow: var(--warning-yellow);
+  --color-critical-red: var(--critical-red);
+  --color-warung-brown: var(--warung-brown);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-space-grotesk);
+  --font-mono: var(--font-space-mono);
+  --font-hand: var(--font-permanent-marker);
+  --font-marker: var(--font-kalam);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), sans-serif;
+}
+
+.brutal-border {
+  border: 3px solid var(--ink);
+}
+.brutal-border-2 {
+  border: 2px solid var(--ink);
+}
+.brutal-card {
+  border: 3px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  transition:
+    transform 0.15s ease-in-out,
+    box-shadow 0.15s ease-in-out;
+}
+.brutal-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+.brutal-btn {
+  border: 3px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
+  cursor: pointer;
+}
+.brutal-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+.brutal-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+input[type="range"] {
+  appearance: none;
+  background: var(--cream-surface);
+  border: 2px solid var(--ink);
+  height: 16px;
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  height: 28px;
+  width: 28px;
+  border-radius: 50%;
+  background: var(--critical-red);
+  border: 3px solid var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
 }

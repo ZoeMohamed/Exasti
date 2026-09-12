@@ -1,0 +1,3079 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TAKAR — Tahu untungmu sebelum habis</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Permanent+Marker&family=Kalam:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              cream: "#FFF8EB",
+              "cream-surface": "#FFFDF9",
+              ink: "#111111",
+              "accent-green": "#2E7D32",
+              "bright-green": "#66BB6A",
+              "warning-yellow": "#FFC107",
+              "critical-red": "#D62828",
+              "warung-brown": "#4A3728",
+            },
+            fontFamily: {
+              heading: ['"Space Grotesk"', "sans-serif"],
+              body: ['"Inter"', "sans-serif"],
+              mono: ['"Space Mono"', "monospace"],
+              hand: ['"Permanent Marker"', "cursive"],
+              marker: ['"Kalam"', "cursive"],
+            },
+            boxShadow: {
+              "brutal-sm": "2px 2px 0px #111111",
+              brutal: "4px 4px 0px #111111",
+              "brutal-lg": "6px 6px 0px #111111",
+              "brutal-xl": "8px 8px 0px #111111",
+              "brutal-hover": "6px 6px 0px #111111",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      /* Custom Neubrutalist styles */
+      .brutal-border {
+        border: 3px solid #111111;
+      }
+      .brutal-border-2 {
+        border: 2px solid #111111;
+      }
+      .brutal-card {
+        border: 3px solid #111111;
+        box-shadow: 4px 4px 0px #111111;
+        transition: all 0.15s ease-in-out;
+      }
+      .brutal-card:hover {
+        transform: translate(-2px, -2px);
+        box-shadow: 6px 6px 0px #111111;
+      }
+      .brutal-btn {
+        border: 3px solid #111111;
+        box-shadow: 4px 4px 0px #111111;
+        transition: all 0.1s ease;
+        cursor: pointer;
+      }
+      .brutal-btn:hover {
+        transform: translate(-2px, -2px);
+        box-shadow: 6px 6px 0px #111111;
+      }
+      .brutal-btn:active {
+        transform: translate(2px, 2px);
+        box-shadow: 2px 2px 0px #111111;
+      }
+      .receipt-perforated {
+        background-image: radial-gradient(#111111 20%, transparent 25%);
+        background-position: 0 0;
+        background-size: 14px 14px;
+        height: 12px;
+        width: 100%;
+      }
+      .receipt-sawtooth-top {
+        background:
+          linear-gradient(135deg, #111111 6px, transparent 0),
+          linear-gradient(-135deg, #111111 6px, transparent 0);
+        background-size: 12px 12px;
+        height: 12px;
+      }
+      .receipt-sawtooth-white {
+        background: radial-gradient(circle, transparent 6px, #fffdf9 6px);
+        background-size: 16px 16px;
+        background-position: -8px -8px;
+      }
+      .tape-sticker {
+        background: rgba(255, 235, 59, 0.85);
+        box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.15);
+        border-left: 2px dashed rgba(0, 0, 0, 0.25);
+        border-right: 2px dashed rgba(0, 0, 0, 0.25);
+      }
+      /* Custom range slider */
+      input[type="range"] {
+        -webkit-appearance: none;
+        background: #fffdf9;
+        border: 2px solid #111111;
+        height: 16px;
+        border-radius: 8px;
+        box-shadow: 2px 2px 0px #111111;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 28px;
+        width: 28px;
+        border-radius: 50%;
+        background: #d62828;
+        border: 3px solid #111111;
+        cursor: pointer;
+        box-shadow: 2px 2px 0px #111111;
+        transition: transform 0.1s;
+      }
+      input[type="range"]::-webkit-slider-thumb:hover {
+        transform: scale(1.15);
+        background: #ffc107;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-cream text-ink font-body selection:bg-warning-yellow selection:text-ink min-h-screen antialiased flex flex-col md:flex-row pb-20 md:pb-0"
+  >
+    <!-- ==================== DESKTOP PERSISTENT SIDEBAR ==================== -->
+    <aside
+      class="hidden md:flex flex-col w-64 lg:w-72 bg-cream border-r-[3px] border-ink h-screen sticky top-0 z-40 p-5 shrink-0 justify-between"
+    >
+      <div>
+        <!-- Brand Logo -->
+        <div
+          class="bg-warning-yellow brutal-border p-4 shadow-brutal mb-6 transform -rotate-1 relative"
+        >
+          <div
+            class="absolute -top-3 -right-2 bg-critical-red text-white text-[10px] font-mono px-2 py-0.5 border-2 border-ink uppercase tracking-wider font-bold shadow-brutal-sm rotate-6"
+          >
+            v1.2 WARUNG
+          </div>
+          <div class="flex items-center gap-2">
+            <div
+              class="w-8 h-8 bg-ink flex items-center justify-center text-warning-yellow font-heading font-extrabold text-xl brutal-border-2"
+            >
+              T
+            </div>
+            <span
+              class="font-heading font-extrabold text-3xl tracking-tight text-ink"
+              >TAKAR</span
+            >
+          </div>
+          <p class="font-heading font-bold text-xs mt-1 text-ink/90 italic">
+            “Tahu untungmu sebelum habis.”
+          </p>
+        </div>
+
+        <!-- Location and Status Badge -->
+        <div
+          class="bg-white brutal-border-2 p-2.5 shadow-brutal-sm mb-6 flex items-center gap-2"
+        >
+          <span
+            class="w-3 h-3 rounded-full bg-bright-green border-2 border-ink animate-ping"
+          ></span>
+          <div class="text-xs font-mono font-bold leading-tight">
+            <div>Semarang, Jawa Tengah</div>
+            <div class="text-ink/60 font-normal">
+              Harga pasar: Hari ini 06:00
+            </div>
+          </div>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="space-y-2.5" id="desktop-nav">
+          <button
+            onclick="switchTab('dashboard')"
+            data-tab="dashboard"
+            class="nav-btn w-full text-left px-4 py-3 font-heading font-bold text-base flex items-center gap-3 brutal-border-2 shadow-brutal bg-white transition hover:-translate-y-0.5 active:translate-y-0.5"
+          >
+            <span class="text-xl">🏠</span>
+            <span>Beranda</span>
+            <span
+              class="ml-auto bg-critical-red text-white text-xs font-mono px-1.5 py-0.2 rounded border border-ink font-bold"
+              >3</span
+            >
+          </button>
+
+          <button
+            onclick="switchTab('menu-detail')"
+            data-tab="menu-detail"
+            class="nav-btn w-full text-left px-4 py-3 font-heading font-bold text-base flex items-center gap-3 brutal-border-2 bg-transparent hover:bg-white transition hover:shadow-brutal hover:-translate-y-0.5"
+          >
+            <span class="text-xl">🔍</span>
+            <span>Detail Menu</span>
+            <span
+              class="ml-auto text-[10px] font-mono bg-warning-yellow px-1 border border-ink font-bold"
+              >Kritis</span
+            >
+          </button>
+
+          <button
+            onclick="switchTab('menu-list')"
+            data-tab="menu-list"
+            class="nav-btn w-full text-left px-4 py-3 font-heading font-bold text-base flex items-center gap-3 brutal-border-2 bg-transparent hover:bg-white transition hover:shadow-brutal hover:-translate-y-0.5"
+          >
+            <span class="text-xl">📋</span>
+            <span>Daftar Menu</span>
+            <span
+              class="ml-auto text-xs font-mono font-bold bg-cream-surface px-1.5 border border-ink"
+              >12</span
+            >
+          </button>
+
+          <button
+            onclick="switchTab('add-menu')"
+            data-tab="add-menu"
+            class="nav-btn w-full text-left px-4 py-3 font-heading font-bold text-base flex items-center gap-3 brutal-border-2 bg-transparent hover:bg-white transition hover:shadow-brutal hover:-translate-y-0.5"
+          >
+            <span class="text-xl">➕</span>
+            <span>Tambah Menu</span>
+          </button>
+
+          <button
+            onclick="switchTab('scan-nota')"
+            data-tab="scan-nota"
+            class="nav-btn w-full text-left px-4 py-3 font-heading font-bold text-base flex items-center gap-3 brutal-border-2 bg-transparent hover:bg-white transition hover:shadow-brutal hover:-translate-y-0.5"
+          >
+            <span class="text-xl">🧾</span>
+            <span>Scan Nota Belanja</span>
+            <span
+              class="ml-auto bg-bright-green text-ink text-[10px] font-mono px-1 border border-ink font-bold"
+              >OCR</span
+            >
+          </button>
+
+          <button
+            onclick="switchTab('simulator')"
+            data-tab="simulator"
+            class="nav-btn w-full text-left px-4 py-3 font-heading font-bold text-base flex items-center gap-3 brutal-border-2 bg-transparent hover:bg-white transition hover:shadow-brutal hover:-translate-y-0.5"
+          >
+            <span class="text-xl">🎚️</span>
+            <span>Simulator Harga</span>
+            <span
+              class="ml-auto text-[10px] font-mono bg-critical-red text-white px-1 border border-ink font-bold"
+              >Live</span
+            >
+          </button>
+
+          <button
+            onclick="switchTab('settings')"
+            data-tab="settings"
+            class="nav-btn w-full text-left px-4 py-3 font-heading font-bold text-base flex items-center gap-3 brutal-border-2 bg-transparent hover:bg-white transition hover:shadow-brutal hover:-translate-y-0.5"
+          >
+            <span class="text-xl">⚙️</span>
+            <span>Pengaturan Warung</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Sidebar Footer / Warung Identity -->
+      <div class="mt-6 pt-4 border-t-2 border-ink">
+        <div
+          class="bg-cream-surface brutal-border-2 p-3 shadow-brutal-sm relative"
+        >
+          <div
+            class="absolute -top-3 right-2 bg-accent-green text-white font-mono text-[10px] px-1.5 py-0.5 border border-ink font-bold uppercase"
+          >
+            Warung Aktif
+          </div>
+          <p class="font-heading font-bold text-sm text-ink truncate">
+            Warung Bu Krisna
+          </p>
+          <p class="font-mono text-xs text-ink/70">Banyumanik · Semarang</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ==================== MOBILE TOP BAR ==================== -->
+    <header
+      class="md:hidden bg-warning-yellow border-b-[3px] border-ink p-3.5 sticky top-0 z-40 flex items-center justify-between shadow-brutal-sm"
+    >
+      <div class="flex items-center gap-2">
+        <div
+          class="w-8 h-8 bg-ink text-warning-yellow flex items-center justify-center font-heading font-black text-xl border-2 border-ink"
+        >
+          T
+        </div>
+        <div>
+          <span
+            class="font-heading font-extrabold text-2xl tracking-tight leading-none text-ink"
+            >TAKAR</span
+          >
+          <div class="font-mono text-[10px] text-ink/80 font-bold">
+            Semarang · Harga Hari Ini
+          </div>
+        </div>
+      </div>
+      <button
+        onclick="switchTab('scan-nota')"
+        class="brutal-btn bg-bright-green px-3 py-1.5 text-xs font-heading font-extrabold flex items-center gap-1.5"
+      >
+        <span>📷</span>
+        <span>Scan Nota</span>
+      </button>
+    </header>
+
+    <!-- ==================== MAIN CONTENT AREA ==================== -->
+    <main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+      <!-- Global Quick Switcher Bar (Useful for immediate screen jumping in demos) -->
+      <div
+        class="mb-6 pb-2 overflow-x-auto flex items-center gap-2 text-xs font-heading font-bold scrollbar-none"
+      >
+        <span
+          class="font-mono text-ink/60 whitespace-nowrap uppercase tracking-wider text-[11px] mr-1"
+          >Lompat Layar:</span
+        >
+        <button
+          onclick="switchTab('dashboard')"
+          class="quick-tab px-3 py-1.5 brutal-border-2 bg-white shadow-brutal-sm hover:bg-warning-yellow whitespace-nowrap"
+        >
+          1. Beranda
+        </button>
+        <button
+          onclick="switchTab('menu-detail')"
+          class="quick-tab px-3 py-1.5 brutal-border-2 bg-white shadow-brutal-sm hover:bg-warning-yellow whitespace-nowrap"
+        >
+          2. Detail Menu (Ayam Geprek)
+        </button>
+        <button
+          onclick="switchTab('menu-list')"
+          class="quick-tab px-3 py-1.5 brutal-border-2 bg-white shadow-brutal-sm hover:bg-warning-yellow whitespace-nowrap"
+        >
+          3. Daftar Menu (12)
+        </button>
+        <button
+          onclick="switchTab('add-menu')"
+          class="quick-tab px-3 py-1.5 brutal-border-2 bg-white shadow-brutal-sm hover:bg-warning-yellow whitespace-nowrap"
+        >
+          4. Tambah Menu (Notebook)
+        </button>
+        <button
+          onclick="switchTab('scan-nota')"
+          class="quick-tab px-3 py-1.5 brutal-border-2 bg-white shadow-brutal-sm hover:bg-warning-yellow whitespace-nowrap"
+        >
+          5. Scan Nota (OCR)
+        </button>
+        <button
+          onclick="switchTab('simulator')"
+          class="quick-tab px-3 py-1.5 brutal-border-2 bg-white shadow-brutal-sm hover:bg-warning-yellow whitespace-nowrap"
+        >
+          6. Simulator Harga
+        </button>
+        <button
+          onclick="switchTab('settings')"
+          class="quick-tab px-3 py-1.5 brutal-border-2 bg-white shadow-brutal-sm hover:bg-warning-yellow whitespace-nowrap"
+        >
+          7. Pengaturan Warung
+        </button>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- SCREEN 1: DASHBOARD / BERANDA -->
+      <!-- ======================================================== -->
+      <section id="screen-dashboard" class="screen-panel space-y-8">
+        <!-- Hero Banner -->
+        <div class="bg-white brutal-card p-6 sm:p-8 relative overflow-hidden">
+          <!-- Sticker Tag -->
+          <div
+            class="absolute -top-3 right-6 bg-warning-yellow brutal-border px-3 py-1 text-xs font-mono font-bold uppercase tracking-wider rotate-2 shadow-brutal-sm"
+          >
+            📍 Semarang · Pasar Johar Update
+          </div>
+
+          <div class="max-w-3xl">
+            <div
+              class="inline-block bg-ink text-cream font-mono text-xs px-2.5 py-1 font-bold uppercase tracking-wider mb-3"
+            >
+              Analisis Keuangan Warung Hari Ini
+            </div>
+            <h1
+              class="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-tight text-ink mb-4"
+            >
+              “Hari ini, ada
+              <span
+                class="bg-critical-red text-white px-2 py-0.5 inline-block transform -rotate-1 border-2 border-ink"
+                >3 menu</span
+              >
+              yang perlu kamu lihat.”
+            </h1>
+            <p
+              class="font-body text-base sm:text-lg text-ink/80 leading-relaxed max-w-2xl font-medium"
+            >
+              Harga daging ayam dan cabai di Semarang bergerak cepat minggu ini.
+              Jangan sampai jualan laris manis tapi pas dihitung uangnya malah
+              habis untuk modal.
+            </p>
+          </div>
+
+          <!-- Metric Summary Blocks -->
+          <div
+            class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 pt-6 border-t-2 border-ink/20"
+          >
+            <div class="bg-cream p-4 brutal-border-2 shadow-brutal-sm">
+              <span class="text-xs font-mono font-bold uppercase text-ink/70"
+                >Menu Aktif Jualan</span
+              >
+              <div
+                class="font-heading font-extrabold text-3xl sm:text-4xl text-ink mt-1"
+              >
+                12 Menu
+              </div>
+              <span class="text-xs font-body text-ink/70"
+                >Dipantau otomatis harian</span
+              >
+            </div>
+
+            <div
+              class="bg-bright-green/20 p-4 brutal-border-2 shadow-brutal-sm"
+            >
+              <span class="text-xs font-mono font-bold uppercase text-ink/70"
+                >Untung Rata-Rata</span
+              >
+              <div
+                class="font-mono font-bold text-3xl sm:text-4xl text-accent-green mt-1"
+              >
+                Rp 3.240
+              </div>
+              <span class="text-xs font-body text-ink/80 font-medium"
+                >per porsi (semua menu)</span
+              >
+            </div>
+
+            <div
+              class="bg-critical-red/10 p-4 brutal-border-2 shadow-brutal-sm"
+            >
+              <span
+                class="text-xs font-mono font-bold uppercase text-critical-red"
+                >Kondisi Genting</span
+              >
+              <div
+                class="font-heading font-extrabold text-3xl sm:text-4xl text-critical-red mt-1"
+              >
+                4 Menu
+              </div>
+              <span class="text-xs font-body text-ink/80 font-semibold"
+                >Untung tipis & rawan rugi</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: YANG PERLU KAMU PERHATIKAN (ALERT CARDS) -->
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div class="flex items-center gap-3">
+              <span
+                class="w-6 h-6 bg-critical-red text-white flex items-center justify-center font-heading font-extrabold text-sm brutal-border-2"
+                >!</span
+              >
+              <h2
+                class="font-heading font-extrabold text-2xl sm:text-3xl text-ink tracking-tight"
+              >
+                Yang Perlu Kamu Perhatikan
+              </h2>
+            </div>
+            <span
+              class="font-mono text-xs bg-cream-surface px-3 py-1 brutal-border-2 font-bold"
+            >
+              Diurutkan dari dampak rupiah terbesar
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Card 1: KRITIS - Ayam Geprek -->
+            <div
+              class="bg-white brutal-card p-6 flex flex-col justify-between border-t-8 border-t-critical-red relative"
+            >
+              <div
+                class="absolute -top-4 right-4 bg-critical-red text-white font-heading font-extrabold text-xs px-3 py-1 brutal-border-2 shadow-brutal-sm flex items-center gap-1.5"
+              >
+                <span>🔴</span>
+                <span>KRITIS</span>
+              </div>
+
+              <div>
+                <div class="text-xs font-mono font-bold text-ink/60 uppercase">
+                  Menu Favorit
+                </div>
+                <h3
+                  class="font-heading font-extrabold text-2xl text-ink tracking-tight mt-0.5"
+                >
+                  AYAM GEPREK
+                </h3>
+
+                <!-- Large Profit Highlight -->
+                <div class="mt-4 bg-critical-red/10 brutal-border-2 p-3.5">
+                  <span class="text-xs font-body font-bold text-ink/80 block"
+                    >Untung tinggal:</span
+                  >
+                  <div class="font-mono font-bold text-3xl text-critical-red">
+                    Rp 1.260
+                    <span class="text-xs font-normal text-ink">/ porsi</span>
+                  </div>
+                  <div
+                    class="flex items-center gap-2 mt-1.5 text-xs font-mono font-bold"
+                  >
+                    <span class="line-through text-ink/50">Rp 3.085</span>
+                    <span>➔</span>
+                    <span
+                      class="text-critical-red bg-white px-1.5 py-0.5 border border-critical-red"
+                      >Turun Rp 1.825 dalam 7 hari</span
+                    >
+                  </div>
+                </div>
+
+                <!-- Hand-drawn annotation stamp -->
+                <div
+                  class="my-4 p-3 bg-warning-yellow/30 brutal-border-2 relative"
+                >
+                  <div
+                    class="font-hand text-critical-red text-lg leading-tight tracking-wider transform -rotate-2"
+                  >
+                    “GARA-GARA AYAM!”
+                  </div>
+                  <p class="font-body text-xs text-ink/90 font-semibold mt-1">
+                    Daging ayam menyumbang kenaikan modal terbesar (+Rp
+                    1.800/porsi).
+                  </p>
+                  <div
+                    class="mt-2 pt-2 border-t border-ink/20 text-xs font-body text-ink/75"
+                  >
+                    <span class="font-bold text-ink">Bandingkan:</span> Cabai
+                    naik 58%, tapi dampaknya ke porsi cuma
+                    <span class="font-mono font-bold text-ink">Rp 480</span>.
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onclick="switchTab('menu-detail')"
+                class="brutal-btn w-full bg-ink text-cream font-heading font-bold text-sm py-2.5 px-4 flex items-center justify-center gap-2 mt-2"
+              >
+                <span>Lihat Kenapa</span>
+                <span class="text-warning-yellow">➔</span>
+              </button>
+            </div>
+
+            <!-- Card 2: PERLU DICEK - Nasi Goreng Spesial -->
+            <div
+              class="bg-white brutal-card p-6 flex flex-col justify-between border-t-8 border-t-warning-yellow relative"
+            >
+              <div
+                class="absolute -top-4 right-4 bg-warning-yellow text-ink font-heading font-extrabold text-xs px-3 py-1 brutal-border-2 shadow-brutal-sm flex items-center gap-1.5"
+              >
+                <span>🟡</span>
+                <span>PERLU DICEK</span>
+              </div>
+
+              <div>
+                <div class="text-xs font-mono font-bold text-ink/60 uppercase">
+                  Menu Makan Malam
+                </div>
+                <h3
+                  class="font-heading font-extrabold text-2xl text-ink tracking-tight mt-0.5"
+                >
+                  NASI GORENG SPESIAL
+                </h3>
+
+                <div class="mt-4 bg-warning-yellow/15 brutal-border-2 p-3.5">
+                  <span class="text-xs font-body font-bold text-ink/80 block"
+                    >Untung sekarang:</span
+                  >
+                  <div class="font-mono font-bold text-3xl text-ink">
+                    Rp 2.100
+                    <span class="text-xs font-normal text-ink/70">/ porsi</span>
+                  </div>
+                  <div
+                    class="flex items-center gap-2 mt-1.5 text-xs font-mono font-bold"
+                  >
+                    <span class="line-through text-ink/50">Rp 3.400</span>
+                    <span>➔</span>
+                    <span
+                      class="text-ink bg-white px-1.5 py-0.5 border border-ink"
+                      >Turun Rp 1.300 dalam 14 hari</span
+                    >
+                  </div>
+                </div>
+
+                <div class="my-4 p-3 bg-cream brutal-border-2">
+                  <div
+                    class="font-marker text-warung-brown text-base font-bold"
+                  >
+                    Penyebab: Telur & Minyak Goreng
+                  </div>
+                  <p class="font-body text-xs text-ink/80 font-medium mt-1">
+                    Harga telur naik Rp 2.500/kg di pasar Johar. Margin untung
+                    mulai masuk zona TIPIS (11,6%).
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onclick="switchTab('simulator')"
+                class="brutal-btn w-full bg-warning-yellow text-ink font-heading font-bold text-sm py-2.5 px-4 flex items-center justify-center gap-2 mt-2"
+              >
+                <span>Simulasikan Porsi</span>
+                <span>➔</span>
+              </button>
+            </div>
+
+            <!-- Card 3: INFO - Es Teh Manis Jumbo -->
+            <div
+              class="bg-white brutal-card p-6 flex flex-col justify-between border-t-8 border-t-accent-green relative"
+            >
+              <div
+                class="absolute -top-4 right-4 bg-white text-ink font-heading font-extrabold text-xs px-3 py-1 brutal-border-2 shadow-brutal-sm flex items-center gap-1.5"
+              >
+                <span>🔵</span>
+                <span>INFO AMAN</span>
+              </div>
+
+              <div>
+                <div class="text-xs font-mono font-bold text-ink/60 uppercase">
+                  Penyelamat Kas
+                </div>
+                <h3
+                  class="font-heading font-extrabold text-2xl text-ink tracking-tight mt-0.5"
+                >
+                  ES TEH JUMBO
+                </h3>
+
+                <div class="mt-4 bg-bright-green/15 brutal-border-2 p-3.5">
+                  <span class="text-xs font-body font-bold text-ink/80 block"
+                    >Untung tetap stabil:</span
+                  >
+                  <div class="font-mono font-bold text-3xl text-accent-green">
+                    Rp 2.450
+                    <span class="text-xs font-normal text-ink/70">/ porsi</span>
+                  </div>
+                  <div
+                    class="mt-1.5 text-xs font-mono font-bold text-accent-green"
+                  >
+                    Untung 61,2% (Sangat Sehat)
+                  </div>
+                </div>
+
+                <div class="my-4 p-3 bg-cream brutal-border-2">
+                  <div
+                    class="font-marker text-accent-green text-base font-bold"
+                  >
+                    Saran Penjualan:
+                  </div>
+                  <p class="font-body text-xs text-ink/80 font-medium mt-1">
+                    Jadikan menu bundling dengan Ayam Geprek untuk menambal
+                    tipisnya untung makanan utama!
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onclick="switchTab('menu-list')"
+                class="brutal-btn w-full bg-cream-surface text-ink font-heading font-bold text-sm py-2.5 px-4 flex items-center justify-center gap-2 mt-2 border-2 border-ink"
+              >
+                <span>Lihat Detail Menu</span>
+                <span>➔</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: KONDISI MENU KAMU (GRID OF MENUS) -->
+        <div>
+          <div
+            class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6"
+          >
+            <div>
+              <h2
+                class="font-heading font-extrabold text-2xl sm:text-3xl text-ink tracking-tight"
+              >
+                Kondisi Menu Kamu
+              </h2>
+              <p class="font-body text-xs sm:text-sm text-ink/70">
+                Diurutkan dari untung terkecil ke terbesar. Aturan:
+                <span class="font-bold text-accent-green">SEHAT (≥20%)</span> ·
+                <span class="font-bold text-warning-yellow bg-ink px-1"
+                  >TIPIS (0–19%)</span
+                >
+                ·
+                <span class="font-bold text-critical-red">RUGI (&lt;0%)</span>.
+              </p>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                onclick="switchTab('add-menu')"
+                class="brutal-btn bg-warning-yellow text-ink px-4 py-2 font-heading font-bold text-xs sm:text-sm flex items-center gap-2"
+              >
+                <span>+</span>
+                <span>Tambah Menu Baru</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <!-- Menu Card 1: AYAM GEPREK (TIPIS) -->
+            <div
+              class="bg-white brutal-card p-5 cursor-pointer"
+              onclick="switchTab('menu-detail')"
+            >
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <span
+                  class="bg-warning-yellow text-ink font-heading font-extrabold text-xs px-2.5 py-0.5 brutal-border-2 shadow-brutal-sm"
+                >
+                  TIPIS (7,0%)
+                </span>
+                <span class="font-mono text-[11px] text-ink/60"
+                  >Harga: Rp 18.000</span
+                >
+              </div>
+              <h3 class="font-heading font-extrabold text-xl text-ink">
+                Ayam Geprek Sambal Korek
+              </h3>
+
+              <div
+                class="mt-3 p-3 bg-cream brutal-border-2 flex items-baseline justify-between"
+              >
+                <div>
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Untung per porsi:</span
+                  >
+                  <div class="font-mono font-bold text-2xl text-critical-red">
+                    Rp 1.260
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Modal:</span
+                  >
+                  <div class="font-mono font-bold text-sm text-ink">
+                    Rp 16.740
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="mt-3 flex items-center justify-between text-xs font-body text-ink/80 pt-2 border-t border-ink/10"
+              >
+                <span
+                  class="font-semibold text-critical-red flex items-center gap-1"
+                >
+                  <span>🔥</span> Pendorong: Daging Ayam
+                </span>
+                <span class="font-mono text-ink/60 text-[11px]">
+                  perkiraan 150 porsi/minggu
+                </span>
+              </div>
+            </div>
+
+            <!-- Menu Card 2: AYAM BAKAR MADU (TIPIS) -->
+            <div
+              class="bg-white brutal-card p-5 cursor-pointer"
+              onclick="switchTab('menu-detail')"
+            >
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <span
+                  class="bg-warning-yellow text-ink font-heading font-extrabold text-xs px-2.5 py-0.5 brutal-border-2 shadow-brutal-sm"
+                >
+                  TIPIS (9,2%)
+                </span>
+                <span class="font-mono text-[11px] text-ink/60"
+                  >Harga: Rp 20.000</span
+                >
+              </div>
+              <h3 class="font-heading font-extrabold text-xl text-ink">
+                Ayam Bakar Madu
+              </h3>
+
+              <div
+                class="mt-3 p-3 bg-cream brutal-border-2 flex items-baseline justify-between"
+              >
+                <div>
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Untung per porsi:</span
+                  >
+                  <div class="font-mono font-bold text-2xl text-critical-red">
+                    Rp 1.840
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Modal:</span
+                  >
+                  <div class="font-mono font-bold text-sm text-ink">
+                    Rp 18.160
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="mt-3 flex items-center justify-between text-xs font-body text-ink/80 pt-2 border-t border-ink/10"
+              >
+                <span
+                  class="font-semibold text-critical-red flex items-center gap-1"
+                >
+                  <span>🔥</span> Pendorong: Ayam & Gas
+                </span>
+                <span class="font-mono text-ink/60 text-[11px]">
+                  perkiraan 80 porsi/minggu
+                </span>
+              </div>
+            </div>
+
+            <!-- Menu Card 3: NASI GORENG SPESIAL (TIPIS) -->
+            <div
+              class="bg-white brutal-card p-5 cursor-pointer"
+              onclick="switchTab('simulator')"
+            >
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <span
+                  class="bg-warning-yellow text-ink font-heading font-extrabold text-xs px-2.5 py-0.5 brutal-border-2 shadow-brutal-sm"
+                >
+                  TIPIS (14,0%)
+                </span>
+                <span class="font-mono text-[11px] text-ink/60"
+                  >Harga: Rp 15.000</span
+                >
+              </div>
+              <h3 class="font-heading font-extrabold text-xl text-ink">
+                Nasi Goreng Spesial
+              </h3>
+
+              <div
+                class="mt-3 p-3 bg-cream brutal-border-2 flex items-baseline justify-between"
+              >
+                <div>
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Untung per porsi:</span
+                  >
+                  <div
+                    class="font-mono font-bold text-2xl text-warning-yellow text-ink"
+                  >
+                    Rp 2.100
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Modal:</span
+                  >
+                  <div class="font-mono font-bold text-sm text-ink">
+                    Rp 12.900
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="mt-3 flex items-center justify-between text-xs font-body text-ink/80 pt-2 border-t border-ink/10"
+              >
+                <span class="font-semibold text-ink flex items-center gap-1">
+                  <span>🥚</span> Pendorong: Telur Ayam
+                </span>
+                <span class="font-mono text-ink/60 text-[11px]">
+                  perkiraan 110 porsi/minggu
+                </span>
+              </div>
+            </div>
+
+            <!-- Menu Card 4: PECEL LELE (SEHAT) -->
+            <div class="bg-white brutal-card p-5 cursor-pointer">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <span
+                  class="bg-bright-green text-ink font-heading font-extrabold text-xs px-2.5 py-0.5 brutal-border-2 shadow-brutal-sm"
+                >
+                  SEHAT (26,3%)
+                </span>
+                <span class="font-mono text-[11px] text-ink/60"
+                  >Harga: Rp 16.000</span
+                >
+              </div>
+              <h3 class="font-heading font-extrabold text-xl text-ink">
+                Pecel Lele Goreng Crispy
+              </h3>
+
+              <div
+                class="mt-3 p-3 bg-cream brutal-border-2 flex items-baseline justify-between"
+              >
+                <div>
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Untung per porsi:</span
+                  >
+                  <div class="font-mono font-bold text-2xl text-accent-green">
+                    Rp 4.200
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Modal:</span
+                  >
+                  <div class="font-mono font-bold text-sm text-ink">
+                    Rp 11.800
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="mt-3 flex items-center justify-between text-xs font-body text-ink/80 pt-2 border-t border-ink/10"
+              >
+                <span class="font-semibold text-ink flex items-center gap-1">
+                  <span>🐟</span> Pendorong: Ikan Lele
+                </span>
+                <span class="font-mono text-ink/60 text-[11px]">
+                  perkiraan 95 porsi/minggu
+                </span>
+              </div>
+            </div>
+
+            <!-- Menu Card 5: MIE DOK-DOK KUAH (SEHAT) -->
+            <div class="bg-white brutal-card p-5 cursor-pointer">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <span
+                  class="bg-bright-green text-ink font-heading font-extrabold text-xs px-2.5 py-0.5 brutal-border-2 shadow-brutal-sm"
+                >
+                  SEHAT (31,5%)
+                </span>
+                <span class="font-mono text-[11px] text-ink/60"
+                  >Harga: Rp 13.000</span
+                >
+              </div>
+              <h3 class="font-heading font-extrabold text-xl text-ink">
+                Mie Dok-Dok Pedas
+              </h3>
+
+              <div
+                class="mt-3 p-3 bg-cream brutal-border-2 flex items-baseline justify-between"
+              >
+                <div>
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Untung per porsi:</span
+                  >
+                  <div class="font-mono font-bold text-2xl text-accent-green">
+                    Rp 4.100
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Modal:</span
+                  >
+                  <div class="font-mono font-bold text-sm text-ink">
+                    Rp 8.900
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="mt-3 flex items-center justify-between text-xs font-body text-ink/80 pt-2 border-t border-ink/10"
+              >
+                <span class="font-semibold text-ink flex items-center gap-1">
+                  <span>🍜</span> Pendorong: Mie & Sayur
+                </span>
+                <span class="font-mono text-ink/60 text-[11px]">
+                  perkiraan 130 porsi/minggu
+                </span>
+              </div>
+            </div>
+
+            <!-- Menu Card 6: ES TEH MANIS JUMBO (SEHAT) -->
+            <div class="bg-white brutal-card p-5 cursor-pointer">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <span
+                  class="bg-bright-green text-ink font-heading font-extrabold text-xs px-2.5 py-0.5 brutal-border-2 shadow-brutal-sm"
+                >
+                  SEHAT (61,2%)
+                </span>
+                <span class="font-mono text-[11px] text-ink/60"
+                  >Harga: Rp 4.000</span
+                >
+              </div>
+              <h3 class="font-heading font-extrabold text-xl text-ink">
+                Es Teh Manis Jumbo
+              </h3>
+
+              <div
+                class="mt-3 p-3 bg-cream brutal-border-2 flex items-baseline justify-between"
+              >
+                <div>
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Untung per porsi:</span
+                  >
+                  <div class="font-mono font-bold text-2xl text-accent-green">
+                    Rp 2.450
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span class="text-[11px] font-mono text-ink/70 uppercase"
+                    >Modal:</span
+                  >
+                  <div class="font-mono font-bold text-sm text-ink">
+                    Rp 1.550
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="mt-3 flex items-center justify-between text-xs font-body text-ink/80 pt-2 border-t border-ink/10"
+              >
+                <span class="font-semibold text-ink flex items-center gap-1">
+                  <span>🧊</span> Pendorong: Cup & Gula
+                </span>
+                <span class="font-mono text-ink/60 text-[11px]">
+                  perkiraan 260 porsi/minggu
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- SCREEN 2: DETAIL MENU (DRAMATIC ANALYSIS FOR AYAM GEPREK) -->
+      <!-- ======================================================== -->
+      <section id="screen-menu-detail" class="screen-panel hidden space-y-8">
+        <!-- Back Navigation Header -->
+        <div class="flex items-center justify-between">
+          <button
+            onclick="switchTab('dashboard')"
+            class="brutal-btn bg-white px-3 py-1.5 font-mono text-xs font-bold flex items-center gap-1"
+          >
+            <span>⬅</span>
+            <span>Kembali ke Beranda</span>
+          </button>
+          <span
+            class="font-mono text-xs bg-warning-yellow px-2 py-1 brutal-border-2 font-bold"
+          >
+            ID: MENU-001 · Dipantau sejak 12 Okt 2024
+          </span>
+        </div>
+
+        <!-- Menu Header Hero -->
+        <div class="bg-white brutal-card p-6 sm:p-8 relative">
+          <div
+            class="flex flex-col md:flex-row md:items-center justify-between gap-6"
+          >
+            <div>
+              <div class="inline-flex items-center gap-2 mb-2">
+                <span
+                  class="bg-critical-red text-white text-xs font-heading font-extrabold px-2.5 py-0.5 brutal-border-2"
+                >
+                  STATUS: TIPIS (7,0%)
+                </span>
+                <span class="text-xs font-mono text-ink/70 font-bold"
+                  >Kategori: Makanan Utama</span
+                >
+              </div>
+              <h1
+                class="font-heading font-extrabold text-4xl sm:text-5xl text-ink tracking-tight uppercase"
+              >
+                AYAM GEPREK
+              </h1>
+              <p class="font-body text-sm text-ink/80 mt-1">
+                Porsi standar: Nasi putih + Ayam goreng krispi + Sambal korek
+                bawang + Lalapan timun
+              </p>
+            </div>
+
+            <!-- Hero Metrics -->
+            <div
+              class="bg-cream p-5 brutal-border-2 shadow-brutal min-w-[280px]"
+            >
+              <span
+                class="text-xs font-mono font-bold uppercase text-ink/70 block"
+                >Untung Bersih Saat Ini:</span
+              >
+              <div
+                class="font-mono font-bold text-4xl sm:text-5xl text-critical-red my-1"
+              >
+                Rp 1.260
+              </div>
+              <div
+                class="text-xs font-mono font-bold text-ink/80 flex items-center justify-between pt-2 border-t border-ink/20"
+              >
+                <span>Harga Jual: <span class="text-ink">Rp 18.000</span></span>
+                <span>Modal: <span class="text-ink">Rp 16.740</span></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visually Prominent Disclaimer -->
+          <div
+            class="mt-6 p-3 bg-warning-yellow/30 border-2 border-dashed border-ink flex items-center gap-3"
+          >
+            <span class="text-xl">⚠️</span>
+            <p class="font-mono text-xs sm:text-sm font-bold text-ink">
+              PENTING: Modal di atas
+              <span class="underline decoration-critical-red decoration-2"
+                >belum dikurangi sewa dan listrik bulanan.</span
+              >
+              Untung riil yang kamu bawa pulang lebih tipis lagi!
+            </p>
+          </div>
+        </div>
+
+        <!-- “KENAPA TURUN?” SECTION (KEY PRODUCT DIFFERENTIATOR) -->
+        <div
+          class="bg-cream-surface brutal-card p-6 sm:p-8 relative border-t-8 border-t-critical-red"
+        >
+          <div class="max-w-2xl mb-6">
+            <div
+              class="inline-block bg-critical-red text-white font-mono text-xs font-bold px-2 py-0.5 uppercase tracking-wider mb-2"
+            >
+              Penyelidikan Takar
+            </div>
+            <h2
+              class="font-heading font-extrabold text-3xl sm:text-4xl text-ink tracking-tight"
+            >
+              Kenapa untungnya turun?
+            </h2>
+            <p class="font-body text-base text-ink/80 mt-1 font-medium">
+              Jangan terkecoh oleh persentase berita di TV. Takar menghitung
+              kenaikan dalam satuan
+              <span class="font-bold underline">Rupiah per Porsi</span>.
+            </p>
+          </div>
+
+          <!-- Neubrutalist Comparison Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            <!-- LEFT: Large Red Block (Ayam - Dominant Impact) -->
+            <div
+              class="md:col-span-6 bg-critical-red text-white p-6 brutal-border shadow-brutal relative"
+            >
+              <div
+                class="absolute -top-3 right-3 bg-warning-yellow text-ink font-heading font-extrabold text-xs px-2 py-0.5 brutal-border-2"
+              >
+                BIANG KEROK UTAMA
+              </div>
+              <div class="font-heading font-extrabold text-2xl tracking-wider">
+                AYAM POTONG
+              </div>
+              <div
+                class="font-mono font-black text-5xl sm:text-6xl my-2 text-warning-yellow"
+              >
+                +Rp 1.800
+              </div>
+              <div
+                class="font-mono text-sm font-bold uppercase tracking-wider bg-ink/30 p-2 inline-block"
+              >
+                Penyebab Terbesar Kenaikan Modal
+              </div>
+              <p
+                class="font-body text-xs sm:text-sm mt-3 text-cream leading-relaxed"
+              >
+                Harga ayam per ekor naik dari Rp 36.000 ➔ Rp 43.200/kg. Karena
+                kamu pakai 250g per porsi, dampaknya langsung terasa
+                <span class="font-bold underline">Rp 1.800 per porsi</span>.
+              </p>
+            </div>
+
+            <!-- MIDDLE: Visual Comparison Arrow -->
+            <div
+              class="md:col-span-1 flex flex-col items-center justify-center py-2"
+            >
+              <div
+                class="w-12 h-12 bg-white brutal-border-2 rounded-full flex items-center justify-center text-xl font-heading font-bold shadow-brutal-sm"
+              >
+                VS
+              </div>
+            </div>
+
+            <!-- RIGHT: Smaller Yellow Block (Cabai - High percentage, tiny rupiah impact) -->
+            <div
+              class="md:col-span-5 bg-warning-yellow text-ink p-5 brutal-border shadow-brutal relative"
+            >
+              <div class="font-heading font-extrabold text-xl tracking-wide">
+                CABAI RAWIT MERAH
+              </div>
+              <div
+                class="font-mono font-bold text-3xl sm:text-4xl my-1 text-critical-red"
+              >
+                +Rp 480
+              </div>
+              <div
+                class="font-mono text-xs font-bold uppercase tracking-wider bg-white p-1.5 border border-ink inline-block"
+              >
+                Naik tinggi, tapi dampaknya kecil
+              </div>
+              <p class="font-body text-xs mt-3 text-ink/90 leading-relaxed">
+                Berita bilang cabai melonjak 58% (Rp 55rb ➔ Rp 87rb/kg). Tapi
+                karena satu porsi cuma butuh 15 gram sambal, kenaikan modalnya
+                <span class="font-bold">cuma Rp 480</span>.
+              </p>
+            </div>
+          </div>
+
+          <!-- Highlight Banner Conclusion -->
+          <div
+            class="mt-6 p-4 bg-ink text-cream brutal-border flex flex-col sm:flex-row items-center justify-between gap-4"
+          >
+            <div class="flex items-center gap-3">
+              <span class="text-3xl">💡</span>
+              <div>
+                <div
+                  class="font-heading font-extrabold text-lg sm:text-xl text-warning-yellow"
+                >
+                  “Ayam yang bikin modal naik — bukan cabai.”
+                </div>
+                <p class="font-body text-xs text-cream/80">
+                  Fokus cari supplier ayam karkas lebih murah atau sesuaikan
+                  ukuran potong, bukan mengurangi cabai sambalmu.
+                </p>
+              </div>
+            </div>
+            <button
+              onclick="switchTab('simulator')"
+              class="brutal-btn bg-bright-green text-ink px-4 py-2 font-heading font-extrabold text-xs whitespace-nowrap"
+            >
+              Coba di Simulator ➔
+            </button>
+          </div>
+        </div>
+
+        <!-- INGREDIENT COST BREAKDOWN (RECEIPT STYLE) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <!-- Left: Receipt Breakdown -->
+          <div class="lg:col-span-7 bg-white brutal-card p-6 relative">
+            <!-- Receipt jagged top edge simulation -->
+            <div
+              class="border-b-2 border-dashed border-ink pb-4 mb-4 flex items-center justify-between"
+            >
+              <div>
+                <div
+                  class="font-mono font-bold text-xs uppercase tracking-wider text-ink/70"
+                >
+                  Rincian Resep & Modal
+                </div>
+                <h3 class="font-heading font-extrabold text-2xl text-ink">
+                  Modal Menu Ini
+                </h3>
+              </div>
+              <div
+                class="font-mono text-xs bg-cream p-1.5 border border-ink font-bold"
+              >
+                Total: Rp 16.740
+              </div>
+            </div>
+
+            <div class="space-y-3 font-mono text-xs sm:text-sm">
+              <!-- Item 1: Ayam -->
+              <div
+                class="p-3 bg-critical-red/10 border-2 border-ink flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+              >
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-heading font-bold text-base text-ink"
+                      >AYAM POTONG</span
+                    >
+                    <span
+                      class="text-[10px] bg-accent-green text-white px-1.5 py-0.2 border border-ink font-mono font-bold"
+                      >DATA PASAR</span
+                    >
+                  </div>
+                  <div class="text-xs text-ink/70 font-mono">
+                    0,25 kg × Rp 43.200 /kg
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-base text-ink">
+                    Rp 10.800
+                  </div>
+                  <span
+                    class="text-[11px] bg-critical-red text-white px-1 font-bold"
+                    >64,5% dari modal</span
+                  >
+                </div>
+              </div>
+
+              <!-- Item 2: Cabai Rawit -->
+              <div
+                class="p-3 bg-white border-2 border-ink flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+              >
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-heading font-bold text-base text-ink"
+                      >CABAI RAWIT MERAH</span
+                    >
+                    <span
+                      class="text-[10px] bg-accent-green text-white px-1.5 py-0.2 border border-ink font-mono font-bold"
+                      >DATA PASAR</span
+                    >
+                  </div>
+                  <div class="text-xs text-ink/70 font-mono">
+                    0,015 kg × Rp 87.000 /kg
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-base text-ink">
+                    Rp 1.305
+                  </div>
+                  <span
+                    class="text-[11px] bg-cream border border-ink px-1 font-bold"
+                    >7,8% dari modal</span
+                  >
+                </div>
+              </div>
+
+              <!-- Item 3: Beras / Nasi -->
+              <div
+                class="p-3 bg-white border-2 border-ink flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+              >
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-heading font-bold text-base text-ink"
+                      >BERAS C4 SUPER</span
+                    >
+                    <span
+                      class="text-[10px] bg-white text-ink px-1.5 py-0.2 border border-ink font-mono font-bold"
+                      >HARGA KAMU</span
+                    >
+                  </div>
+                  <div class="text-xs text-ink/70 font-mono">
+                    0,12 kg × Rp 14.500 /kg
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-base text-ink">
+                    Rp 1.740
+                  </div>
+                  <span
+                    class="text-[11px] bg-cream border border-ink px-1 font-bold"
+                    >10,4% dari modal</span
+                  >
+                </div>
+              </div>
+
+              <!-- Item 4: Minyak Goreng -->
+              <div
+                class="p-3 bg-white border-2 border-ink flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+              >
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-heading font-bold text-base text-ink"
+                      >MINYAK GORENG</span
+                    >
+                    <span
+                      class="text-[10px] bg-warning-yellow text-ink px-1.5 py-0.2 border border-ink font-mono font-bold"
+                      >Memakai harga 10 Sep</span
+                    >
+                  </div>
+                  <div class="text-xs text-ink/70 font-mono">
+                    0,08 L × Rp 17.500 /L
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-base text-ink">
+                    Rp 1.400
+                  </div>
+                  <span
+                    class="text-[11px] bg-cream border border-ink px-1 font-bold"
+                    >8,4% dari modal</span
+                  >
+                </div>
+              </div>
+
+              <!-- Item 5: Biaya Kecil (Kemasan, Gas, Plastik) -->
+              <div
+                class="p-3 bg-cream border-2 border-ink flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+              >
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-heading font-bold text-base text-ink"
+                      >BIAYA KECIL (GAS + DUS + SAMBAL)</span
+                    >
+                    <span
+                      class="text-[10px] bg-cream-surface text-ink px-1.5 py-0.2 border border-ink font-mono font-bold"
+                      >PERKIRAAN</span
+                    >
+                  </div>
+                  <div class="text-xs text-ink/70 font-mono">
+                    Kertas minyak, gas elpiji 3kg, garam, micin
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="font-mono font-bold text-base text-ink">
+                    Rp 1.495
+                  </div>
+                  <span
+                    class="text-[11px] bg-cream border border-ink px-1 font-bold"
+                    >8,9% dari modal</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Total Calculation Footer -->
+            <div
+              class="mt-4 pt-3 border-t-2 border-ink flex items-center justify-between font-mono"
+            >
+              <span class="font-bold text-sm">TOTAL MODAL SEKARANG:</span>
+              <span class="font-bold text-xl text-critical-red">Rp 16.740</span>
+            </div>
+          </div>
+
+          <!-- Right: Data Coverage Warning & Price Recommendation Block -->
+          <div class="lg:col-span-5 space-y-6">
+            <!-- Coverage Warning -->
+            <div class="bg-warning-yellow brutal-card p-5 relative">
+              <div class="flex items-start gap-3">
+                <span class="text-2xl">⚡</span>
+                <div>
+                  <h4 class="font-heading font-extrabold text-xl text-ink">
+                    “Angka ini masih perkiraan.”
+                  </h4>
+                  <p
+                    class="font-body text-xs sm:text-sm text-ink/90 mt-1 leading-relaxed"
+                  >
+                    Sebagian besar modal menu ini berasal dari bahan yang belum
+                    punya harga pasar otomatis (bumbu racik dan minyak goreng
+                    masih pakai catatan manual).
+                  </p>
+                  <button
+                    onclick="switchTab('scan-nota')"
+                    class="brutal-btn bg-white text-ink font-heading font-bold text-xs px-3 py-1.5 mt-3 inline-flex items-center gap-1.5"
+                  >
+                    <span>Lengkapi harga bahan ➔</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- PRICE RECOMMENDATION BLOCK -->
+            <div
+              class="bg-ink text-cream brutal-card p-6 border-t-8 border-t-bright-green"
+            >
+              <span
+                class="text-xs font-mono font-bold text-warning-yellow uppercase tracking-wider block mb-1"
+              >
+                Rekomendasi Cerdas Takar
+              </span>
+              <h3
+                class="font-heading font-extrabold text-2xl sm:text-3xl text-white leading-tight"
+              >
+                “Kalau mau untungmu kembali seperti dulu…”
+              </h3>
+
+              <div class="my-5 p-4 bg-white/10 brutal-border-2 border-white">
+                <span class="font-mono text-xs text-cream/70"
+                  >SARAN HARGA JUAL BARU:</span
+                >
+                <div
+                  class="font-mono font-black text-4xl sm:text-5xl text-bright-green my-1"
+                >
+                  Rp 20.000
+                </div>
+                <div
+                  class="font-mono text-xs text-cream/80 flex items-center justify-between pt-2 border-t border-white/20"
+                >
+                  <span>Harga Sekarang: Rp 18.000</span>
+                  <span class="text-warning-yellow font-bold"
+                    >+Rp 2.000 penyesuaian</span
+                  >
+                </div>
+              </div>
+
+              <p class="font-body text-xs text-cream/80 leading-relaxed mb-4">
+                Dengan harga Rp 20.000, untungmu kembali ke
+                <span class="text-bright-green font-bold font-mono"
+                  >Rp 3.260 / porsi (16,3%)</span
+                >. Pelanggan mahasiswa di Semarang masih wajar menerima harga
+                20rb untuk paket ayam geprek lengkap.
+              </p>
+
+              <div class="flex gap-2">
+                <button
+                  onclick="
+                    alert(
+                      'Harga Ayam Geprek diperbarui menjadi Rp 20.000 di sistem!',
+                    )
+                  "
+                  class="brutal-btn flex-1 bg-bright-green text-ink font-heading font-extrabold text-sm py-3 px-4 text-center"
+                >
+                  Gunakan Harga Ini
+                </button>
+                <button
+                  onclick="switchTab('simulator')"
+                  class="brutal-btn bg-warning-yellow text-ink font-heading font-bold text-sm px-3 py-3"
+                >
+                  🎚️ Uji Dulu
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 30-DAY PROFIT HISTORY (EDITORIAL/HAND-DRAWN FEEL CHART) -->
+        <div class="bg-white brutal-card p-6 sm:p-8">
+          <div
+            class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6"
+          >
+            <div>
+              <h3 class="font-heading font-extrabold text-2xl text-ink">
+                Untung 30 Hari Terakhir
+              </h3>
+              <p class="font-body text-xs text-ink/70 font-medium">
+                Tren rupiah untung per porsi Ayam Geprek (10 September – Hari
+                ini).
+              </p>
+            </div>
+            <div class="font-mono text-xs bg-cream p-1.5 border border-ink">
+              Puncak: Rp 3.200 ➔ Hari Ini:
+              <span class="font-bold text-critical-red">Rp 1.260</span>
+            </div>
+          </div>
+
+          <!-- SVG Line Chart with annotations -->
+          <div class="relative w-full overflow-x-auto">
+            <div
+              class="min-w-[600px] h-64 bg-cream brutal-border-2 p-4 relative"
+            >
+              <!-- Grid Lines -->
+              <div
+                class="absolute inset-0 p-4 flex flex-col justify-between pointer-events-none opacity-20"
+              >
+                <div class="border-b border-ink border-dashed"></div>
+                <div class="border-b border-ink border-dashed"></div>
+                <div class="border-b border-ink border-dashed"></div>
+                <div class="border-b border-ink border-dashed"></div>
+              </div>
+
+              <!-- SVG Graph -->
+              <svg
+                class="w-full h-full"
+                viewBox="0 0 600 200"
+                preserveAspectRatio="none"
+              >
+                <!-- Safe Profit Zone Fill -->
+                <rect
+                  x="0"
+                  y="0"
+                  width="600"
+                  height="90"
+                  fill="#66BB6A"
+                  fill-opacity="0.1"
+                />
+                <!-- Danger Zone Fill -->
+                <rect
+                  x="0"
+                  y="140"
+                  width="600"
+                  height="60"
+                  fill="#D62828"
+                  fill-opacity="0.1"
+                />
+
+                <!-- Line Chart Path -->
+                <polyline
+                  fill="none"
+                  stroke="#111111"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  points="
+                  20,50
+                  80,55
+                  150,45
+                  220,60
+                  290,110
+                  360,115
+                  430,155
+                  500,165
+                  570,172
+                "
+                />
+
+                <!-- Data Points -->
+                <circle
+                  cx="20"
+                  cy="50"
+                  r="5"
+                  fill="#2E7D32"
+                  stroke="#111111"
+                  stroke-width="2"
+                />
+                <circle
+                  cx="150"
+                  cy="45"
+                  r="5"
+                  fill="#2E7D32"
+                  stroke="#111111"
+                  stroke-width="2"
+                />
+                <circle
+                  cx="290"
+                  cy="110"
+                  r="6"
+                  fill="#FFC107"
+                  stroke="#111111"
+                  stroke-width="2"
+                />
+                <circle
+                  cx="430"
+                  cy="155"
+                  r="6"
+                  fill="#D62828"
+                  stroke="#111111"
+                  stroke-width="2"
+                />
+                <!-- Today's Pulsing Node -->
+                <circle
+                  cx="570"
+                  cy="172"
+                  r="8"
+                  fill="#D62828"
+                  stroke="#111111"
+                  stroke-width="3"
+                />
+              </svg>
+
+              <!-- Annotation 1: Ayam Naik -->
+              <div
+                class="absolute top-[85px] left-[260px] bg-warning-yellow brutal-border-2 px-2 py-1 shadow-brutal-sm text-[11px] font-hand text-ink rotate-3"
+              >
+                🍗 Ayam naik Rp 3.000/kg ➔
+              </div>
+
+              <!-- Annotation 2: Cabai Lonjak -->
+              <div
+                class="absolute top-[120px] left-[400px] bg-white brutal-border-2 px-2 py-0.5 shadow-brutal-sm text-[10px] font-mono text-ink -rotate-2"
+              >
+                🌶️ Cabai tembus 85rb ➔
+              </div>
+
+              <!-- Today's Badge -->
+              <div
+                class="absolute top-[135px] right-[10px] bg-critical-red text-white brutal-border-2 px-2 py-1 shadow-brutal-sm text-xs font-mono font-bold"
+              >
+                Hari Ini: Rp 1.260!
+              </div>
+            </div>
+
+            <!-- X Axis Dates -->
+            <div
+              class="min-w-[600px] flex justify-between font-mono text-[11px] text-ink/70 px-4 mt-2"
+            >
+              <span>10 Sep (Rp 3.100)</span>
+              <span>17 Sep</span>
+              <span>24 Sep (Ayam naik)</span>
+              <span>01 Okt</span>
+              <span>Hari Ini (Rp 1.260)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- SCREEN 3: DAFTAR MENU (MENU LIST) -->
+      <!-- ======================================================== -->
+      <section id="screen-menu-list" class="screen-panel hidden space-y-6">
+        <div
+          class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        >
+          <div>
+            <h1
+              class="font-heading font-extrabold text-3xl sm:text-4xl text-ink tracking-tight"
+            >
+              Menu Warung
+            </h1>
+            <p class="font-body text-sm text-ink/70">
+              Total 12 menu aktif dipantau secara langsung berdasarkan harga
+              pasar Semarang hari ini.
+            </p>
+          </div>
+          <button
+            onclick="switchTab('add-menu')"
+            class="brutal-btn bg-warning-yellow text-ink px-5 py-2.5 font-heading font-extrabold text-sm flex items-center gap-2 self-start sm:self-auto"
+          >
+            <span>+</span>
+            <span>Tambah Menu Baru</span>
+          </button>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="flex flex-wrap gap-2 pt-2 border-b-2 border-ink pb-4">
+          <button
+            class="menu-filter-btn px-4 py-2 font-heading font-bold text-xs brutal-border-2 bg-ink text-cream shadow-brutal-sm"
+          >
+            Semua (12)
+          </button>
+          <button
+            class="menu-filter-btn px-4 py-2 font-heading font-bold text-xs brutal-border-2 bg-white text-ink hover:bg-bright-green/30"
+          >
+            Sehat (5)
+          </button>
+          <button
+            class="menu-filter-btn px-4 py-2 font-heading font-bold text-xs brutal-border-2 bg-white text-ink hover:bg-warning-yellow/40"
+          >
+            Tipis (4)
+          </button>
+          <button
+            class="menu-filter-btn px-4 py-2 font-heading font-bold text-xs brutal-border-2 bg-white text-ink hover:bg-critical-red/20"
+          >
+            Rugi (0)
+          </button>
+          <button
+            class="menu-filter-btn px-4 py-2 font-heading font-bold text-xs brutal-border-2 bg-white text-ink opacity-60"
+          >
+            Diistirahatkan (3)
+          </button>
+        </div>
+
+        <!-- Menu Table / List Cards -->
+        <div class="space-y-3">
+          <!-- Row 1: Ayam Geprek -->
+          <div
+            class="bg-white brutal-border-2 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-brutal-sm hover:shadow-brutal hover:-translate-y-0.5 transition cursor-pointer"
+            onclick="switchTab('menu-detail')"
+          >
+            <div class="flex items-center gap-3">
+              <span
+                class="w-10 h-10 bg-critical-red text-white flex items-center justify-center font-heading font-bold text-lg brutal-border-2"
+              >
+                🍗
+              </span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-heading font-bold text-lg text-ink">
+                    AYAM GEPREK
+                  </h3>
+                  <span
+                    class="bg-warning-yellow text-ink text-[10px] font-mono px-1.5 py-0.2 border border-ink font-bold"
+                    >TIPIS</span
+                  >
+                </div>
+                <div class="text-xs font-body text-ink/70">
+                  Pendorong utama:
+                  <span class="font-semibold text-critical-red"
+                    >Daging Ayam Potong</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="flex flex-wrap items-center gap-4 sm:gap-6 font-mono text-xs sm:text-sm"
+            >
+              <div>
+                <span class="text-[10px] text-ink/60 block">HARGA JUAL:</span>
+                <span class="font-bold">Rp 18.000</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-ink/60 block">MODAL:</span>
+                <span class="font-bold">Rp 16.740</span>
+              </div>
+              <div class="bg-critical-red/10 p-2 border border-critical-red">
+                <span class="text-[10px] text-critical-red font-bold block"
+                  >UNTUNG:</span
+                >
+                <span class="font-bold text-critical-red text-base"
+                  >Rp 1.260</span
+                >
+              </div>
+              <button
+                class="brutal-btn bg-cream px-3 py-1.5 font-heading font-bold text-xs"
+              >
+                Detail ➔
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 2: Nasi Goreng Spesial -->
+          <div
+            class="bg-white brutal-border-2 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-brutal-sm hover:shadow-brutal hover:-translate-y-0.5 transition cursor-pointer"
+            onclick="switchTab('simulator')"
+          >
+            <div class="flex items-center gap-3">
+              <span
+                class="w-10 h-10 bg-warning-yellow text-ink flex items-center justify-center font-heading font-bold text-lg brutal-border-2"
+              >
+                🍳
+              </span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-heading font-bold text-lg text-ink">
+                    NASI GORENG SPESIAL
+                  </h3>
+                  <span
+                    class="bg-warning-yellow text-ink text-[10px] font-mono px-1.5 py-0.2 border border-ink font-bold"
+                    >TIPIS</span
+                  >
+                </div>
+                <div class="text-xs font-body text-ink/70">
+                  Pendorong utama:
+                  <span class="font-semibold text-ink">Telur & Minyak</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="flex flex-wrap items-center gap-4 sm:gap-6 font-mono text-xs sm:text-sm"
+            >
+              <div>
+                <span class="text-[10px] text-ink/60 block">HARGA JUAL:</span>
+                <span class="font-bold">Rp 15.000</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-ink/60 block">MODAL:</span>
+                <span class="font-bold">Rp 12.900</span>
+              </div>
+              <div class="bg-warning-yellow/20 p-2 border border-ink">
+                <span class="text-[10px] text-ink font-bold block"
+                  >UNTUNG:</span
+                >
+                <span class="font-bold text-ink text-base">Rp 2.100</span>
+              </div>
+              <button
+                class="brutal-btn bg-cream px-3 py-1.5 font-heading font-bold text-xs"
+              >
+                Simulasi ➔
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 3: Pecel Lele Crispy -->
+          <div
+            class="bg-white brutal-border-2 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-brutal-sm hover:shadow-brutal hover:-translate-y-0.5 transition cursor-pointer"
+          >
+            <div class="flex items-center gap-3">
+              <span
+                class="w-10 h-10 bg-bright-green text-ink flex items-center justify-center font-heading font-bold text-lg brutal-border-2"
+              >
+                🐟
+              </span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-heading font-bold text-lg text-ink">
+                    PECEL LELE GORENG
+                  </h3>
+                  <span
+                    class="bg-bright-green text-white text-[10px] font-mono px-1.5 py-0.2 border border-ink font-bold"
+                    >SEHAT</span
+                  >
+                </div>
+                <div class="text-xs font-body text-ink/70">
+                  Pendorong utama:
+                  <span class="font-semibold text-ink">Ikan Lele Segar</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="flex flex-wrap items-center gap-4 sm:gap-6 font-mono text-xs sm:text-sm"
+            >
+              <div>
+                <span class="text-[10px] text-ink/60 block">HARGA JUAL:</span>
+                <span class="font-bold">Rp 16.000</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-ink/60 block">MODAL:</span>
+                <span class="font-bold">Rp 11.800</span>
+              </div>
+              <div class="bg-bright-green/20 p-2 border border-accent-green">
+                <span class="text-[10px] text-accent-green font-bold block"
+                  >UNTUNG:</span
+                >
+                <span class="font-bold text-accent-green text-base"
+                  >Rp 4.200</span
+                >
+              </div>
+              <button
+                class="brutal-btn bg-cream px-3 py-1.5 font-heading font-bold text-xs"
+              >
+                Detail ➔
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 4: Es Teh Jumbo -->
+          <div
+            class="bg-white brutal-border-2 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-brutal-sm hover:shadow-brutal hover:-translate-y-0.5 transition cursor-pointer"
+          >
+            <div class="flex items-center gap-3">
+              <span
+                class="w-10 h-10 bg-bright-green text-ink flex items-center justify-center font-heading font-bold text-lg brutal-border-2"
+              >
+                🧊
+              </span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-heading font-bold text-lg text-ink">
+                    ES TEH MANIS JUMBO
+                  </h3>
+                  <span
+                    class="bg-bright-green text-white text-[10px] font-mono px-1.5 py-0.2 border border-ink font-bold"
+                    >SEHAT</span
+                  >
+                </div>
+                <div class="text-xs font-body text-ink/70">
+                  Pendorong utama:
+                  <span class="font-semibold text-ink">Cup & Gula Pasir</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="flex flex-wrap items-center gap-4 sm:gap-6 font-mono text-xs sm:text-sm"
+            >
+              <div>
+                <span class="text-[10px] text-ink/60 block">HARGA JUAL:</span>
+                <span class="font-bold">Rp 4.000</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-ink/60 block">MODAL:</span>
+                <span class="font-bold">Rp 1.550</span>
+              </div>
+              <div class="bg-bright-green/20 p-2 border border-accent-green">
+                <span class="text-[10px] text-accent-green font-bold block"
+                  >UNTUNG:</span
+                >
+                <span class="font-bold text-accent-green text-base"
+                  >Rp 2.450</span
+                >
+              </div>
+              <button
+                class="brutal-btn bg-cream px-3 py-1.5 font-heading font-bold text-xs"
+              >
+                Detail ➔
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State Instruction Demo -->
+        <div class="p-6 bg-cream brutal-card border-dashed">
+          <div class="flex items-start gap-4">
+            <span class="text-3xl">💡</span>
+            <div>
+              <h4 class="font-heading font-bold text-lg text-ink">
+                Contoh Panduan Jika Menu Kosong:
+              </h4>
+              <p class="font-body text-xs sm:text-sm text-ink/80 mt-1">
+                “Belum ada menu.” — Tambahkan satu menu dulu. Dalam sekitar 2
+                menit kamu sudah bisa melihat perkiraan untungnya. Takar tidak
+                butuh hitungan rumit!
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- SCREEN 4: TAMBAH / EDIT MENU (NOTEBOOK STYLE) -->
+      <!-- ======================================================== -->
+      <section id="screen-add-menu" class="screen-panel hidden space-y-8">
+        <!-- Header -->
+        <div class="bg-white brutal-card p-6 sm:p-8">
+          <div
+            class="inline-block bg-accent-green text-white font-mono text-xs font-bold px-2.5 py-0.5 uppercase tracking-wider mb-2"
+          >
+            Cara Isi Gaya Buku Kas Warung
+          </div>
+          <h1
+            class="font-heading font-extrabold text-3xl sm:text-4xl text-ink tracking-tight"
+          >
+            “Kamu biasanya masak berapa banyak?”
+          </h1>
+          <p
+            class="font-body text-sm sm:text-lg text-ink/80 mt-2 font-medium max-w-2xl"
+          >
+            Takar tidak akan pernah menyuruhmu menghitung gram cabai per satu
+            piring. Cukup isi berapa kilo belanjaan sekali masak di wajan, biar
+            kami yang hitung sendiri per porsinya!
+          </p>
+
+          <!-- Quick Template Selection -->
+          <div class="mt-6 pt-6 border-t-2 border-ink">
+            <span
+              class="font-mono text-xs uppercase font-bold text-ink/70 block mb-3"
+            >
+              Pilih Template Cepat (Otomatis terisi bahan standar):
+            </span>
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <button class="brutal-btn bg-warning-yellow p-3 text-left">
+                <span class="text-xl block mb-1">🍗</span>
+                <span class="font-heading font-extrabold text-xs block"
+                  >AYAM GEPREK</span
+                >
+                <span class="text-[10px] font-mono text-ink/70"
+                  >8 porsi/batch</span
+                >
+              </button>
+              <button class="brutal-btn bg-white p-3 text-left hover:bg-cream">
+                <span class="text-xl block mb-1">🍳</span>
+                <span class="font-heading font-extrabold text-xs block"
+                  >NASI GORENG</span
+                >
+                <span class="text-[10px] font-mono text-ink/70"
+                  >10 porsi/batch</span
+                >
+              </button>
+              <button class="brutal-btn bg-white p-3 text-left hover:bg-cream">
+                <span class="text-xl block mb-1">🍜</span>
+                <span class="font-heading font-extrabold text-xs block"
+                  >MIE AYAM</span
+                >
+                <span class="text-[10px] font-mono text-ink/70"
+                  >15 mangkok</span
+                >
+              </button>
+              <button class="brutal-btn bg-white p-3 text-left hover:bg-cream">
+                <span class="text-xl block mb-1">🐟</span>
+                <span class="font-heading font-extrabold text-xs block"
+                  >PECEL LELE</span
+                >
+                <span class="text-[10px] font-mono text-ink/70">10 ekor</span>
+              </button>
+              <button class="brutal-btn bg-white p-3 text-left hover:bg-cream">
+                <span class="text-xl block mb-1">🍱</span>
+                <span class="font-heading font-extrabold text-xs block"
+                  >WARTEG / SAYUR</span
+                >
+                <span class="text-[10px] font-mono text-ink/70"
+                  >Wajan besar</span
+                >
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notebook Input Form -->
+        <div class="bg-cream-surface brutal-card p-6 sm:p-8 relative">
+          <div
+            class="absolute -top-3 left-6 bg-ink text-cream font-mono text-xs px-3 py-1 font-bold"
+          >
+            CATATAN MASAK WARUNG
+          </div>
+
+          <div class="space-y-6 max-w-3xl">
+            <!-- Menu Name & Target Selling Price -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div>
+                <label class="font-heading font-bold text-sm block mb-1"
+                  >Nama Menu:</label
+                >
+                <input
+                  type="text"
+                  value="Ayam Geprek Sambal Bawang"
+                  class="w-full brutal-border-2 p-3 font-heading font-bold text-base bg-white focus:bg-warning-yellow/10 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label class="font-heading font-bold text-sm block mb-1"
+                  >Rencana Harga Jual ke Pembeli:</label
+                >
+                <div class="relative">
+                  <span
+                    class="absolute left-3 top-3 font-mono font-bold text-ink"
+                    >Rp</span
+                  >
+                  <input
+                    type="text"
+                    value="18.000"
+                    class="w-full brutal-border-2 p-3 pl-10 font-mono font-bold text-base bg-white focus:bg-warning-yellow/10 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- The Core Interactive Batch Question -->
+            <div class="bg-cream p-5 brutal-border-2 space-y-4">
+              <h3 class="font-heading font-extrabold text-lg text-ink">
+                Pertanyaan Sekali Masak:
+              </h3>
+
+              <!-- Ingredient 1: Ayam -->
+              <div class="bg-white p-4 brutal-border-2 space-y-3">
+                <div
+                  class="flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                >
+                  <span class="font-heading font-extrabold text-base text-ink"
+                    >Bahan 1: Daging Ayam Karkas</span
+                  >
+                  <span
+                    class="text-xs font-mono bg-bright-green/30 px-2 py-0.5 border border-ink"
+                    >Harga Pasar: Rp 43.200/kg</span
+                  >
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      class="font-body text-xs font-bold text-ink/80 block mb-1"
+                      >“Sekali masak, kamu beli berapa?”</label
+                    >
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value="2"
+                        class="w-24 brutal-border-2 p-2 font-mono font-bold text-lg bg-white text-center"
+                      />
+                      <span class="font-mono font-bold text-sm"
+                        >Kilogram (kg)</span
+                      >
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      class="font-body text-xs font-bold text-ink/80 block mb-1"
+                      >“Biasanya jadi berapa porsi?”</label
+                    >
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value="8"
+                        class="w-24 brutal-border-2 p-2 font-mono font-bold text-lg bg-white text-center"
+                      />
+                      <span class="font-mono font-bold text-sm">Porsi</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Live Conversion Sticker -->
+                <div
+                  class="bg-warning-yellow/40 p-2 brutal-border-2 flex items-center justify-between text-xs font-mono font-bold"
+                >
+                  <span>🔄 Konversi Otomatis:</span>
+                  <span class="text-ink"
+                    >2 kg ➔ 8 porsi = ≈ 250 gram / porsi</span
+                  >
+                  <span class="text-critical-red font-extrabold"
+                    >Modal: Rp 10.800 / porsi</span
+                  >
+                </div>
+              </div>
+
+              <!-- Ingredient 2: Cabai Rawit -->
+              <div class="bg-white p-4 brutal-border-2 space-y-3">
+                <div
+                  class="flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                >
+                  <span class="font-heading font-extrabold text-base text-ink"
+                    >Bahan 2: Cabai Rawit Merah</span
+                  >
+                  <span
+                    class="text-xs font-mono bg-bright-green/30 px-2 py-0.5 border border-ink"
+                    >Harga Pasar: Rp 87.000/kg</span
+                  >
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      class="font-body text-xs font-bold text-ink/80 block mb-1"
+                      >“Sekali racik sambal, beli berapa?”</label
+                    >
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value="0.3"
+                        step="0.1"
+                        class="w-24 brutal-border-2 p-2 font-mono font-bold text-lg bg-white text-center"
+                      />
+                      <span class="font-mono font-bold text-sm"
+                        >Kilogram (3 ons)</span
+                      >
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      class="font-body text-xs font-bold text-ink/80 block mb-1"
+                      >“Cukup buat berapa porsi geprek?”</label
+                    >
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value="20"
+                        class="w-24 brutal-border-2 p-2 font-mono font-bold text-lg bg-white text-center"
+                      />
+                      <span class="font-mono font-bold text-sm">Porsi</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="bg-cream p-2 border border-ink flex items-center justify-between text-xs font-mono font-bold"
+                >
+                  <span>🔄 Konversi:</span>
+                  <span>≈ 15 gram / porsi</span>
+                  <span class="text-ink font-extrabold"
+                    >Modal: Rp 1.305 / porsi</span
+                  >
+                </div>
+              </div>
+
+              <button
+                class="brutal-btn bg-white text-ink text-xs font-heading font-bold px-3 py-2 border-2 border-ink flex items-center gap-1.5"
+              >
+                <span>+</span>
+                <span>Tambah Bahan Baku Lainnya</span>
+              </button>
+            </div>
+
+            <!-- FIXED COST / SMALL COST INPUT (BIAYA KECIL YANG IKUT PER PORSI) -->
+            <div class="bg-white p-5 brutal-border-2 space-y-3">
+              <div>
+                <h3 class="font-heading font-extrabold text-lg text-ink">
+                  “Ada biaya kecil yang ikut setiap porsi?”
+                </h3>
+                <p class="font-body text-xs text-ink/70">
+                  Jangan pusingkan akuntansi! Cukup centang perlengkapan kecil
+                  yang ikut terpakai saat menyajikan menu ini.
+                </p>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <label
+                  class="flex items-center justify-between p-2.5 brutal-border-2 bg-cream cursor-pointer"
+                >
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked
+                      class="w-4 h-4 text-ink border-2 border-ink"
+                    />
+                    <span class="font-heading font-bold text-xs"
+                      >Kemasan / Kertas Bungkus</span
+                    >
+                  </div>
+                  <span class="font-mono text-xs font-bold text-ink/70"
+                    >Perkiraan Rp 350</span
+                  >
+                </label>
+
+                <label
+                  class="flex items-center justify-between p-2.5 brutal-border-2 bg-cream cursor-pointer"
+                >
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked
+                      class="w-4 h-4 text-ink border-2 border-ink"
+                    />
+                    <span class="font-heading font-bold text-xs"
+                      >Gas Elpiji (Kompor)</span
+                    >
+                  </div>
+                  <span class="font-mono text-xs font-bold text-ink/70"
+                    >Perkiraan Rp 450</span
+                  >
+                </label>
+
+                <label
+                  class="flex items-center justify-between p-2.5 brutal-border-2 bg-cream cursor-pointer"
+                >
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked
+                      class="w-4 h-4 text-ink border-2 border-ink"
+                    />
+                    <span class="font-heading font-bold text-xs"
+                      >Bumbu Dapur (Garam, Micin)</span
+                    >
+                  </div>
+                  <span class="font-mono text-xs font-bold text-ink/70"
+                    >Perkiraan Rp 300</span
+                  >
+                </label>
+
+                <label
+                  class="flex items-center justify-between p-2.5 brutal-border-2 bg-white cursor-pointer"
+                >
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      class="w-4 h-4 text-ink border-2 border-ink"
+                    />
+                    <span class="font-heading font-bold text-xs"
+                      >Plastik & Sendok Bebek</span
+                    >
+                  </div>
+                  <span class="font-mono text-xs font-bold text-ink/50"
+                    >Perkiraan Rp 250</span
+                  >
+                </label>
+              </div>
+
+              <div class="text-[11px] font-mono text-ink/70 pt-1">
+                * Nilai perkiraan di atas bisa kamu ubah kapan saja di menu
+                Pengaturan.
+              </div>
+            </div>
+
+            <!-- Submission Action Buttons -->
+            <div class="pt-4 flex flex-col sm:flex-row gap-3">
+              <button
+                onclick="
+                  alert('Menu berhasil disimpan! Untung dihitung otomatis.');
+                  switchTab('menu-detail');
+                "
+                class="brutal-btn flex-1 bg-critical-red text-white font-heading font-extrabold text-base py-3.5 px-6 shadow-brutal text-center"
+              >
+                Simpan & Lihat Hitungan Untung ➔
+              </button>
+              <button
+                onclick="switchTab('dashboard')"
+                class="brutal-btn bg-white text-ink font-heading font-bold text-sm py-3.5 px-6 border-2 border-ink"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- SCREEN 5: SCAN NOTA / OCR INPUT BELANJA -->
+      <!-- ======================================================== -->
+      <section id="screen-scan-nota" class="screen-panel hidden space-y-8">
+        <div class="bg-white brutal-card p-6 sm:p-8">
+          <div class="max-w-2xl">
+            <div
+              class="inline-block bg-bright-green text-ink font-mono text-xs font-bold px-2 py-0.5 uppercase tracking-wider mb-2 border border-ink"
+            >
+              Otomatis Masuk Buku Kas
+            </div>
+            <h1
+              class="font-heading font-extrabold text-3xl sm:text-4xl text-ink tracking-tight"
+            >
+              “Foto nota, biar Takar yang baca.”
+            </h1>
+            <p class="font-body text-base text-ink/80 mt-1 font-medium">
+              Jangan buang struk dari pasar Johar, supermarket, atau toko
+              kelontong. Foto saja, sistem akan mendeteksi harga bahan secara
+              otomatis.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
+            <!-- Upload Area & Interactive Camera Zone -->
+            <div
+              class="lg:col-span-6 bg-cream p-6 brutal-border-2 border-dashed flex flex-col items-center justify-center text-center relative min-h-[320px]"
+            >
+              <!-- Tilted Receipt Illustration -->
+              <div
+                class="w-48 bg-white brutal-border-2 p-3 shadow-brutal-sm transform -rotate-3 mb-4 relative"
+              >
+                <div class="receipt-sawtooth-top -mt-3 -mx-3 mb-2"></div>
+                <div
+                  class="font-mono text-[9px] text-left leading-tight text-ink/80 space-y-1"
+                >
+                  <div class="font-bold text-center border-b pb-1">
+                    PASAR PEDURUNGAN
+                  </div>
+                  <div class="flex justify-between">
+                    <span>AYAM KARKAS 2KG</span><span>86.400</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>CABAI RAWIT 1KG</span><span>87.000</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>MINYAK KITA 2L</span><span>34.000</span>
+                  </div>
+                  <div class="border-t pt-1 font-bold flex justify-between">
+                    <span>TOTAL</span><span>207.400</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Upload CTA buttons -->
+              <div class="space-y-3 w-full max-w-xs">
+                <button
+                  onclick="simulateOCR()"
+                  class="brutal-btn w-full bg-critical-red text-white font-heading font-extrabold text-base py-3 px-4 shadow-brutal flex items-center justify-center gap-2"
+                >
+                  <span>📷</span>
+                  <span>Foto Nota Belanja</span>
+                </button>
+                <button
+                  onclick="simulateOCR()"
+                  class="brutal-btn w-full bg-white text-ink font-heading font-bold text-xs py-2.5 px-4 border-2 border-ink"
+                >
+                  Pilih Dari Galeri HP
+                </button>
+              </div>
+
+              <!-- Progress Simulation Container -->
+              <div
+                id="ocr-progress-box"
+                class="hidden absolute inset-0 bg-cream/95 flex flex-col items-center justify-center p-6 text-center z-20"
+              >
+                <div
+                  class="w-12 h-12 border-4 border-ink border-t-warning-yellow rounded-full animate-spin mb-3"
+                ></div>
+                <div class="font-heading font-extrabold text-xl text-ink">
+                  “Lagi baca notamu…”
+                </div>
+                <p class="font-mono text-xs text-ink/70 mt-1">
+                  Mencocokkan harga daging ayam, cabai, dan minyak di
+                  Semarang...
+                </p>
+              </div>
+            </div>
+
+            <!-- OCR CONFIRMATION & REVIEW (PRICE IS VISUALLY DOMINANT) -->
+            <div
+              class="lg:col-span-6 bg-cream-surface brutal-card p-6 border-t-8 border-t-warning-yellow"
+            >
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <span
+                    class="text-xs font-mono font-bold text-critical-red uppercase"
+                    >Penting!</span
+                  >
+                  <h3 class="font-heading font-extrabold text-xl text-ink">
+                    “Cek dulu sebelum disimpan.”
+                  </h3>
+                </div>
+                <span
+                  class="bg-warning-yellow text-ink font-mono text-xs px-2 py-0.5 border border-ink font-bold"
+                >
+                  Hasil Deteksi
+                </span>
+              </div>
+              <p class="font-body text-xs text-ink/70 mb-4">
+                Takar tidak pernah langsung menyimpan hasil scan tanpa
+                persetujuanmu. Pastikan harga per kilogram sudah sesuai.
+              </p>
+
+              <!-- Detected Item 1 -->
+              <div class="p-3 bg-white brutal-border-2 mb-3 space-y-1">
+                <div class="flex items-baseline justify-between">
+                  <!-- Large Dominant Price -->
+                  <span class="font-mono font-black text-2xl text-critical-red"
+                    >Rp 43.200</span
+                  >
+                  <span
+                    class="text-[10px] font-mono bg-bright-green/30 text-ink px-1.5 py-0.2 border border-ink"
+                    >Akurasi 98%</span
+                  >
+                </div>
+                <div
+                  class="flex items-center justify-between text-xs font-body font-bold text-ink"
+                >
+                  <span>Daging Ayam Potong (1 kg)</span>
+                  <button
+                    class="text-ink/60 underline hover:text-ink font-mono text-[11px]"
+                  >
+                    Ubah
+                  </button>
+                </div>
+              </div>
+
+              <!-- Detected Item 2 -->
+              <div class="p-3 bg-white brutal-border-2 mb-3 space-y-1">
+                <div class="flex items-baseline justify-between">
+                  <!-- Large Dominant Price -->
+                  <span class="font-mono font-black text-2xl text-critical-red"
+                    >Rp 87.000</span
+                  >
+                  <span
+                    class="text-[10px] font-mono bg-bright-green/30 text-ink px-1.5 py-0.2 border border-ink"
+                    >Akurasi 94%</span
+                  >
+                </div>
+                <div
+                  class="flex items-center justify-between text-xs font-body font-bold text-ink"
+                >
+                  <span>Cabai Rawit Merah (1 kg)</span>
+                  <button
+                    class="text-ink/60 underline hover:text-ink font-mono text-[11px]"
+                  >
+                    Ubah
+                  </button>
+                </div>
+              </div>
+
+              <!-- Detected Item 3 -->
+              <div class="p-3 bg-white brutal-border-2 mb-4 space-y-1">
+                <div class="flex items-baseline justify-between">
+                  <span class="font-mono font-black text-2xl text-ink"
+                    >Rp 17.000</span
+                  >
+                  <span
+                    class="text-[10px] font-mono bg-warning-yellow/50 text-ink px-1.5 py-0.2 border border-ink"
+                    >Perlu dicek</span
+                  >
+                </div>
+                <div
+                  class="flex items-center justify-between text-xs font-body font-bold text-ink"
+                >
+                  <span>Minyak Goreng Sawit (1 Liter)</span>
+                  <button
+                    class="text-ink/60 underline hover:text-ink font-mono text-[11px]"
+                  >
+                    Ubah
+                  </button>
+                </div>
+              </div>
+
+              <!-- Buttons -->
+              <div class="flex gap-2">
+                <button
+                  onclick="
+                    alert(
+                      'Harga bahan berhasil disimpan dan untung menu otomatis diperbarui!',
+                    )
+                  "
+                  class="brutal-btn flex-1 bg-bright-green text-ink font-heading font-extrabold text-sm py-3 px-4 text-center"
+                >
+                  Simpan Harga Ini
+                </button>
+                <button
+                  onclick="alert('Membuka mode perbaikan data')"
+                  class="brutal-btn bg-white text-ink font-heading font-bold text-xs py-3 px-3 border-2 border-ink"
+                >
+                  Edit Dulu
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- SCREEN 6: SIMULATOR HARGA (INTERACTIVE TACTILE SLIDERS) -->
+      <!-- ======================================================== -->
+      <section id="screen-simulator" class="screen-panel hidden space-y-8">
+        <!-- Simulator Title Block -->
+        <div class="bg-white brutal-card p-6 sm:p-8">
+          <div
+            class="inline-block bg-critical-red text-white font-mono text-xs font-bold px-2.5 py-0.5 uppercase tracking-wider mb-2"
+          >
+            Eksperimen Tanpa Takut Rugi
+          </div>
+          <h1
+            class="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-ink tracking-tight"
+          >
+            “Kalau harga bahan naik, untungmu jadi berapa?”
+          </h1>
+          <p class="font-body text-base text-ink/80 mt-2 font-medium max-w-3xl">
+            Geser tuas di bawah untuk melihat secara langsung apa yang terjadi
+            pada kantongmu jika harga pasar besok melonjak atau turun.
+          </p>
+        </div>
+
+        <!-- Interactive Playground -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <!-- Left: Tactile Sliders -->
+          <div class="lg:col-span-7 bg-white brutal-card p-6 sm:p-8 space-y-8">
+            <div
+              class="flex items-center justify-between border-b-2 border-ink pb-3"
+            >
+              <span class="font-heading font-extrabold text-xl text-ink"
+                >Pilih Menu:</span
+              >
+              <select
+                id="sim-menu-select"
+                class="brutal-border-2 p-2 font-heading font-bold text-sm bg-cream focus:outline-none"
+              >
+                <option value="geprek">Ayam Geprek (Jual: Rp 18.000)</option>
+                <option value="nasgor">
+                  Nasi Goreng Spesial (Jual: Rp 15.000)
+                </option>
+                <option value="lele">Pecel Lele (Jual: Rp 16.000)</option>
+              </select>
+            </div>
+
+            <!-- Slider 1: Ayam Potong -->
+            <div class="space-y-3 bg-cream p-4 brutal-border-2">
+              <div class="flex items-center justify-between">
+                <span class="font-heading font-extrabold text-lg text-ink"
+                  >1. HARGA AYAM POTONG</span
+                >
+                <span
+                  id="sim-ayam-badge"
+                  class="font-mono text-xs bg-critical-red text-white px-2 py-0.5 font-bold border border-ink"
+                >
+                  +20% (Rp 51.800/kg)
+                </span>
+              </div>
+
+              <input
+                type="range"
+                id="slider-ayam"
+                min="-20"
+                max="50"
+                value="20"
+                step="5"
+                class="w-full cursor-pointer"
+                oninput="updateSimulator()"
+              />
+
+              <div
+                class="flex justify-between font-mono text-[11px] text-ink/70"
+              >
+                <span>-20% (Turun)</span>
+                <span>Harga Normal (Rp 43.200)</span>
+                <span>+50% (Gawat)</span>
+              </div>
+            </div>
+
+            <!-- Slider 2: Cabai Rawit -->
+            <div class="space-y-3 bg-cream p-4 brutal-border-2">
+              <div class="flex items-center justify-between">
+                <span class="font-heading font-extrabold text-lg text-ink"
+                  >2. HARGA CABAI RAWIT</span
+                >
+                <span
+                  id="sim-cabai-badge"
+                  class="font-mono text-xs bg-warning-yellow text-ink px-2 py-0.5 font-bold border border-ink"
+                >
+                  +30% (Rp 113.100/kg)
+                </span>
+              </div>
+
+              <input
+                type="range"
+                id="slider-cabai"
+                min="-30"
+                max="100"
+                value="30"
+                step="10"
+                class="w-full cursor-pointer"
+                oninput="updateSimulator()"
+              />
+
+              <div
+                class="flex justify-between font-mono text-[11px] text-ink/70"
+              >
+                <span>-30%</span>
+                <span>Normal (Rp 87.000)</span>
+                <span>+100% (Pedas Sekali)</span>
+              </div>
+            </div>
+
+            <!-- Slider 3: Harga Jual Sendiri -->
+            <div class="space-y-3 bg-bright-green/20 p-4 brutal-border-2">
+              <div class="flex items-center justify-between">
+                <span class="font-heading font-extrabold text-lg text-ink"
+                  >3. UBAH HARGA JUAL SENDIRI</span
+                >
+                <span
+                  id="sim-jual-badge"
+                  class="font-mono text-xs bg-ink text-white px-2 py-0.5 font-bold"
+                >
+                  Rp 18.000 (Tetap)
+                </span>
+              </div>
+
+              <input
+                type="range"
+                id="slider-jual"
+                min="15000"
+                max="24000"
+                value="18000"
+                step="1000"
+                class="w-full cursor-pointer"
+                oninput="updateSimulator()"
+              />
+
+              <div
+                class="flex justify-between font-mono text-[11px] text-ink/70"
+              >
+                <span>Rp 15.000 (Murah)</span>
+                <span>Rp 18.000</span>
+                <span>Rp 24.000 (Premium)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Live Dynamic Impact Output -->
+          <div
+            class="lg:col-span-5 bg-ink text-cream brutal-card p-6 sm:p-8 space-y-6"
+          >
+            <div
+              class="border-b border-white/20 pb-3 flex items-center justify-between"
+            >
+              <span
+                class="font-mono text-xs uppercase font-bold text-warning-yellow tracking-wider"
+                >Hasil Dampak Nyata:</span
+              >
+              <span
+                id="sim-health-pill"
+                class="font-heading font-extrabold text-xs px-2.5 py-0.5 bg-critical-red text-white border border-white"
+              >
+                STATUS: KRITIS
+              </span>
+            </div>
+
+            <!-- Large Dynamic Profit Number -->
+            <div>
+              <span class="font-mono text-xs text-cream/70 block uppercase"
+                >Perkiraan Untung Bersih:</span
+              >
+              <div
+                id="sim-profit-value"
+                class="font-mono font-black text-5xl sm:text-6xl text-warning-yellow my-1"
+              >
+                Rp 180
+              </div>
+              <span class="font-mono text-xs text-cream/70"
+                >per porsi yang kamu jual</span
+              >
+            </div>
+
+            <!-- Impact Chain -->
+            <div
+              class="space-y-3 bg-white/10 p-4 brutal-border-2 border-white/40 font-mono text-xs"
+            >
+              <div class="flex items-center justify-between">
+                <span class="text-cream/80">Harga Jualmu:</span>
+                <span id="sim-out-jual" class="font-bold text-white text-sm"
+                  >Rp 18.000</span
+                >
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-cream/80">Modal Baru Total:</span>
+                <span
+                  id="sim-out-modal"
+                  class="font-bold text-critical-red text-sm"
+                  >Rp 17.820</span
+                >
+              </div>
+              <div
+                class="pt-2 border-t border-white/20 flex items-center justify-between text-warning-yellow font-bold"
+              >
+                <span>Dampak Per Porsi:</span>
+                <span id="sim-out-diff">-Rp 1.080 dari biasanya</span>
+              </div>
+            </div>
+
+            <!-- Dynamic Advice text -->
+            <div
+              id="sim-advice-box"
+              class="p-3 bg-critical-red/30 border-2 border-critical-red text-xs font-body leading-relaxed"
+            >
+              ⚠️ <span class="font-bold text-white">BAHAYA:</span> Jika harga
+              ayam naik 20%, untungmu hampir nol! Sangat disarankan menaikkan
+              harga jual minimal ke
+              <span class="font-mono font-bold text-warning-yellow"
+                >Rp 20.000</span
+              >.
+            </div>
+
+            <button
+              onclick="applySimulatedPrice()"
+              class="brutal-btn w-full bg-bright-green text-ink font-heading font-extrabold text-base py-3 px-4 shadow-brutal text-center"
+            >
+              Terapkan Harga Ini ke Menu
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- SCREEN 7: PENGATURAN WARUNG (SHOP SETTINGS) -->
+      <!-- ======================================================== -->
+      <section id="screen-settings" class="screen-panel hidden space-y-8">
+        <div class="bg-white brutal-card p-6 sm:p-8">
+          <h1
+            class="font-heading font-extrabold text-3xl sm:text-4xl text-ink tracking-tight"
+          >
+            Pengaturan Warung
+          </h1>
+          <p class="font-body text-base text-ink/80 mt-1 font-medium">
+            Sesuaikan profil warung dan parameter biaya otomatis agar
+            perhitungan selalu pas dengan kondisi lapangan.
+          </p>
+
+          <div class="max-w-2xl space-y-6 mt-8">
+            <!-- Warung Profile Form -->
+            <div class="space-y-4">
+              <div>
+                <label class="font-heading font-bold text-sm block mb-1"
+                  >Nama Warung:</label
+                >
+                <input
+                  type="text"
+                  value="Warung Bu Krisna"
+                  class="w-full brutal-border-2 p-3 font-heading font-bold text-base bg-cream focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="font-heading font-bold text-sm block mb-1"
+                    >Kota / Kabupaten (Sumber Harga Pasar):</label
+                  >
+                  <select
+                    class="w-full brutal-border-2 p-3 font-mono font-bold text-sm bg-cream focus:bg-white focus:outline-none"
+                  >
+                    <option selected>Kota Semarang</option>
+                    <option>Kab. Sleman</option>
+                    <option>Kota Surakarta (Solo)</option>
+                    <option>Kab. Banyumas (Purwokerto)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="font-heading font-bold text-sm block mb-1"
+                    >Jenis Warung:</label
+                  >
+                  <select
+                    class="w-full brutal-border-2 p-3 font-heading font-bold text-sm bg-cream focus:bg-white focus:outline-none"
+                  >
+                    <option selected>Warung Ayam Geprek & Sambal</option>
+                    <option>Warteg / Nasi Rames</option>
+                    <option>Warung Bakso & Mie Ayam</option>
+                    <option>Angkringan / Kucingan</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Default Serving Style -->
+              <div>
+                <label class="font-heading font-bold text-sm block mb-2"
+                  >Kebiasaan Pembeli Terbanyak:</label
+                >
+                <div class="grid grid-cols-3 gap-3">
+                  <label
+                    class="brutal-border-2 p-3 bg-white text-center cursor-pointer hover:bg-warning-yellow/30 font-heading font-bold text-xs"
+                  >
+                    <input type="radio" name="serving" class="mr-1" />
+                    Makan di Tempat
+                  </label>
+                  <label
+                    class="brutal-border-2 p-3 bg-warning-yellow text-center cursor-pointer font-heading font-bold text-xs shadow-brutal-sm"
+                  >
+                    <input type="radio" name="serving" checked class="mr-1" />
+                    Bungkus (Takeaway)
+                  </label>
+                  <label
+                    class="brutal-border-2 p-3 bg-white text-center cursor-pointer hover:bg-warning-yellow/30 font-heading font-bold text-xs"
+                  >
+                    <input type="radio" name="serving" class="mr-1" />
+                    Campur 50:50
+                  </label>
+                </div>
+                <p class="font-body text-xs text-ink/60 mt-1.5">
+                  * Memilih "Bungkus" akan otomatis menghitung biaya kertas
+                  minyak & kantong kresek di setiap menu.
+                </p>
+              </div>
+            </div>
+
+            <!-- Data Status Info Card -->
+            <div class="p-4 bg-cream brutal-border-2 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-mono text-xs font-bold text-ink"
+                  >STATUS DATA PASAR:</span
+                >
+                <span
+                  class="bg-bright-green text-ink font-mono text-[10px] px-2 py-0.5 border border-ink font-bold"
+                  >TERHUBUNG AKTIF</span
+                >
+              </div>
+              <div class="font-mono text-xs text-ink/80">
+                Terakhir diperbarui: <strong>Hari ini, 06:00 WIB</strong> (Dinas
+                Perdagangan Semarang / Pasar Johar & Peterongan).
+              </div>
+            </div>
+
+            <button
+              onclick="alert('Pengaturan warung disimpan!')"
+              class="brutal-btn bg-ink text-cream font-heading font-extrabold text-sm py-3 px-6"
+            >
+              Simpan Pengaturan
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ==================== MOBILE BOTTOM NAVIGATION (375PX OPTIMIZED) ==================== -->
+    <nav
+      class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-[3px] border-ink z-50 flex justify-around p-1 shadow-[0_-4px_0_#111111]"
+    >
+      <button
+        onclick="switchTab('dashboard')"
+        class="mobile-nav-btn flex-1 py-2 text-center text-xs font-heading font-bold flex flex-col items-center gap-0.5 bg-warning-yellow border border-ink"
+        data-tab="dashboard"
+      >
+        <span class="text-lg leading-none">🏠</span>
+        <span class="text-[10px]">Beranda</span>
+      </button>
+      <button
+        onclick="switchTab('menu-detail')"
+        class="mobile-nav-btn flex-1 py-2 text-center text-xs font-heading font-bold flex flex-col items-center gap-0.5 text-ink"
+        data-tab="menu-detail"
+      >
+        <span class="text-lg leading-none">🔍</span>
+        <span class="text-[10px]">Detail</span>
+      </button>
+      <button
+        onclick="switchTab('menu-list')"
+        class="mobile-nav-btn flex-1 py-2 text-center text-xs font-heading font-bold flex flex-col items-center gap-0.5 text-ink"
+        data-tab="menu-list"
+      >
+        <span class="text-lg leading-none">📋</span>
+        <span class="text-[10px]">Menu</span>
+      </button>
+      <button
+        onclick="switchTab('simulator')"
+        class="mobile-nav-btn flex-1 py-2 text-center text-xs font-heading font-bold flex flex-col items-center gap-0.5 text-ink"
+        data-tab="simulator"
+      >
+        <span class="text-lg leading-none">🎚️</span>
+        <span class="text-[10px]">Simulasi</span>
+      </button>
+      <button
+        onclick="switchTab('settings')"
+        class="mobile-nav-btn flex-1 py-2 text-center text-xs font-heading font-bold flex flex-col items-center gap-0.5 text-ink"
+        data-tab="settings"
+      >
+        <span class="text-lg leading-none">⚙️</span>
+        <span class="text-[10px]">Setelan</span>
+      </button>
+    </nav>
+
+    <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+    <script>
+      // Tab Switcher Logic
+      function switchTab(tabName) {
+        // Hide all panels
+        document.querySelectorAll(".screen-panel").forEach((panel) => {
+          panel.classList.add("hidden");
+        });
+
+        // Show chosen panel
+        const target = document.getElementById("screen-" + tabName);
+        if (target) {
+          target.classList.remove("hidden");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        // Update Desktop Nav styles
+        document.querySelectorAll("#desktop-nav .nav-btn").forEach((btn) => {
+          if (btn.getAttribute("data-tab") === tabName) {
+            btn.classList.remove("bg-transparent");
+            btn.classList.add("bg-white", "shadow-brutal");
+          } else {
+            btn.classList.add("bg-transparent");
+            btn.classList.remove("bg-white", "shadow-brutal");
+          }
+        });
+
+        // Update Mobile Nav styles
+        document.querySelectorAll(".mobile-nav-btn").forEach((btn) => {
+          if (btn.getAttribute("data-tab") === tabName) {
+            btn.classList.add("bg-warning-yellow", "border", "border-ink");
+          } else {
+            btn.classList.remove("bg-warning-yellow", "border", "border-ink");
+          }
+        });
+
+        // Update quick switcher buttons
+        document.querySelectorAll(".quick-tab").forEach((btn) => {
+          if (btn.getAttribute("onclick").includes(tabName)) {
+            btn.classList.add("bg-warning-yellow");
+            btn.classList.remove("bg-white");
+          } else {
+            btn.classList.remove("bg-warning-yellow");
+            btn.classList.add("bg-white");
+          }
+        });
+      }
+
+      // OCR Progress Simulator
+      function simulateOCR() {
+        const pbox = document.getElementById("ocr-progress-box");
+        if (pbox) {
+          pbox.classList.remove("hidden");
+          setTimeout(() => {
+            pbox.classList.add("hidden");
+            alert("Berhasil membaca nota! 3 bahan berhasil diidentifikasi.");
+          }, 1800);
+        }
+      }
+
+      // Live Tactile Simulator Logic
+      function updateSimulator() {
+        const ayamSlider = document.getElementById("slider-ayam");
+        const cabaiSlider = document.getElementById("slider-cabai");
+        const jualSlider = document.getElementById("slider-jual");
+
+        const ayamVal = parseInt(ayamSlider.value);
+        const cabaiVal = parseInt(cabaiSlider.value);
+        const jualVal = parseInt(jualSlider.value);
+
+        // Base: Ayam 0.25kg * 43200 = 10800
+        const baseAyam = 10800;
+        const newAyamCost = Math.round(baseAyam * (1 + ayamVal / 100));
+
+        // Base: Cabai 0.015kg * 87000 = 1305
+        const baseCabai = 1305;
+        const newCabaiCost = Math.round(baseCabai * (1 + cabaiVal / 100));
+
+        // Other fixed/small costs: Nasi (1740) + Minyak (1400) + Biaya Kecil (1495) = 4635
+        const otherCosts = 4635;
+
+        const totalModal = newAyamCost + newCabaiCost + otherCosts;
+        const untung = jualVal - totalModal;
+
+        // Update Badges
+        const ayamSign = ayamVal >= 0 ? "+" : "";
+        document.getElementById("sim-ayam-badge").innerText =
+          `${ayamSign}${ayamVal}% (Rp ${Math.round(43200 * (1 + ayamVal / 100)).toLocaleString("id-ID")}/kg)`;
+
+        const cabaiSign = cabaiVal >= 0 ? "+" : "";
+        document.getElementById("sim-cabai-badge").innerText =
+          `${cabaiSign}${cabaiVal}% (Rp ${Math.round(87000 * (1 + cabaiVal / 100)).toLocaleString("id-ID")}/kg)`;
+
+        document.getElementById("sim-jual-badge").innerText =
+          `Rp ${jualVal.toLocaleString("id-ID")}`;
+
+        // Update Output Panel
+        document.getElementById("sim-out-jual").innerText =
+          `Rp ${jualVal.toLocaleString("id-ID")}`;
+        document.getElementById("sim-out-modal").innerText =
+          `Rp ${totalModal.toLocaleString("id-ID")}`;
+
+        const profitEl = document.getElementById("sim-profit-value");
+        profitEl.innerText = `Rp ${untung.toLocaleString("id-ID")}`;
+
+        const diff = untung - 1260;
+        const diffSign = diff >= 0 ? "+" : "";
+        document.getElementById("sim-out-diff").innerText =
+          `${diffSign}Rp ${diff.toLocaleString("id-ID")} dari kondisi hari ini`;
+
+        // Status pill & color
+        const healthPill = document.getElementById("sim-health-pill");
+        const adviceBox = document.getElementById("sim-advice-box");
+
+        const profitPercent = (untung / jualVal) * 100;
+
+        if (untung < 0) {
+          healthPill.className =
+            "font-heading font-extrabold text-xs px-2.5 py-0.5 bg-critical-red text-white border border-white";
+          healthPill.innerText = "STATUS: RUGI";
+          profitEl.className =
+            "font-mono font-black text-5xl sm:text-6xl text-critical-red my-1";
+          adviceBox.className =
+            "p-3 bg-critical-red/40 border-2 border-critical-red text-xs font-body leading-relaxed";
+          adviceBox.innerHTML =
+            "🚨 <strong>RUGI BESAR:</strong> Setiap piring terjual kamu nombok uang! Segera naikkan harga jual atau ganti ukuran porsi ayam.";
+        } else if (profitPercent < 20) {
+          healthPill.className =
+            "font-heading font-extrabold text-xs px-2.5 py-0.5 bg-warning-yellow text-ink border border-white";
+          healthPill.innerText = "STATUS: TIPIS";
+          profitEl.className =
+            "font-mono font-black text-5xl sm:text-6xl text-warning-yellow my-1";
+          adviceBox.className =
+            "p-3 bg-warning-yellow/20 border-2 border-warning-yellow text-xs font-body leading-relaxed";
+          adviceBox.innerHTML = `⚠️ <strong>UNTUNG TIPIS (${profitPercent.toFixed(1)}%):</strong> Belum aman jika dipotong sewa tempat dan listrik. Disarankan jual di Rp ${(totalModal + 3000).toLocaleString("id-ID")}.`;
+        } else {
+          healthPill.className =
+            "font-heading font-extrabold text-xs px-2.5 py-0.5 bg-bright-green text-ink border border-white";
+          healthPill.innerText = "STATUS: SEHAT";
+          profitEl.className =
+            "font-mono font-black text-5xl sm:text-6xl text-bright-green my-1";
+          adviceBox.className =
+            "p-3 bg-bright-green/20 border-2 border-bright-green text-xs font-body leading-relaxed";
+          adviceBox.innerHTML = `✅ <strong>SEHAT & AMAN (${profitPercent.toFixed(1)}%):</strong> Margin untung stabil dan siap menampung fluktuasi harga bahan harian.`;
+        }
+      }
+
+      function applySimulatedPrice() {
+        const jualVal = parseInt(document.getElementById("slider-jual").value);
+        alert(
+          `Harga Rp ${jualVal.toLocaleString("id-ID")} telah diset untuk menu Ayam Geprek!`,
+        );
+        switchTab("menu-detail");
+      }
+    </script>
+  </body>
+</html>
