@@ -1,6 +1,48 @@
 import { queryDb } from "../db/client";
+import { keIsoTanggal } from "../tanggal";
 import { formatRupiah } from "../formatRupiah";
 import type { Menu, Ingredient } from "@/types/menu";
+import {
+  hitungHpp, hitungMargin, kesehatan, cariPendorong, cariPembanding,
+  saranHarga, penyumbangTerbesar, periksaSatuan, type BahanResep,
+} from "../margin";
+
+/**
+ * Memuat bahan seluruh menu dalam SATU kueri lewat view resep_efektif,
+ * yang sudah menerapkan BR-09 (harga efektif) dan menyediakan harga
+ * pembanding 7 hari untuk BR-04. Menggantikan kueri per-menu yang lama
+ * berikut fallback harga karangan Rp 25.000.
+ */
+async function muatSemuaBahan(): Promise<Map<string, BahanResep[]>> {
+  const res = await queryDb(
+    `select menu_item_id, commodity_id, nama, qty, harga, harga_lalu, dari_data
+     from resep_efektif`,
+  );
+  const peta = new Map<string, BahanResep[]>();
+  for (const r of res?.rows ?? []) {
+    const daftar = peta.get(r.menu_item_id) ?? [];
+    daftar.push({
+      komoditasId: r.commodity_id,
+      nama: r.nama,
+      qty: Number(r.qty),
+      harga: r.harga === null ? null : Number(r.harga),
+      hargaLalu: r.harga_lalu === null ? null : Number(r.harga_lalu),
+      dariData: Boolean(r.dari_data),
+    });
+    peta.set(r.menu_item_id, daftar);
+  }
+  return peta;
+}
+
+async function muatSemuaBiayaTetap(): Promise<Map<string, number>> {
+  const res = await queryDb(
+    `select menu_item_id, coalesce(sum(amount), 0) total
+     from fixed_costs group by menu_item_id`,
+  );
+  const peta = new Map<string, number>();
+  for (const r of res?.rows ?? []) peta.set(r.menu_item_id, Number(r.total));
+  return peta;
+}
 
 export interface ProfitHistoryPoint {
   date: string;
@@ -43,6 +85,9 @@ export interface DbMenuDetail {
     unit: string;
     note?: string;
   }>;
+  /** BR-10 / FR-28 — persen modal yang berasal dari data harga otomatis. */
+  cakupan?: number;
+  bahanTanpaHarga?: number;
 }
 
 function nameToSlug(name: string): string {
@@ -72,300 +117,216 @@ function getMenuIcon(name: string): string {
  */
 export async function getDbMenus(): Promise<{ menus: Menu[]; latestDate: string }> {
   try {
-    const res = await queryDb(`
-      SELECT m.id,
-             m.name,
-             m.sell_price,
-             m.batch_yield,
-             m.weekly_volume,
-             coalesce(s.hpp, 0) as hpp,
-             coalesce(s.margin_pct, 0) as margin_pct,
-             (SELECT max(date) FROM prices WHERE region_id = 1 AND business_id IS NULL) as latest_price_date
-      FROM   menu_items m
-      LEFT JOIN LATERAL (
-               SELECT hpp, margin_pct
-               FROM   margin_snapshots
-               WHERE  menu_item_id = m.id
-               ORDER  BY date DESC LIMIT 1
-             ) s ON true
-      WHERE  m.active
-      ORDER  BY s.margin_pct ASC NULLS LAST, (m.sell_price - coalesce(s.hpp, 0)) ASC NULLS LAST;
-    `);
-
-    if (res && res.rows.length > 0) {
-      const latestDate = res.rows[0].latest_price_date
-        ? new Date(res.rows[0].latest_price_date).toISOString().split("T")[0]
-        : "2026-09-11";
-
-      const menus: Menu[] = await Promise.all(
-        res.rows.map(async (row) => {
-          const sellPrice = Math.round(parseFloat(row.sell_price));
-          let hpp = Math.round(parseFloat(row.hpp));
-
-          // Jika snapshot belum ada (menu baru), hitung HPP live dari resep
-          if (hpp === 0) {
-            const hppRes = await queryDb(
-              `SELECT coalesce(sum(r.qty * coalesce(lp.price, 25000)), 0) + 
-                      coalesce((SELECT sum(amount) FROM fixed_costs WHERE menu_item_id = $1), 0) as live_hpp
-               FROM recipe_items r
-               JOIN businesses b ON b.id = '00000000-0000-0000-0000-000000000001'
-               LEFT JOIN latest_prices lp ON lp.commodity_id = r.commodity_id AND lp.region_id = b.region_id
-               WHERE r.menu_item_id = $1;`,
-              [row.id]
-            );
-            if (hppRes && hppRes.rows.length > 0) {
-              hpp = Math.round(parseFloat(hppRes.rows[0].live_hpp));
-            }
-          }
-
-          const profit = sellPrice - hpp;
-          const margin = sellPrice > 0 ? Math.round(((profit / sellPrice) * 100) * 10) / 10 : 0;
-          const status: "sehat" | "tipis" | "rugi" = profit < 0 || margin < 5 ? "rugi" : margin < 15 ? "tipis" : "sehat";
-
-          // Cari pendorong utama dari resep
-          let driver = "Biaya Bahan Stabil";
-          const dRes = await queryDb(
-            `SELECT coalesce(c.name, r.commodity_id) as nama,
-                    round(r.qty * (coalesce(lp.price, 0) - coalesce(lama.price, lp.price, 0))) as diff_rp
-             FROM recipe_items r
-             LEFT JOIN commodities c ON c.id = r.commodity_id
-             LEFT JOIN latest_prices lp ON lp.commodity_id = r.commodity_id AND lp.region_id = 1
-             LEFT JOIN LATERAL (
-               SELECT price FROM prices p WHERE p.region_id = 1 AND p.commodity_id = r.commodity_id AND p.date <= lp.date - 7 ORDER BY p.date DESC LIMIT 1
-             ) lama ON true
-             WHERE r.menu_item_id = $1
-             ORDER BY diff_rp DESC LIMIT 1;`,
-            [row.id]
-          );
-          if (dRes && dRes.rows.length > 0 && Number(dRes.rows[0].diff_rp) > 50) {
-            driver = dRes.rows[0].nama;
-          } else if (row.name.toLowerCase().includes("ayam")) {
-            driver = "Daging Ayam Ras Segar";
-          }
-
-          const slug = nameToSlug(row.name);
-
-          return {
-            id: slug,
-            name: row.name,
-            shortName: row.name.toUpperCase(),
-            icon: getMenuIcon(row.name),
-            price: sellPrice,
-            modal: hpp,
-            profit,
-            margin,
-            status,
-            driver,
-            servingsPerWeek: row.weekly_volume || 100,
-            category: row.name.toLowerCase().includes("teh") ? "Minuman" : "Makanan Utama",
-          };
-        })
-      );
-
-      return { menus, latestDate };
-    }
-  } catch (err) {
-    console.error("Error getDbMenus:", err);
-  }
-
-  return { menus: [], latestDate: "2026-09-11" };
-}
-
-/**
- * [Q6a, Q6b, Q6c] Mengambil rincian lengkap satu menu dari Supabase
- */
-export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetail | null> {
-  try {
-    // 1. Temukan menu_item id
-    const menuRes = await queryDb(
-      `SELECT id, name, sell_price, batch_yield, weekly_volume, active
-       FROM menu_items
-       WHERE id::text = $1 
-          OR lower(name) LIKE $2 
-          OR lower(replace(name, ' ', '-')) LIKE $2
-       LIMIT 1;`,
-      [menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`]
+    const res = await queryDb(
+      `select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active,
+              (select max(date) from prices
+               where region_id = b.region_id and business_id is null) as latest_price_date
+       from menu_items m
+       join businesses b on b.id = m.business_id
+       where m.active`,
     );
+    if (!res || res.rows.length === 0) return { menus: [], latestDate: "" };
 
-    if (!menuRes || menuRes.rows.length === 0) {
-      return null;
-    }
+    const [petaBahan, petaBiaya] = await Promise.all([muatSemuaBahan(), muatSemuaBiayaTetap()]);
+    const latestDate = keIsoTanggal(res.rows[0].latest_price_date) ?? "";
 
-    const m = menuRes.rows[0];
-    const menuUuid = m.id;
-    const sellPrice = Math.round(parseFloat(m.sell_price));
+    const menus: Menu[] = res.rows.map((row) => {
+      const bahan = petaBahan.get(row.id) ?? [];
+      const biayaTetap = petaBiaya.get(row.id) ?? 0;
 
-    // 2. [Q6a] Rincian bahan dari resep & harga satuan terbaru
-    const ingRes = await queryDb(
-      `SELECT r.commodity_id,
-              coalesce(c.name, ci.name, r.commodity_id) as nama,
-              r.batch_qty,
-              coalesce(c.unit, ci.unit, 'kg') as unit,
-              m.batch_yield,
-              r.qty,
-              coalesce(lp.price, 25000) as harga_satuan,
-              round(r.qty * coalesce(lp.price, 25000)) as subtotal,
-              coalesce(lp.source, 'DATA PASAR') as source_type
-       FROM   recipe_items r
-       JOIN   menu_items m ON m.id = r.menu_item_id
-       JOIN   businesses b ON b.id = m.business_id
-       LEFT JOIN commodities c ON c.id = r.commodity_id
-       LEFT JOIN catalog_items ci ON ci.id = r.commodity_id
-       LEFT JOIN latest_prices lp
-              ON lp.commodity_id = r.commodity_id
-             AND lp.region_id = b.region_id
-             AND (lp.business_id IS NULL OR lp.business_id = b.id)
-       WHERE  r.menu_item_id = $1
-       ORDER  BY r.qty * coalesce(lp.price, 25000) DESC NULLS LAST;`,
-      [menuUuid]
-    );
+      // Seluruh keputusan angkanya diambil lib/margin.ts — tidak ada ambang
+      // yang ditulis ulang di sini (BR-01, BR-02, BR-15).
+      const { hpp } = hitungHpp(bahan, biayaTetap);
+      const sellPrice = Math.round(Number(row.sell_price));
+      const margin = hitungMargin(sellPrice, hpp);
+      const pendorong = cariPendorong(bahan) ?? penyumbangTerbesar(bahan);
 
-    const ingredients: Ingredient[] = [];
-    const recipeRows: Array<{
-      commodityId: string;
-      name: string;
-      price: number;
-      batchQty: number;
-      unit: string;
-      note?: string;
-    }> = [];
-    let modalTotal = 0;
-
-    if (ingRes && ingRes.rows.length > 0) {
-      for (const row of ingRes.rows) {
-        const cost = Math.round(parseFloat(row.subtotal));
-        const unitPrice = Math.round(parseFloat(row.harga_satuan));
-        const portionQty = parseFloat(row.qty);
-        modalTotal += cost;
-
-        ingredients.push({
-          name: String(row.nama).toUpperCase(),
-          quantity: `${portionQty.toFixed(2)} ${row.unit} × ${formatRupiah(unitPrice)} /${row.unit}`,
-          unitPrice,
-          cost,
-          source: "DATA PASAR",
-        });
-
-        recipeRows.push({
-          commodityId: row.commodity_id,
-          name: row.nama,
-          price: unitPrice,
-          batchQty: parseFloat(row.batch_qty),
-          unit: row.unit,
-        });
-      }
-    }
-
-    // Biaya tetap (fixed costs)
-    const fcRes = await queryDb(
-      `SELECT label, amount, is_estimated FROM fixed_costs WHERE menu_item_id = $1;`,
-      [menuUuid]
-    );
-
-    if (fcRes && fcRes.rows.length > 0) {
-      for (const fc of fcRes.rows) {
-        const amt = Math.round(parseFloat(fc.amount));
-        modalTotal += amt;
-        ingredients.push({
-          name: String(fc.label).toUpperCase(),
-          quantity: "Perkiraan per porsi",
-          unitPrice: amt,
-          cost: amt,
-          source: "PERKIRAAN",
-        });
-      }
-    }
-
-    const profit = sellPrice - modalTotal;
-    const margin = sellPrice > 0 ? Math.round(((profit / sellPrice) * 100) * 10) / 10 : 0;
-    const status: "sehat" | "tipis" | "rugi" = profit < 0 || margin < 5 ? "rugi" : margin < 15 ? "tipis" : "sehat";
-
-    // 3. [Q6c] Penyelidikan Driver Kenaikan Harga (BR-04)
-    let driverNote: DbMenuDetail["driverNote"] = null;
-    const changeRes = await queryDb(
-      `SELECT r.commodity_id,
-              coalesce(c.name, ci.name, r.commodity_id) as nama,
-              r.qty,
-              pc.price_now,
-              pc.price_7d_ago,
-              pc.change_pct,
-              round(r.qty * (pc.price_now - pc.price_7d_ago)) as kontribusi_rp
-       FROM   recipe_items r
-       JOIN   menu_items m ON m.id = r.menu_item_id
-       JOIN   businesses b ON b.id = m.business_id
-       LEFT JOIN commodities c ON c.id = r.commodity_id
-       LEFT JOIN catalog_items ci ON ci.id = r.commodity_id
-       JOIN   price_change_7d pc
-              ON pc.commodity_id = r.commodity_id
-             AND pc.region_id = b.region_id
-             AND (pc.business_id IS NULL OR pc.business_id = b.id)
-       WHERE  r.menu_item_id = $1
-       ORDER  BY kontribusi_rp DESC NULLS LAST;`,
-      [menuUuid]
-    );
-
-    if (changeRes && changeRes.rows.length > 0) {
-      const top = changeRes.rows[0];
-      const second = changeRes.rows[1] || null;
-
-      if (Number(top.kontribusi_rp) > 0) {
-        driverNote = {
-          driverName: top.nama,
-          driverPct: Math.round(parseFloat(top.change_pct) || 0),
-          driverRp: Math.round(parseFloat(top.kontribusi_rp)),
-          altName: second ? second.nama : "Bahan Lainnya",
-          altPct: second ? Math.round(parseFloat(second.change_pct) || 0) : 0,
-          altRp: second ? Math.round(parseFloat(second.kontribusi_rp) || 0) : 0,
-        };
-      }
-    }
-
-    // 4. [Q6b] Riwayat 30 hari untuk grafik profit
-    const histRes = await queryDb(
-      `SELECT date, hpp, sell_price, margin_pct, round(sell_price - hpp) as untung_per_porsi
-       FROM   margin_snapshots
-       WHERE  menu_item_id = $1
-       ORDER  BY date ASC
-       LIMIT  30;`,
-      [menuUuid]
-    );
-
-    const history: ProfitHistoryPoint[] = (histRes?.rows || []).map((row) => {
-      const d = new Date(row.date);
-      const label = `${d.getDate()}/${d.getMonth() + 1}`;
       return {
-        date: new Date(row.date).toISOString().split("T")[0],
-        label,
-        hpp: Math.round(parseFloat(row.hpp)),
-        profit: Math.round(parseFloat(row.untung_per_porsi)),
-        marginPct: Math.round(parseFloat(row.margin_pct) * 10) / 10,
+        id: row.id,
+        name: row.name,
+        shortName: row.name.toUpperCase(),
+        icon: getMenuIcon(row.name),
+        price: sellPrice,
+        modal: hpp,
+        profit: sellPrice - hpp,
+        margin,
+        status: kesehatan(margin),
+        driver: pendorong ? pendorong.nama : "Harga bahan stabil",
+        servingsPerWeek: row.weekly_volume ?? 0,
+        category: row.name.toLowerCase().includes("teh") ? "Minuman" : "Makanan Utama",
       };
     });
 
-    // Perhitungan Saran Repricing Target Margin 15% (Cincin 0)
-    const targetMargin = 0.15;
-    const rawSuggested = modalTotal / (1 - targetMargin);
-    const suggestedPrice = Math.ceil(rawSuggested / 500) * 500;
+    // FR-21 — terurut dari untung paling tipis
+    menus.sort((a, b) => a.profit - b.profit);
+
+    return { menus, latestDate };
+  } catch (err) {
+    console.error("Error getDbMenus:", err);
+    return { menus: [], latestDate: "" };
+  }
+}
+
+/**
+ * Rincian satu menu. Memakai view resep_efektif (BR-09) dan lib/margin.ts,
+ * sehingga angka di layar detail tidak mungkin berbeda dari angka di dashboard.
+ */
+export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetail | null> {
+  try {
+    const menuRes = await queryDb(
+      `select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active
+       from menu_items m
+       where m.id::text = $1
+          or lower(m.name) like $2
+          or lower(replace(m.name, ' ', '-')) like $2
+       limit 1`,
+      [menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`],
+    );
+    if (!menuRes || menuRes.rows.length === 0) return null;
+
+    const m = menuRes.rows[0];
+    const sellPrice = Math.round(Number(m.sell_price));
+
+    // ── bahan lewat resep_efektif ──
+    const bahanRes = await queryDb(
+      `select commodity_id, nama, satuan, qty, batch_qty, harga, harga_lalu,
+              dari_data, alasan, harga_diisi_mundur, bi_tanggal
+       from resep_efektif where menu_item_id = $1`,
+      [m.id],
+    );
+
+    const bahan: BahanResep[] = [];
+    const ingredients: Ingredient[] = [];
+    const recipeRows: DbMenuDetail["recipeRows"] = [];
+
+    for (const r of bahanRes?.rows ?? []) {
+      const harga = r.harga === null ? null : Number(r.harga);
+      bahan.push({
+        komoditasId: r.commodity_id,
+        nama: r.nama,
+        qty: Number(r.qty),
+        harga,
+        hargaLalu: r.harga_lalu === null ? null : Number(r.harga_lalu),
+        dariData: Boolean(r.dari_data),
+      });
+
+      // FR-27: harga hasil isi mundur ditandai di UI
+      const tandaIsiMundur = r.harga_diisi_mundur
+        ? ` · memakai harga ${keIsoTanggal(r.bi_tanggal)}`
+        : "";
+
+      ingredients.push({
+        name: String(r.nama).toUpperCase(),
+        quantity:
+          harga === null
+            ? "harga belum ada"
+            : `${Number(r.batch_qty)} ${r.satuan} untuk ${m.batch_yield} porsi`,
+        unitPrice: harga === null ? 0 : Math.round(harga),
+        cost: harga === null ? 0 : Math.round(Number(r.qty) * harga),
+        source: !r.dari_data
+          ? "PERKIRAAN"
+          : String(r.alasan).includes("notamu")
+            ? "HARGA KAMU"
+            : "DATA PASAR",
+        sourceNote: String(r.alasan) + tandaIsiMundur,
+      });
+
+      recipeRows.push({
+        commodityId: r.commodity_id,
+        name: r.nama,
+        price: harga === null ? 0 : Math.round(harga),
+        batchQty: Number(r.batch_qty),
+        unit: r.satuan,
+      });
+    }
+
+    // ── biaya tetap ──
+    const fcRes = await queryDb(
+      `select label, amount, is_estimated from fixed_costs where menu_item_id = $1`,
+      [m.id],
+    );
+    let biayaTetap = 0;
+    for (const fc of fcRes?.rows ?? []) {
+      const amt = Math.round(Number(fc.amount));
+      biayaTetap += amt;
+      ingredients.push({
+        name: String(fc.label).toUpperCase(),
+        quantity: fc.is_estimated ? "perkiraan kami · bisa diubah" : "kamu yang isi",
+        unitPrice: amt,
+        cost: amt,
+        source: fc.is_estimated ? "PERKIRAAN" : "HARGA KAMU",
+        sourceNote: fc.is_estimated ? "perkiraan kami, bisa kamu ubah" : "kamu yang mengisi",
+      });
+    }
+
+    // ── angka, semuanya dari mesin murni ──
+    const { hpp, cakupan, jumlahHilang } = hitungHpp(bahan, biayaTetap);
+    const margin = hitungMargin(sellPrice, hpp);
+    const pendorong = cariPendorong(bahan);
+    const pembanding = pendorong ? cariPembanding(bahan, pendorong.komoditasId) : null;
+
+    // BR-07 — saran harga memakai margin 30 hari lalu, minimum 15%
+    const lamaRes = await queryDb(
+      `select margin_pct from margin_snapshots
+       where menu_item_id = $1 and date <= current_date - 30
+       order by date desc limit 1`,
+      [m.id],
+    );
+    const margin30 = lamaRes?.rows?.[0]?.margin_pct ?? null;
+
+    // FR-26 — riwayat 30 hari
+    const histRes = await queryDb(
+      `select date, hpp, sell_price, margin_pct, round(sell_price - hpp) as untung
+       from margin_snapshots where menu_item_id = $1
+       order by date desc limit 30`,
+      [m.id],
+    );
+    const history: ProfitHistoryPoint[] = (histRes?.rows ?? [])
+      .map((r) => {
+        const iso = keIsoTanggal(r.date) as string;
+        const [, bln, hri] = iso.split("-");
+        return {
+          date: iso,
+          label: `${Number(hri)}/${Number(bln)}`,
+          hpp: Math.round(Number(r.hpp)),
+          profit: Math.round(Number(r.untung)),
+          marginPct: Math.round(Number(r.margin_pct) * 10) / 10,
+        };
+      })
+      .reverse();
 
     return {
-      id: menuUuid,
+      id: m.id,
       name: m.name,
-      shortName: m.name.toUpperCase(),
+      shortName: String(m.name).toUpperCase(),
       icon: getMenuIcon(m.name),
-      category: m.name.toLowerCase().includes("teh") ? "Minuman" : "Makanan Utama",
+      category: String(m.name).toLowerCase().includes("teh") ? "Minuman" : "Makanan Utama",
       sellPrice,
       batchYield: m.batch_yield,
-      weeklyVolume: m.weekly_volume || 100,
-      modal: modalTotal,
-      profit,
+      weeklyVolume: m.weekly_volume ?? 0,
+      modal: hpp,
+      profit: sellPrice - hpp,
       margin,
-      status,
-      driver: driverNote ? driverNote.driverName : "Biaya Bahan Stabil",
+      status: kesehatan(margin),
+      driver: pendorong ? pendorong.nama : "Harga bahan stabil",
       ingredients,
-      driverNote,
-      suggestedPrice,
+      // FR-24 — blok "gara-gara X, bukan Y"
+      driverNote: pendorong
+        ? {
+            driverName: pendorong.nama,
+            driverPct: pendorong.kenaikanPct,
+            driverRp: pendorong.kontribusiRp,
+            altName: pembanding ? pembanding.nama : "Bahan lainnya",
+            altPct: pembanding ? pembanding.kenaikanPct : 0,
+            altRp: pembanding ? pembanding.kontribusiRp : 0,
+          }
+        : null,
+      suggestedPrice: saranHarga(hpp, margin30 === null ? null : Number(margin30)),
       history,
       recipeRows,
+      // FR-28 / BR-10 — peringatan cakupan data
+      cakupan: Math.round(cakupan * 100),
+      bahanTanpaHarga: jumlahHilang,
     };
   } catch (err) {
     console.error("Error getDbMenuDetail:", err);
@@ -533,7 +494,7 @@ export async function getDbBusinessProfile() {
              r.name as region_name,
              (SELECT count(*) FROM menu_items WHERE active) as active_menus_count,
              (SELECT ran_at FROM ingest_runs ORDER BY ran_at DESC LIMIT 1) as last_ingest_time,
-             (SELECT max(date) FROM prices WHERE region_id = 1) as latest_price_date
+             (SELECT max(date) FROM prices WHERE region_id = b.region_id AND business_id IS NULL) as latest_price_date
       FROM businesses b
       LEFT JOIN regions r ON r.id = b.region_id
       LIMIT 1;
@@ -565,8 +526,10 @@ export async function updateDbBusinessProfile(data: {
 }): Promise<boolean> {
   try {
     const res = await queryDb(
-      `UPDATE businesses
-       SET name = $1, packaging_mode = $2, region_id = coalesce($3, region_id);`,
+      // WHERE wajib: tanpa ini satu penyimpanan menimpa SELURUH warung.
+      `update businesses
+       set name = $1, packaging_mode = $2, region_id = coalesce($3, region_id)
+       where id = (select id from businesses order by created_at limit 1)`,
       [data.name, data.packagingMode, data.regionId || null]
     );
     return Boolean(res && res.rowCount && res.rowCount > 0);
@@ -606,3 +569,67 @@ export const getDynamicIngredients = async (slugOrId: string) => {
   };
 };
 export const updateMenuPrice = updateDbMenuPrice;
+
+/**
+ * FR-08 — hapus menu. recipe_items, fixed_costs, margin_snapshots dan alerts
+ * ikut terhapus lewat on delete cascade di skema.
+ */
+export async function hapusDbMenu(menuIdOrSlug: string): Promise<boolean> {
+  try {
+    const res = await queryDb(
+      `delete from menu_items
+       where id::text = $1
+          or lower(name) like $2
+          or lower(replace(name, ' ', '-')) like $2`,
+      [menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`],
+    );
+    return Boolean(res?.rowCount);
+  } catch (err) {
+    console.error("Error hapusDbMenu:", err);
+    return false;
+  }
+}
+
+/**
+ * FR-57 — memeriksa resep yang akan disimpan, memakai harga terkini tiap bahan.
+ * Dipanggil sebelum insert/update sehingga angka mustahil tidak pernah masuk DB.
+ */
+export async function periksaResepSebelumSimpan(
+  recipe: Array<{ commodityId: string; batchQty: number }>,
+  batchYield: number,
+  sellPrice: number,
+): Promise<Array<{ nama: string; biayaPerPorsi: number; pesan: string }>> {
+  if (!recipe?.length || !batchYield || batchYield <= 0) return [];
+
+  const ids = recipe.map((r) => r.commodityId);
+  const res = await queryDb(
+    `select lp.commodity_id, coalesce(c.name, ci.name, lp.commodity_id) nama, lp.price
+     from latest_prices lp
+     left join commodities   c  on c.id  = lp.commodity_id
+     left join catalog_items ci on ci.id = lp.commodity_id
+     where lp.commodity_id = any($1) and lp.business_id is null`,
+    [ids],
+  );
+
+  const harga = new Map<string, { nama: string; price: number }>();
+  for (const r of res?.rows ?? []) {
+    harga.set(r.commodity_id, { nama: r.nama, price: Number(r.price) });
+  }
+
+  const bahan: BahanResep[] = recipe.map((r) => {
+    const h = harga.get(r.commodityId);
+    return {
+      komoditasId: r.commodityId,
+      nama: h?.nama ?? r.commodityId,
+      qty: r.batchQty / batchYield,   // BR-08
+      harga: h ? h.price : null,
+      dariData: Boolean(h),
+    };
+  });
+
+  return periksaSatuan(bahan, sellPrice).map((k) => ({
+    nama: k.nama,
+    biayaPerPorsi: k.biayaPerPorsi,
+    pesan: k.pesan,
+  }));
+}

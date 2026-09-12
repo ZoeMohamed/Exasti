@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDbMenuDetail, updateDbMenuPrice, updateDbMenuComplete } from "@/lib/services/menu-engine";
+import { hapusDbMenu, getDbMenuDetail, updateDbMenuPrice, updateDbMenuComplete } from "@/lib/services/menu-engine";
 
 export async function GET(
   _req: Request,
@@ -32,6 +32,10 @@ export async function GET(
     driverNote: data.driverNote,
     suggestedPrice: data.suggestedPrice,
     history: data.history,
+    // FR-28 / BR-10 — seberapa besar modal ini berdiri di atas data harga nyata
+    cakupan: data.cakupan,
+    bahanTanpaHarga: data.bahanTanpaHarga,
+    recipeRows: data.recipeRows,
   });
 }
 
@@ -78,4 +82,16 @@ export async function PUT(
     const message = err instanceof Error ? err.message : "Gagal memperbarui menu";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const ok = await hapusDbMenu(id);
+  return NextResponse.json(
+    ok ? { status: "ok", pesan: "Menu dihapus." } : { error: "Menu tidak ditemukan." },
+    { status: ok ? 200 : 404 },
+  );
 }

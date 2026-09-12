@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { keIsoTanggal } from "@/lib/tanggal";
 import { queryDb } from "@/lib/db/client";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const targetDate = date || new Date().toISOString().split("T")[0];
+    const targetDate = date || (keIsoTanggal(new Date()) as string);
 
     // Ambil region_id warung
     const bRes = await queryDb(

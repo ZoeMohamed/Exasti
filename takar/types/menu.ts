@@ -21,4 +21,7 @@ export type Ingredient = {
   unitPrice: number;
   cost: number;
   source: "DATA PASAR" | "HARGA KAMU" | "PERKIRAAN";
+  /** Kalimat penjelas di bawah lencana, mis. "harga notamu, digerakkan ikut pasar"
+   *  atau penanda forward-fill "memakai harga 2026-09-09" (FR-25, FR-27). */
+  sourceNote?: string;
 };

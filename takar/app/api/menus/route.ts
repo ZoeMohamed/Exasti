@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDbMenus, createDbMenu } from "@/lib/services/menu-engine";
+import { getDbMenus, createDbMenu, periksaResepSebelumSimpan } from "@/lib/services/menu-engine";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +25,23 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Nama menu, harga jual, dan takaran porsi sekali masak wajib diisi" },
         { status: 400 }
+      );
+    }
+
+    // FR-57 — tolak sebelum menyentuh database
+    const keberatan = await periksaResepSebelumSimpan(
+      body.recipe || [],
+      Number(body.batchYield),
+      Number(body.sellPrice),
+    );
+    if (keberatan.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Sepertinya ada takaran yang keliru",
+          keberatan,
+          pesan: keberatan[0].pesan,
+        },
+        { status: 422 },
       );
     }
 

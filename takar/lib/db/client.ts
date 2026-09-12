@@ -13,9 +13,11 @@ export function getDbPool(): Pool | null {
     pool = new Pool({
       connectionString,
       ssl: { rejectUnauthorized: false },
-      max: 5,
-      idleTimeoutMillis: 5000,
-      connectionTimeoutMillis: 5000,
+      // Pekerjaan harian menjalankan puluhan kueri berurutan; pool 5 dengan
+      // batas 5 detik terbukti habis dan membuat kueri berikutnya gagal diam-diam.
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 15000,
     });
   }
 
