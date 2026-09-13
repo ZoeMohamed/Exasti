@@ -38,6 +38,7 @@ export async function GET(
       cakupan: data.cakupan,
       bahanTanpaHarga: data.bahanTanpaHarga,
       recipeRows: data.recipeRows,
+      fixedCosts: data.fixedCosts,
     });
   } catch (error) {
     return apiError(error, "Gagal mengambil rincian menu");

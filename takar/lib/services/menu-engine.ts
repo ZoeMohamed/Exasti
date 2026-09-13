@@ -22,6 +22,11 @@ import {
   type RefBahan,
 } from "@/lib/bahan/validasi";
 import type { Satuan, SatuanDasar } from "@/lib/units";
+import {
+  siapkanBiayaTetap,
+  type BiayaTetapInput,
+  type BiayaTetapTersimpan,
+} from "@/lib/biaya";
 
 export interface ProfitHistoryPoint {
   date: string;
@@ -46,6 +51,7 @@ export interface DbMenuDetail {
   status: "sehat" | "tipis" | "rugi" | "diistirahatkan";
   driver: string;
   ingredients: Ingredient[];
+  fixedCosts: BiayaTetapTersimpan[];
   driverNote: {
     driverName: string;
     driverPct: number;
@@ -207,7 +213,8 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     // masing-masing menunggu ~180 ms ke Mumbai; dijalankan bersamaan,
     // totalnya tinggal satu kali tunggu.
     const fcPromise = queryAppDb(
-      `select label, amount, is_estimated from fixed_costs where menu_item_id = $1`,
+      `select label, amount, pack_price, pack_qty, usage_qty, is_estimated
+       from fixed_costs where menu_item_id = $1 order by updated_at, id`,
       [m.id],
     );
     const margin30Promise = queryAppDb(
@@ -240,6 +247,7 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     const bahan: BahanResep[] = [];
     const ingredients: Ingredient[] = [];
     const recipeRows: DbMenuDetail["recipeRows"] = [];
+    const fixedCosts: BiayaTetapTersimpan[] = [];
 
     for (const r of bahanRes?.rows ?? []) {
       const harga = r.harga === null ? null : Number(r.harga);
@@ -301,11 +309,22 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     const fcRes = await fcPromise;
     let biayaTetap = 0;
     for (const fc of fcRes?.rows ?? []) {
-      const amt = Math.round(Number(fc.amount));
-      biayaTetap += amt;
+      const amount = Number(fc.amount);
+      const amt = Math.round(amount);
+      biayaTetap += amount;
+      fixedCosts.push({
+        label: String(fc.label),
+        amount,
+        packPrice: fc.pack_price === null ? null : Number(fc.pack_price),
+        packQty: fc.pack_qty === null ? null : Number(fc.pack_qty),
+        usageQty: fc.usage_qty === null ? 1 : Number(fc.usage_qty),
+        isEstimated: Boolean(fc.is_estimated),
+      });
       ingredients.push({
         name: String(fc.label).toUpperCase(),
-        quantity: fc.is_estimated ? "perkiraan kami · bisa diubah" : "kamu yang isi",
+        quantity: fc.pack_price !== null && fc.pack_qty !== null
+          ? `${formatAngkaBiaya(fc.pack_price)} ÷ ${formatAngkaBiaya(fc.pack_qty)} isi${Number(fc.usage_qty ?? 1) === 1 ? "" : ` × ${formatAngkaBiaya(fc.usage_qty)} dipakai`}`
+          : fc.is_estimated ? "perkiraan kami · bisa diubah" : "kamu yang isi",
         unitPrice: amt,
         cost: amt,
         source: fc.is_estimated ? "PERKIRAAN" : "HARGA KAMU",
@@ -354,6 +373,7 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
       status: m.active ? kesehatan(margin) : "diistirahatkan",
       driver: pendorong ? pendorong.nama : "Harga bahan stabil",
       ingredients,
+      fixedCosts,
       // FR-24 — blok "gara-gara X, bukan Y"
       driverNote: pendorong
         ? {
@@ -392,10 +412,49 @@ export class MenuInputError extends Error {
   constructor(
     message: string,
     public readonly status: 400 | 422,
-    public readonly keberatan: Array<{ indeks: number; nama: string; pesan: string }> = [],
+    public readonly keberatan: Array<{ indeks: number; nama: string; pesan: string; bagian?: "bahan" | "biaya" }> = [],
   ) {
     super(message);
     this.name = "MenuInputError";
+  }
+}
+
+function formatAngkaBiaya(value: unknown): string {
+  return Number(value).toLocaleString("id-ID", { maximumFractionDigits: 2 });
+}
+
+function biayaAtauGalat(value: unknown): BiayaTetapTersimpan[] {
+  const hasil = siapkanBiayaTetap(value);
+  if (hasil.galat.length > 0) {
+    throw new MenuInputError(
+      "Periksa kemasan dan biaya kecil.",
+      422,
+      hasil.galat.map((item) => ({ ...item, bagian: "biaya" as const })),
+    );
+  }
+  return hasil.biaya;
+}
+
+async function tulisBiayaTetap(
+  query: DbQuery,
+  menuId: string,
+  biaya: BiayaTetapTersimpan[],
+) {
+  for (const item of biaya) {
+    await query(
+      `insert into fixed_costs (
+         menu_item_id, label, amount, pack_price, pack_qty, usage_qty, is_estimated
+       ) values ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        menuId,
+        item.label,
+        item.amount,
+        item.packPrice,
+        item.packQty,
+        item.usageQty,
+        item.isEstimated,
+      ],
+    );
   }
 }
 
@@ -630,8 +689,9 @@ export async function createDbMenu(data: {
   batchYield: number;
   weeklyVolume?: number;
   recipe: MenuRecipeInput;
-  fixedCosts?: Array<{ label: string; amount: number }>;
+  fixedCosts?: BiayaTetapInput[];
 }): Promise<string> {
+  const biaya = biayaAtauGalat(data.fixedCosts ?? []);
   const businessId = await getCurrentBusinessId();
   return withAppTransaction(async (query) => {
       const bisnis = await query<{ region_id: number }>("select region_id from businesses where id = $1", [businessId]);
@@ -649,13 +709,7 @@ export async function createDbMenu(data: {
 
       await tulisResep(query, menuId, businessId, regionId, resep);
 
-      for (const fixedCost of data.fixedCosts ?? []) {
-        await query(
-          `insert into fixed_costs (menu_item_id, label, amount, is_estimated)
-           values ($1, $2, $3, true)`,
-          [menuId, fixedCost.label, fixedCost.amount],
-        );
-      }
+      await tulisBiayaTetap(query, menuId, biaya);
 
       return menuId;
   });
@@ -708,9 +762,10 @@ export async function updateDbMenuComplete(
     batchYield?: number;
     weeklyVolume?: number;
     recipe?: MenuRecipeInput;
-    fixedCosts?: Array<{ label: string; amount: number }>;
+    fixedCosts?: BiayaTetapInput[];
   }
 ): Promise<boolean> {
+  const biaya = data.fixedCosts === undefined ? null : biayaAtauGalat(data.fixedCosts);
   const businessId = await getCurrentBusinessId();
   return withAppTransaction(async (query) => {
       const mRes = await query<{ id: string; batch_yield: number; sell_price: string }>(
@@ -749,13 +804,7 @@ export async function updateDbMenuComplete(
 
       if (data.fixedCosts !== undefined) {
         await query("delete from fixed_costs where menu_item_id = $1", [menu.id]);
-        for (const fixedCost of data.fixedCosts) {
-          await query(
-            `insert into fixed_costs (menu_item_id, label, amount, is_estimated)
-             values ($1, $2, $3, true)`,
-            [menu.id, fixedCost.label, fixedCost.amount],
-          );
-        }
+        await tulisBiayaTetap(query, menu.id, biaya ?? []);
       }
       return true;
   });
@@ -834,7 +883,7 @@ export const getDynamicIngredients = async (slugOrId: string) => {
       batchYield: detail.batchYield,
       servingsPerWeek: detail.weeklyVolume,
       recipe: [],
-      fixedCosts: [],
+      fixedCosts: detail.fixedCosts,
     },
     currentSellPrice: detail.sellPrice,
     ingredients: detail.ingredients,

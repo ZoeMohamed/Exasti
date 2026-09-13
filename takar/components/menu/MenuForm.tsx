@@ -5,8 +5,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BahanCombobox } from "./BahanCombobox";
 import { KartuBahan } from "./KartuBahan";
+import {
+  BiayaTambahanForm,
+  barisDariBiayaAwal,
+  payloadBiaya,
+  type BarisBiayaForm,
+} from "./BiayaTambahanForm";
 import { rowDariBahan, type IngredientRow } from "./bahan-form-types";
 import { hitungHargaPerDasar, hitungTakaran } from "@/lib/bahan/takaran";
+import { siapkanBiayaTetap, type BiayaTetapTersimpan } from "@/lib/biaya";
 import type { BahanTersedia, HasilCari } from "@/lib/bahan/cari";
 import type { SaranUmum } from "@/lib/bahan/katalog-pasar";
 import type { Satuan, SatuanDasar } from "@/lib/units";
@@ -31,6 +38,7 @@ interface MenuFormProps {
   initialYield?: number;
   initialVolume?: number;
   initialRows?: InitialIngredientRow[];
+  initialFixedCosts?: BiayaTetapTersimpan[];
 }
 
 function unitKecil(dasar: SatuanDasar): Satuan {
@@ -47,6 +55,7 @@ export function MenuForm({
   initialYield = 8,
   initialVolume = 100,
   initialRows = [],
+  initialFixedCosts = [],
 }: MenuFormProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
@@ -58,11 +67,14 @@ export function MenuForm({
   const [rows, setRows] = useState<IngredientRow[]>(
     initialRows.map((row, index) => ({ ...row, key: `awal-${index}-${row.bahan.jenis}` })),
   );
-  const [smallCosts, setSmallCosts] = useState({ kemasan: true, gas: true, bumbu: true, plastik: false });
+  const [costRows, setCostRows] = useState<BarisBiayaForm[]>(
+    initialFixedCosts.map(barisDariBiayaAwal),
+  );
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
+  const [costErrors, setCostErrors] = useState<Record<number, string>>({});
 
   useEffect(() => {
     let aktif = true;
@@ -93,6 +105,9 @@ export function MenuForm({
     const harga = manual && !("galat" in manual) ? manual.hargaPerDasar : row.harga;
     return harga === null ? total : total + takaran.qty * harga;
   }, 0);
+  const biayaPayload = payloadBiaya(costRows);
+  const biayaTerhitung = siapkanBiayaTetap(biayaPayload).biaya;
+  const totalBiaya = biayaTerhitung.reduce((total, item) => total + item.amount, 0);
 
   function pilihBahan(hasil: HasilCari) {
     if (hasil.tipe === "tersedia") {
@@ -122,14 +137,15 @@ export function MenuForm({
     event.preventDefault();
     setFormError(null);
     setRowErrors({});
+    setCostErrors({});
     if (!name.trim()) return setFormError("Nama menu wajib diisi.");
     if (rows.length === 0) return setFormError("Tambahkan minimal satu bahan.");
 
-    const fixedCosts: Array<{ label: string; amount: number }> = [];
-    if (smallCosts.kemasan) fixedCosts.push({ label: "Kemasan / Kertas Bungkus", amount: 350 });
-    if (smallCosts.gas) fixedCosts.push({ label: "Gas Elpiji Kompor", amount: 450 });
-    if (smallCosts.bumbu) fixedCosts.push({ label: "Bumbu Dapur", amount: 300 });
-    if (smallCosts.plastik) fixedCosts.push({ label: "Plastik & Sendok", amount: 250 });
+    const hasilBiaya = siapkanBiayaTetap(biayaPayload);
+    if (hasilBiaya.galat.length > 0) {
+      setCostErrors(Object.fromEntries(hasilBiaya.galat.map((item) => [item.indeks, item.pesan])));
+      return setFormError("Periksa lagi kemasan atau biaya yang belum lengkap.");
+    }
 
     try {
       setLoading(true);
@@ -142,14 +158,19 @@ export function MenuForm({
           batchYield: Number(batchYield),
           weeklyVolume: Number(weeklyVolume),
           recipe: rows.map((row) => ({ bahan: row.bahan, pemakaian: row.pemakaian, harga: row.hargaBelanja, catatan: row.catatan })),
-          fixedCosts,
+          fixedCosts: biayaPayload,
         }),
       });
       const data = await response.json();
       if (!response.ok) {
         const errors: Record<number, string> = {};
-        for (const item of data.keberatan || []) errors[item.indeks] = item.pesan;
+        const biayaErrors: Record<number, string> = {};
+        for (const item of data.keberatan || []) {
+          if (item.bagian === "biaya") biayaErrors[item.indeks] = item.pesan;
+          else errors[item.indeks] = item.pesan;
+        }
         setRowErrors(errors);
+        setCostErrors(biayaErrors);
         setFormError(data.pesan || data.error || "Menu belum tersimpan.");
         return;
       }
@@ -189,16 +210,9 @@ export function MenuForm({
           ))}
         </section>
 
-        <section className="space-y-3 bg-white p-5 brutal-border-2">
-          <h2 className="font-heading text-lg font-extrabold">Biaya kecil dan kemasan per porsi</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[["kemasan", "Kemasan / kertas bungkus (Rp 350)"], ["gas", "Gas untuk memasak (Rp 450)"], ["bumbu", "Bumbu dapur dan garam (Rp 300)"], ["plastik", "Plastik dan sendok (Rp 250)"]].map(([key, label]) => (
-              <label key={key} className={`flex cursor-pointer items-center gap-2 p-2.5 text-xs font-bold brutal-border-2 ${smallCosts[key as keyof typeof smallCosts] ? "bg-cream" : "bg-white"}`}><input type="checkbox" checked={smallCosts[key as keyof typeof smallCosts]} onChange={() => setSmallCosts((current) => ({ ...current, [key]: !current[key as keyof typeof smallCosts] }))} />{label}</label>
-            ))}
-          </div>
-        </section>
+        <BiayaTambahanForm rows={costRows} errors={costErrors} onChange={setCostRows} />
 
-        <div className="flex justify-between gap-3 bg-ink p-4 font-mono text-sm text-white brutal-card"><span>Modal bahan sementara per porsi</span><strong className="text-lg text-bright-green">{formatRupiah(Math.round(modalBahan))}</strong></div>
+        <div className="flex justify-between gap-3 bg-ink p-4 font-mono text-sm text-white brutal-card"><span>Modal sementara per porsi</span><strong className="text-lg text-bright-green">{formatRupiah(Math.round(modalBahan + totalBiaya))}</strong></div>
         {formError && <div role="alert" className="bg-critical-red/10 p-3 text-sm font-bold text-critical-red brutal-border-2">{formError}</div>}
         {saved && <div className="bg-bright-green p-3 text-center text-sm font-bold brutal-border-2">Menu dan resep sudah tersimpan.</div>}
 
