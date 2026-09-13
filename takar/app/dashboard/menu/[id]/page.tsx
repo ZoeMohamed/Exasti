@@ -223,15 +223,14 @@ export default async function MenuDetailPage({
           {typeof menu.cakupan === "number" && menu.cakupan < 70 && (
             <div className="mb-4 bg-warning-yellow p-3 brutal-border-2">
               <p className="font-heading text-sm font-bold">
-                Angka ini masih banyak tebakannya
+                Lengkapi harga belanja agar modal makin tepat
               </p>
               <p className="mt-1 text-xs">
-                Baru {menu.cakupan} dari tiap 100 rupiah modal menu ini yang punya harga
-                pasar harian
+                Harga yang sudah tercatat baru mencakup {menu.cakupan}% dari modal menu ini
                 {menu.bahanTanpaHarga && menu.bahanTanpaHarga > 0
                   ? `, dan ${menu.bahanTanpaHarga} bahan belum ada harganya`
                   : ""}
-                . Isi harga belanjamu lewat Scan Nota supaya lebih tepat.
+                . Catat harga dari nota belanja supaya hitungannya lebih lengkap.
               </p>
             </div>
           )}
@@ -299,10 +298,12 @@ export default async function MenuDetailPage({
 
           <div className="border-t-8 border-t-bright-green bg-ink p-6 text-cream brutal-card">
             <span className="font-mono text-xs font-bold uppercase text-warning-yellow">
-              SARAN HARGA
+              {priceAdjustment > 0 ? "SARAN HARGA" : "HARGA JUAL"}
             </span>
             <h3 className="mt-1 font-heading text-2xl font-extrabold text-white">
-              “Kalau mau untungmu kembali sehat…”
+              {priceAdjustment > 0
+                ? "Kalau mau untungmu kembali sehat…"
+                : "Harga jualmu sudah sehat"}
             </h3>
             <div className="my-5 border-2 border-white bg-white/10 p-4">
               <span className="font-mono text-xs text-cream/70">
@@ -319,18 +320,20 @@ export default async function MenuDetailPage({
               </div>
             </div>
             <p className="mb-4 text-xs leading-relaxed text-cream/80">
-              Dengan harga {formatRupiah(menu.suggestedPrice)}, untungmu kembali ke{" "}
+              Dengan harga {formatRupiah(menu.suggestedPrice)}, untungmu {priceAdjustment > 0 ? "kembali" : "tetap"} di{" "}
               <b className="font-mono text-bright-green">
                 {formatRupiah(suggestedProfit)} / porsi ({suggestedMargin}%)
               </b>
               .
             </p>
-            <MenuPriceActions
-              menuId={id}
-              menuName={menu.name}
-              currentPrice={sellPrice}
-              suggestedPrice={menu.suggestedPrice}
-            />
+            {priceAdjustment > 0 && (
+              <MenuPriceActions
+                menuId={id}
+                menuName={menu.name}
+                currentPrice={sellPrice}
+                suggestedPrice={menu.suggestedPrice}
+              />
+            )}
           </div>
         </aside>
       </div>

@@ -6,12 +6,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatRupiah } from "@/lib/formatRupiah";
 import type { ParsedItem, OcrResponsePayload } from "@/lib/ai/ocr";
+import { BahanCombobox } from "@/components/menu/BahanCombobox";
+import type { BahanTersedia, HasilCari } from "@/lib/bahan/cari";
+import { normalisasiNama } from "@/lib/bahan/cari";
+import type { SaranUmum } from "@/lib/bahan/katalog-pasar";
+import type { RefBahan } from "@/lib/bahan/validasi";
+import type { Satuan, SatuanDasar } from "@/lib/units";
 
-interface CommodityOption {
-  id: string;
-  name: string;
-  unit: string;
-  current_price: string;
+interface PilihanBahan {
+  bahan: RefBahan;
+  nama: string;
+  satuanDasar: SatuanDasar;
 }
 
 interface UserPriceHistory {
@@ -24,7 +29,9 @@ interface UserPriceHistory {
 }
 
 export default function BelanjaPage() {
-  const [commodities, setCommodities] = useState<CommodityOption[]>([]);
+  const [bahan, setBahan] = useState<BahanTersedia[]>([]);
+  const [saranUmum, setSaranUmum] = useState<SaranUmum[]>([]);
+  const [pilihan, setPilihan] = useState<Record<string, PilihanBahan>>({});
   const [loading, setLoading] = useState(false);
   const [statusStep, setStatusStep] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -38,16 +45,17 @@ export default function BelanjaPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Ambil bahan & riwayat harga nota dari database Supabase
+  // 1. Ambil bahan & riwayat harga nota warung
   useEffect(() => {
-    fetch("/api/commodities")
+    fetch("/api/bahan")
       .then((r) => r.json())
       .then((data) => {
-        if (data.status === "ok" && data.commodities) {
-          setCommodities(data.commodities);
+        if (data.status === "ok") {
+          setBahan(data.bahan || []);
+          setSaranUmum(data.saranUmum || []);
         }
       })
-      .catch(console.error);
+      .catch(() => setErrorMsg("Daftar bahan belum bisa dibuka."));
 
     fetchHistory();
   }, []);
@@ -94,6 +102,15 @@ export default function BelanjaPage() {
 
       setOcrResult(data);
       setItems(data.items);
+      const cocok: Record<string, PilihanBahan> = {};
+      for (const item of data.items) {
+        const found = bahan.find((candidate) =>
+          candidate.id === item.match.matchedName ||
+          (candidate.jenis === "warung" && normalisasiNama(candidate.namaTampil) === normalisasiNama(item.match.matchedName)),
+        );
+        if (found) cocok[item.id] = { bahan: { jenis: found.jenis, id: found.id }, nama: found.namaTampil, satuanDasar: found.satuanDasar };
+      }
+      setPilihan(cocok);
     } catch (err: unknown) {
       console.error("Gagal scan:", err);
       setErrorMsg(err instanceof Error ? err.message : "Terjadi kesalahan saat memproses nota.");
@@ -153,46 +170,41 @@ export default function BelanjaPage() {
     );
   }
 
-  // Ubah kecocokan bahan secara manual jika diinginkan
-  function updateItemCommodity(id: string, commodityId: string) {
-    const comm = commodities.find((c) => c.id === commodityId);
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== id) return it;
-        return {
-          ...it,
-          match: {
-            ...it.match,
-            matchedName: comm ? comm.name : commodityId,
-            isBiCommodity: true,
-            standardUnit: comm?.unit || it.match.standardUnit || "kg",
-          },
-        };
-      }),
-    );
+  function pilihUntukItem(id: string, hasil: HasilCari) {
+    if (hasil.tipe === "tersedia") {
+      const item = hasil.bahan;
+      setPilihan((current) => ({ ...current, [id]: { bahan: { jenis: item.jenis, id: item.id }, nama: item.namaTampil, satuanDasar: item.satuanDasar } }));
+      return;
+    }
+    const nama = hasil.tipe === "saran" ? hasil.saran.nama : hasil.nama;
+    const satuanDasar = hasil.tipe === "saran" ? hasil.saran.satuanDasar : "kg";
+    setPilihan((current) => ({ ...current, [id]: { bahan: { jenis: "baru", nama, satuanDasar }, nama, satuanDasar } }));
   }
 
   // Hapus baris item
   function removeItem(id: string) {
     setItems((prev) => prev.filter((it) => it.id !== id));
+    setPilihan((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
   }
 
   // Tambah baris manual jika ada yang terlewat di nota
   function addNewItem() {
-    const defaultComm = commodities[0];
-    const defaultName = defaultComm?.name || "Bahan Baru";
     const newItem: ParsedItem = {
       id: `item-${Date.now()}`,
-      nameRaw: defaultName,
-      qty: 1,
-      unit: defaultComm?.unit || "kg",
-      totalPrice: Number(defaultComm?.current_price) || 20000,
+      nameRaw: "",
+      qty: null,
+      unit: "kg",
+      totalPrice: null,
       match: {
-        matchedName: defaultName,
+        matchedName: "",
         isBiCommodity: false,
-        standardUnit: defaultComm?.unit || "kg",
-        normalizedQty: 1,
-        pricePerUnit: Number(defaultComm?.current_price) || 20000,
+        standardUnit: "kg",
+        normalizedQty: 0,
+        pricePerUnit: 0,
       },
       isConfirmed: true,
     };
@@ -207,24 +219,18 @@ export default function BelanjaPage() {
     setErrorMsg(null);
 
     try {
-      // Petakan item ke bahan database jika tersedia
-      const payloadItems = items.map((it) => {
-        const comm = commodities.find(
-          (c) =>
-            c.name.toLowerCase() === it.match.matchedName.toLowerCase() ||
-            c.id.toLowerCase() === it.match.matchedName.toLowerCase(),
-        );
-
-        const price =
-          it.match.pricePerUnit > 0
-            ? it.match.pricePerUnit
-            : it.totalPrice && it.qty
-            ? Math.round(Number(it.totalPrice) / Number(it.qty))
-            : Number(it.totalPrice) || 0;
-
+      const belumDipilih = items.find((item) => !pilihan[item.id]);
+      if (belumDipilih) throw new Error(`Hubungkan “${belumDipilih.nameRaw || "barang tanpa nama"}” ke bahan terlebih dahulu.`);
+      const payloadItems = items.map((item) => {
+        const selected = pilihan[item.id];
         return {
-          commodity_id: comm ? comm.id : it.match.matchedName,
-          price,
+          bahan: selected.bahan,
+          harga: {
+            hargaKemasan: Number(item.totalPrice),
+            isi: Number(item.qty),
+            satuan: satuanNota(item.unit, selected.satuanDasar),
+          },
+          sumber: "nota_ocr",
         };
       });
 
@@ -242,8 +248,8 @@ export default function BelanjaPage() {
       } else {
         setErrorMsg(data.message || "Harga belanja belum tersimpan. Coba lagi.");
       }
-    } catch {
-      setErrorMsg("Harga belanja belum tersimpan. Periksa koneksi lalu coba lagi.");
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Harga belanja belum tersimpan. Periksa koneksi lalu coba lagi.");
     } finally {
       setSaving(false);
     }
@@ -262,7 +268,7 @@ export default function BelanjaPage() {
           Kembali ke Beranda
         </Link>
         <span className="bg-warning-yellow px-2.5 py-1 font-mono text-xs font-bold brutal-border-2">
-          {commodities.length} bahan siap dipakai
+          {bahan.length} bahan siap dipakai
         </span>
       </div>
 
@@ -484,41 +490,19 @@ export default function BelanjaPage() {
                             />
                           </div>
 
-                          {/* Pencocokan ke Komoditas Database / BI */}
-                          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                            {commodities.length > 0 ? (
-                              <select
-                                value={
-                                  commodities.find(
-                                    (c) =>
-                                      c.name.toLowerCase() === itLower(item.match.matchedName) ||
-                                      c.id.toLowerCase() === itLower(item.match.matchedName),
-                                  )?.id || ""
-                                }
-                                onChange={(e) => {
-                                  if (e.target.value) updateItemCommodity(item.id, e.target.value);
-                                }}
-                                className="bg-cream font-mono text-[10px] font-bold py-0.5 px-1 border border-ink"
-                              >
-                                <option value="">
-                                  {item.match.isBiCommodity ? "Harga pasar: " : "Barang warung: "}
-                                  {item.match.matchedName}
-                                </option>
-                                {commodities.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    Samakan dengan: {c.name} ({c.unit})
-                                  </option>
-                                ))}
-                              </select>
-                            ) : item.match.isBiCommodity ? (
-                              <span className="bg-bright-green/20 px-2 py-0.5 font-mono text-[10px] font-bold text-accent-green border border-accent-green">
-                                Cocok dengan harga pasar: {item.match.matchedName}
-                              </span>
-                            ) : (
-                              <span className="bg-warning-yellow/30 px-2 py-0.5 font-mono text-[10px] font-bold text-warung-brown border border-warung-brown">
-                                Cocok dengan bahan warung: {item.match.matchedName}
-                              </span>
+                          <div className="pt-2 text-xs">
+                            {pilihan[item.id] && (
+                              <div className="mb-2 bg-bright-green/20 px-2 py-1 font-bold border border-ink">
+                                Dicatat sebagai: {pilihan[item.id].nama}
+                              </div>
                             )}
+                            <BahanCombobox
+                              daftar={bahan}
+                              saranUmum={saranUmum}
+                              onPilih={(hasil) => pilihUntukItem(item.id, hasil)}
+                              label={pilihan[item.id] ? "Ganti bahan" : "Hubungkan ke bahan"}
+                              placeholder="Ketik nama bahan"
+                            />
                           </div>
                         </div>
 
@@ -634,7 +618,7 @@ export default function BelanjaPage() {
         </div>
       </div>
 
-      {/* Riwayat Belanja Warung dari Database Supabase */}
+      {/* Riwayat belanja warung */}
       <section className="bg-white p-6 sm:p-8 brutal-card">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-dashed border-ink pb-4">
           <div>
@@ -684,6 +668,15 @@ export default function BelanjaPage() {
   );
 }
 
-function itLower(str: string | undefined): string {
-  return (str || "").toLowerCase();
+function satuanNota(unit: string | null, dasar: SatuanDasar): Satuan {
+  const bersih = (unit || "").toLowerCase().trim();
+  if (bersih === "g" || bersih === "gr" || bersih.includes("gram")) return "gram";
+  if (bersih === "ons" || bersih === "hg") return "ons";
+  if (bersih === "kg" || bersih.includes("kilo")) return "kg";
+  if (bersih === "ml" || bersih === "cc") return "ml";
+  if (bersih === "l" || bersih.includes("liter")) return "liter";
+  if (bersih === "butir") return "butir";
+  if (bersih === "ekor") return "ekor";
+  if (bersih === "pcs" || bersih === "buah" || bersih === "lembar") return "pcs";
+  return dasar;
 }

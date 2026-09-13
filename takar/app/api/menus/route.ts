@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDbMenus, createDbMenu, periksaResepSebelumSimpan } from "@/lib/services/menu-engine";
+import { getDbMenus, createDbMenu, MenuInputError } from "@/lib/services/menu-engine";
 import { apiError, requireApiBusinessId } from "@/lib/auth/api";
 
 export const dynamic = "force-dynamic";
@@ -30,23 +30,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // FR-57 — tolak sebelum menyentuh database
-    const keberatan = await periksaResepSebelumSimpan(
-      body.recipe || [],
-      Number(body.batchYield),
-      Number(body.sellPrice),
-    );
-    if (keberatan.length > 0) {
-      return NextResponse.json(
-        {
-          error: "Sepertinya ada takaran yang keliru",
-          keberatan,
-          pesan: keberatan[0].pesan,
-        },
-        { status: 422 },
-      );
-    }
-
     const menuId = await createDbMenu({
       name: body.name,
       sellPrice: Number(body.sellPrice),
@@ -56,16 +39,18 @@ export async function POST(req: Request) {
       fixedCosts: body.fixedCosts || [],
     });
 
-    if (menuId) {
-      return NextResponse.json({
-        status: "ok",
-        message: `Menu "${body.name}" berhasil disimpan`,
-        menuId,
-      });
-    }
-
-    return NextResponse.json({ error: "Menu belum berhasil disimpan" }, { status: 500 });
+    return NextResponse.json({
+      status: "ok",
+      message: `Menu "${body.name}" berhasil disimpan`,
+      menuId,
+    });
   } catch (err: unknown) {
+    if (err instanceof MenuInputError) {
+      return NextResponse.json(
+        { error: err.message, pesan: err.keberatan[0]?.pesan ?? err.message, keberatan: err.keberatan },
+        { status: err.status },
+      );
+    }
     return apiError(err, "Gagal menyimpan menu");
   }
 }

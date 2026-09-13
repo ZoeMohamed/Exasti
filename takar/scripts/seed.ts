@@ -24,6 +24,14 @@ const client = new Client({
   ssl: { rejectUnauthorized: false },
 });
 
+const BUSINESS_ID = "00000000-0000-0000-0000-000000000001";
+const CUSTOM_INGREDIENTS = [
+  { id: "w_demo_bumbu_madu", name: "Madu dan bumbu bakar", normal: "madu dan bumbu bakar", unit: "pcs", price: 2500 },
+  { id: "w_demo_ikan_lele", name: "Ikan lele", normal: "ikan lele", unit: "pcs", price: 7200 },
+  { id: "w_demo_mie_sawi", name: "Mie instan dan sayur sawi", normal: "mie instan dan sayur sawi", unit: "pcs", price: 3800 },
+] as const;
+const CUSTOM_PRICE = new Map<string, number>(CUSTOM_INGREDIENTS.map((item) => [item.id, item.price]));
+
 const COMMODITIES = [
   { id: "Beras", name: "Beras", unit: "kg" },
   { id: "Beras Kualitas Bawah I", name: "Beras Kualitas Bawah I", unit: "kg" },
@@ -89,10 +97,9 @@ const MENUS = [
       { commodity_id: "Beras Kualitas Medium I", batch_qty: 1.0, note: "Nasi pulen" },
       { commodity_id: "Minyak Goreng Curah", batch_qty: 0.16, note: "Minyak oles bakar" },
       { commodity_id: "Bawang Merah Ukuran Sedang", batch_qty: 0.08, note: "Bumbu ungkep" },
+      { commodity_id: "w_demo_bumbu_madu", batch_qty: 8, note: "ASUMSI: 1 paket per porsi menjaga modal demo Rp2.500. Ganti dengan takaran dari nota asli." },
     ],
-    fixed_costs: [
-      { label: "Arang, Gas & Bumbu Madu", amount: 2500, is_estimated: true },
-    ],
+    fixed_costs: [],
   },
   {
     id: "00000000-0000-0000-0000-000000000103",
@@ -122,9 +129,9 @@ const MENUS = [
       { commodity_id: "Beras Kualitas Medium I", batch_qty: 1.0, note: "Nasi putih" },
       { commodity_id: "Minyak Goreng Curah", batch_qty: 0.3, note: "Minyak goreng lele" },
       { commodity_id: "Cabai Rawit Hijau", batch_qty: 0.1, note: "Sambal terasi" },
+      { commodity_id: "w_demo_ikan_lele", batch_qty: 8, note: "ASUMSI: 1 ekor per porsi menjaga modal demo Rp7.200. Ganti dengan harga nota asli." },
     ],
     fixed_costs: [
-      { label: "Ikan Lele Segar (Pasar)", amount: 7200, is_estimated: true },
       { label: "Gas, Tepung & Lalapan", amount: 1200, is_estimated: true },
     ],
   },
@@ -139,9 +146,9 @@ const MENUS = [
       { commodity_id: "Telur Ayam Ras Segar", batch_qty: 0.5, note: "Telur kuah" },
       { commodity_id: "Cabai Rawit Hijau", batch_qty: 0.06, note: "Cabai iris" },
       { commodity_id: "Bawang Merah Ukuran Sedang", batch_qty: 0.04, note: "Bawang kuah" },
+      { commodity_id: "w_demo_mie_sawi", batch_qty: 6, note: "ASUMSI: 1 paket per porsi menjaga modal demo Rp3.800. Ganti dengan harga nota asli." },
     ],
     fixed_costs: [
-      { label: "Mie Instan & Sayur Sawi", amount: 3800, is_estimated: true },
       { label: "Gas & Kuah Bumbu", amount: 800, is_estimated: true },
     ],
   },
@@ -185,15 +192,39 @@ async function seed() {
   console.log("[3] Menyiapkan Warung Bu Sri...");
   await client.query(`
     INSERT INTO businesses (id, name, region_id, packaging_mode)
-    VALUES ('00000000-0000-0000-0000-000000000001', 'Warung Bu Sri', 1, 'mixed')
+    VALUES ('${BUSINESS_ID}', 'Warung Bu Sri', 1, 'mixed')
     ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, region_id = EXCLUDED.region_id;
   `);
+
+  console.log("[3b] Menyiapkan bahan warung demo (nilai bertanda ASUMSI)...");
+  const tanggalJakarta = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  for (const item of CUSTOM_INGREDIENTS) {
+    await client.query(
+      `INSERT INTO catalog_items (id, business_id, name, nama_normal, unit, approved)
+       VALUES ($1, $2, $3, $4, $5, true)
+       ON CONFLICT (business_id, nama_normal) WHERE business_id IS NOT NULL
+       DO UPDATE SET name = EXCLUDED.name, unit = EXCLUDED.unit`,
+      [item.id, BUSINESS_ID, item.name, item.normal, item.unit],
+    );
+    await client.query(
+      `INSERT INTO prices (commodity_id, region_id, business_id, date, price, source)
+       VALUES ($1, 1, $2, $3, $4, 'seed_asumsi')
+       ON CONFLICT (commodity_id, region_id, date, business_id) WHERE business_id IS NOT NULL
+       DO UPDATE SET price = EXCLUDED.price, source = EXCLUDED.source`,
+      [item.id, BUSINESS_ID, tanggalJakarta, item.price],
+    );
+  }
 
   console.log("[4] Menyiapkan Menu Items & Resep Batch...");
   for (const m of MENUS) {
     await client.query(`
       INSERT INTO menu_items (id, business_id, name, sell_price, batch_yield, weekly_volume, active)
-      VALUES ($1, '00000000-0000-0000-0000-000000000001', $2, $3, $4, $5, true)
+      VALUES ($1, '${BUSINESS_ID}', $2, $3, $4, $5, true)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         sell_price = EXCLUDED.sell_price,
@@ -205,13 +236,19 @@ async function seed() {
     for (const r of m.recipe) {
       const perPortionQty = r.batch_qty / m.batch_yield;
       await client.query(`
-        INSERT INTO recipe_items (menu_item_id, commodity_id, batch_qty, qty, note)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO recipe_items (
+          menu_item_id, commodity_id, batch_qty, qty, note,
+          cara_pakai, jumlah_input, satuan_input
+        )
+        VALUES ($1, $2, $3, $4, $5, 'per_masak', $3, $6)
         ON CONFLICT (menu_item_id, commodity_id) DO UPDATE SET
           batch_qty = EXCLUDED.batch_qty,
           qty = EXCLUDED.qty,
-          note = EXCLUDED.note;
-      `, [m.id, r.commodity_id, r.batch_qty, perPortionQty, r.note]);
+          note = EXCLUDED.note,
+          cara_pakai = EXCLUDED.cara_pakai,
+          jumlah_input = EXCLUDED.jumlah_input,
+          satuan_input = EXCLUDED.satuan_input;
+      `, [m.id, r.commodity_id, r.batch_qty, perPortionQty, r.note, CUSTOM_PRICE.has(r.commodity_id) ? "pcs" : "kg"]);
     }
 
     // Fixed costs
@@ -329,9 +366,16 @@ async function seed() {
 
     for (const m of MENUS) {
       let hpp = 0;
+      let fromData = 0;
+      let missingCount = 0;
       for (const r of m.recipe) {
-        const p = priceMap.get(r.commodity_id) || 30000;
+        const p = CUSTOM_PRICE.get(r.commodity_id) ?? priceMap.get(r.commodity_id);
+        if (p === undefined) {
+          missingCount++;
+          continue;
+        }
         hpp += (r.batch_qty / m.batch_yield) * p;
+        fromData++;
       }
       for (const f of m.fixed_costs) {
         hpp += f.amount;
@@ -341,12 +385,12 @@ async function seed() {
 
       await client.query(`
         INSERT INTO margin_snapshots (menu_item_id, date, hpp, sell_price, margin_pct, from_data, missing_count)
-        VALUES ($1, $2, $3, $4, $5, $6, 0)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (menu_item_id, date) DO UPDATE SET
           hpp = EXCLUDED.hpp,
           sell_price = EXCLUDED.sell_price,
           margin_pct = EXCLUDED.margin_pct;
-      `, [m.id, targetDate, hpp, m.sell_price, marginPct, m.recipe.length]);
+      `, [m.id, targetDate, hpp, m.sell_price, marginPct, fromData, missingCount]);
     }
   }
 

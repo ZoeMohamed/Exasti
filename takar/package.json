@@ -11,9 +11,11 @@
     "start": "next start",
     "lint": "eslint",
     "db:check": "tsx scripts/db-check.ts",
+    "demo:bahan": "tsx scripts/pindah-biaya-ke-bahan.ts",
     "test:margin": "tsx tests/uji-margin.ts",
     "test:time": "tsx tests/uji-tanggal.ts",
-    "test": "npm run test:margin && npm run test:time"
+    "test:bahan": "tsx tests/uji-bahan.ts",
+    "test": "npm run test:margin && npm run test:time && npm run test:bahan"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

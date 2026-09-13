@@ -1,26 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BahanCombobox } from "./BahanCombobox";
+import { KartuBahan } from "./KartuBahan";
+import { rowDariBahan, type IngredientRow } from "./bahan-form-types";
+import { hitungHargaPerDasar, hitungTakaran } from "@/lib/bahan/takaran";
+import type { BahanTersedia, HasilCari } from "@/lib/bahan/cari";
+import type { SaranUmum } from "@/lib/bahan/katalog-pasar";
+import type { Satuan, SatuanDasar } from "@/lib/units";
 import { formatRupiah } from "@/lib/formatRupiah";
 
-export interface IngredientRow {
-  commodityId: string;
+interface InitialIngredientRow {
+  bahan: IngredientRow["bahan"];
+  pemakaian: IngredientRow["pemakaian"];
   name: string;
-  price: number;
-  batchQty: number;
-  unit: string;
-  note?: string;
-}
-
-interface CommodityOption {
-  id: string;
-  name: string;
-  unit: string;
-  /** null bila bahan ini belum punya harga sama sekali — jangan diisi tebakan. */
-  current_price: string | null;
-  sumber_harga?: string;
+  satuanDasar: SatuanDasar;
+  harga: number | null;
+  sumberHarga: string;
+  tanggalHarga: string | null;
+  catatan?: string;
 }
 
 interface MenuFormProps {
@@ -30,7 +30,13 @@ interface MenuFormProps {
   initialPrice?: number;
   initialYield?: number;
   initialVolume?: number;
-  initialRows?: IngredientRow[];
+  initialRows?: InitialIngredientRow[];
+}
+
+function unitKecil(dasar: SatuanDasar): Satuan {
+  if (dasar === "kg") return "gram";
+  if (dasar === "liter") return "ml";
+  return "pcs";
 }
 
 export function MenuForm({
@@ -40,172 +46,120 @@ export function MenuForm({
   initialPrice = 18000,
   initialYield = 8,
   initialVolume = 100,
-  initialRows,
+  initialRows = [],
 }: MenuFormProps) {
   const router = useRouter();
-
   const [name, setName] = useState(initialName);
   const [sellPrice, setSellPrice] = useState(initialPrice);
   const [batchYield, setBatchYield] = useState(initialYield);
   const [weeklyVolume, setWeeklyVolume] = useState(initialVolume);
-
-  const [availableCommodities, setAvailableCommodities] = useState<CommodityOption[]>([]);
+  const [bahan, setBahan] = useState<BahanTersedia[]>([]);
+  const [saranUmum, setSaranUmum] = useState<SaranUmum[]>([]);
   const [rows, setRows] = useState<IngredientRow[]>(
-    initialRows || [
-      {
-        commodityId: "Daging Ayam Ras Segar",
-        name: "Daging Ayam Ras Segar",
-        price: 40500,
-        batchQty: 2,
-        unit: "kg",
-      },
-      {
-        commodityId: "Cabai Rawit Hijau",
-        name: "Cabai Rawit Hijau",
-        price: 63750,
-        batchQty: 0.12,
-        unit: "kg",
-      },
-    ]
+    initialRows.map((row, index) => ({ ...row, key: `awal-${index}-${row.bahan.jenis}` })),
   );
-
-  const [smallCosts, setSmallCosts] = useState({
-    kemasan: true,
-    gas: true,
-    bumbu: true,
-    plastik: false,
-  });
-
+  const [smallCosts, setSmallCosts] = useState({ kemasan: true, gas: true, bumbu: true, plastik: false });
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
 
-  // Ambil daftar bahan langsung dari database Supabase
   useEffect(() => {
-    fetch("/api/commodities")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.status === "ok" && data.commodities) {
-          setAvailableCommodities(data.commodities);
+    let aktif = true;
+    fetch("/api/bahan")
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Daftar bahan belum bisa dibuka.");
+        if (aktif) {
+          setBahan(data.bahan || []);
+          setSaranUmum(data.saranUmum || []);
         }
       })
-      .catch(console.error);
+      .catch((error: unknown) => {
+        if (aktif) setFormError(error instanceof Error ? error.message : "Daftar bahan belum bisa dibuka.");
+      });
+    return () => { aktif = false; };
   }, []);
 
-  function handleCommodityChange(index: number, commodityId: string) {
-    const found = availableCommodities.find((c) => c.id === commodityId);
-    if (!found) return;
+  const sudahDipakai = useMemo(
+    () => new Set(rows.flatMap((row) => row.bahan.jenis === "baru" ? [] : [row.bahan.id])),
+    [rows],
+  );
 
-    setRows((current) =>
-      current.map((r, i) =>
-        i === index
-          ? {
-              ...r,
-              commodityId: found.id,
-              name: found.name,
-              // Tanpa harga, biarkan 0 dan katakan apa adanya di layar.
-              // Menyuntik angka karangan membuat modal terlihat pasti padahal bukan.
-              price: found.current_price === null ? 0 : Number(found.current_price),
-              unit: found.unit,
-            }
-          : r
-      )
-    );
-  }
-
-  function updateRowQty(index: number, batchQty: number) {
-    setRows((current) =>
-      current.map((r, i) => (i === index ? { ...r, batchQty } : r))
-    );
-  }
-
-  function removeRow(index: number) {
-    if (rows.length <= 1) return;
-    setRows((current) => current.filter((_, i) => i !== index));
-  }
-
-  function addIngredient() {
-    const defaultItem = availableCommodities[0];
-    if (!defaultItem) return; // daftar bahan belum termuat
-
-    setRows((current) => [
-      ...current,
-      {
-        commodityId: defaultItem.id,
-        name: defaultItem.name,
-        price: defaultItem.current_price === null ? 0 : Number(defaultItem.current_price),
-        batchQty: 1,
-        unit: defaultItem.unit,
-      },
-    ]);
-  }
-
-  // Hitung perkiraan modal per porsi
-  const ingredientsCostPerPortion = rows.reduce((acc, r) => {
-    const portionQty = r.batchQty / (batchYield || 1);
-    return acc + portionQty * r.price;
+  const modalBahan = rows.reduce((total, row) => {
+    const takaran = hitungTakaran(row.pemakaian, row.satuanDasar, batchYield || 1);
+    if ("galat" in takaran) return total;
+    const manual = row.hargaBelanja ? hitungHargaPerDasar(row.hargaBelanja, row.satuanDasar) : null;
+    const harga = manual && !("galat" in manual) ? manual.hargaPerDasar : row.harga;
+    return harga === null ? total : total + takaran.qty * harga;
   }, 0);
 
-  const fixedCostTotal =
-    (smallCosts.kemasan ? 350 : 0) +
-    (smallCosts.gas ? 450 : 0) +
-    (smallCosts.bumbu ? 300 : 0) +
-    (smallCosts.plastik ? 250 : 0);
-
-  const totalModalPerPortion = Math.round(ingredientsCostPerPortion + fixedCostTotal);
-  const estimatedProfit = sellPrice - totalModalPerPortion;
-  const estimatedMargin = sellPrice > 0 ? ((estimatedProfit / sellPrice) * 100).toFixed(1) : "0";
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) {
-      alert("Nama menu tidak boleh kosong!");
+  function pilihBahan(hasil: HasilCari) {
+    if (hasil.tipe === "tersedia") {
+      setRows((current) => [...current, rowDariBahan(hasil.bahan)]);
       return;
     }
+    const nama = hasil.tipe === "saran" ? hasil.saran.nama : hasil.nama;
+    const dasar = hasil.tipe === "saran" ? hasil.saran.satuanDasar : "kg";
+    const cara = hasil.tipe === "saran" ? hasil.saran.caraPakai : "per_masak";
+    const unit = unitKecil(dasar);
+    setRows((current) => [...current, {
+      key: `baru-${Date.now()}-${current.length}`,
+      bahan: { jenis: "baru", nama, satuanDasar: dasar },
+      name: nama,
+      satuanDasar: dasar,
+      pemakaian: cara === "per_kemasan"
+        ? { cara, isi: 1, satuan: unit, porsi: 1 }
+        : { cara, jumlah: 1, satuan: dasar },
+      harga: null,
+      sumberHarga: "belum ada harga",
+      tanggalHarga: null,
+      hargaBelanja: { hargaKemasan: 0, isi: 1, satuan: unit },
+    }]);
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setFormError(null);
+    setRowErrors({});
+    if (!name.trim()) return setFormError("Nama menu wajib diisi.");
+    if (rows.length === 0) return setFormError("Tambahkan minimal satu bahan.");
+
+    const fixedCosts: Array<{ label: string; amount: number }> = [];
+    if (smallCosts.kemasan) fixedCosts.push({ label: "Kemasan / Kertas Bungkus", amount: 350 });
+    if (smallCosts.gas) fixedCosts.push({ label: "Gas Elpiji Kompor", amount: 450 });
+    if (smallCosts.bumbu) fixedCosts.push({ label: "Bumbu Dapur", amount: 300 });
+    if (smallCosts.plastik) fixedCosts.push({ label: "Plastik & Sendok", amount: 250 });
 
     try {
       setLoading(true);
-
-      const fixedCostsList: Array<{ label: string; amount: number }> = [];
-      if (smallCosts.kemasan) fixedCostsList.push({ label: "Kemasan / Kertas Bungkus", amount: 350 });
-      if (smallCosts.gas) fixedCostsList.push({ label: "Gas Elpiji Kompor", amount: 450 });
-      if (smallCosts.bumbu) fixedCostsList.push({ label: "Bumbu Dapur", amount: 300 });
-      if (smallCosts.plastik) fixedCostsList.push({ label: "Plastik & Sendok", amount: 250 });
-
-      const payload = {
-        name,
-        sellPrice: Number(sellPrice),
-        batchYield: Number(batchYield),
-        weeklyVolume: Number(weeklyVolume),
-        recipe: rows.map((r) => ({
-          commodityId: r.commodityId,
-          batchQty: Number(r.batchQty),
-          note: r.note,
-        })),
-        fixedCosts: fixedCostsList,
-      };
-
-      const url = edit && menuId ? `/api/menus/${menuId}` : "/api/menus";
-      const method = edit ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
+      const response = await fetch(edit && menuId ? `/api/menus/${menuId}` : "/api/menus", {
+        method: edit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          name: name.trim(),
+          sellPrice: Number(sellPrice),
+          batchYield: Number(batchYield),
+          weeklyVolume: Number(weeklyVolume),
+          recipe: rows.map((row) => ({ bahan: row.bahan, pemakaian: row.pemakaian, harga: row.hargaBelanja, catatan: row.catatan })),
+          fixedCosts,
+        }),
       });
-
-      const data = await res.json();
-      if (res.ok) {
-        setSaved(true);
-        setTimeout(() => {
-          router.push("/dashboard/menu");
-          router.refresh();
-        }, 1200);
-      } else {
-        alert(data.error || "Gagal menyimpan menu");
+      const data = await response.json();
+      if (!response.ok) {
+        const errors: Record<number, string> = {};
+        for (const item of data.keberatan || []) errors[item.indeks] = item.pesan;
+        setRowErrors(errors);
+        setFormError(data.pesan || data.error || "Menu belum tersimpan.");
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      alert("Menu belum tersimpan. Periksa koneksi lalu coba lagi.");
+      setSaved(true);
+      window.setTimeout(() => {
+        router.push("/dashboard/menu");
+        router.refresh();
+      }, 800);
+    } catch {
+      setFormError("Menu belum tersimpan. Periksa koneksi lalu coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -214,239 +168,43 @@ export function MenuForm({
   return (
     <div className="space-y-8">
       <section className="bg-white p-6 sm:p-8 brutal-card">
-        <span className="mb-2 inline-block bg-accent-green px-2.5 py-0.5 font-mono text-xs font-bold uppercase text-white">
-          Perhitungan Otomatis
-        </span>
-        <h1 className="font-heading text-3xl font-extrabold sm:text-4xl">
-          {edit ? "Edit Catatan Resep Menu" : "“Sekali masak, kamu belanja berapa banyak?”"}
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm font-medium text-ink/80 sm:text-lg">
-          Isi jumlah bahan untuk sekali masak. Takar akan menghitung modal setiap porsi memakai harga bahan terbaru yang tersedia.
-        </p>
+        <span className="mb-2 inline-block bg-accent-green px-2.5 py-0.5 font-mono text-xs font-bold uppercase text-white">Catatan Resep</span>
+        <h1 className="font-heading text-3xl font-extrabold sm:text-4xl">{edit ? "Ubah resep menu" : "Sekali masak, kamu memakai bahan apa saja?"}</h1>
+        <p className="mt-2 max-w-2xl text-sm font-medium text-ink/80 sm:text-lg">Ketik nama bahan seperti biasa. Kalau belum ada, kamu bisa langsung menambahkannya dan mengisi harga belanja.</p>
       </section>
 
       <form onSubmit={handleSubmit} className="relative space-y-6 bg-cream-surface p-6 sm:p-8 brutal-card">
-        <span className="absolute -top-3 left-6 bg-ink px-3 py-1 font-mono text-xs font-bold text-cream">
-          CATATAN MASAK WARUNG
-        </span>
-
-        <div className="grid gap-4 pt-2 sm:grid-cols-2">
-          <label className="font-heading text-sm font-bold">
-            Nama Menu Makanan / Minuman
-            <input
-              required
-              placeholder="Contoh: Soto Ayam Semarang"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
-            />
-          </label>
-
-          <label className="font-heading text-sm font-bold">
-            Rencana Harga Jual ke Pembeli (Rp)
-            <input
-              required
-              type="number"
-              min="1000"
-              step="500"
-              value={sellPrice}
-              onChange={(e) => setSellPrice(Number(e.target.value))}
-              className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
-            />
-          </label>
-        </div>
-
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="font-heading text-sm font-bold">
-            Hasil Sekali Masak (Berapa Porsi?)
-            <input
-              required
-              type="number"
-              min="1"
-              value={batchYield}
-              onChange={(e) => setBatchYield(Number(e.target.value))}
-              className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
-            />
-            <span className="font-mono text-xs text-ink/60 mt-1 block">
-              Contoh: 2 kg ayam dipotong jadi 8 porsi piring
-            </span>
-          </label>
-
-          <label className="font-heading text-sm font-bold">
-            Perkiraan Laku Mingguan (Porsi / Minggu)
-            <input
-              type="number"
-              min="0"
-              value={weeklyVolume}
-              onChange={(e) => setWeeklyVolume(Number(e.target.value))}
-              className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
-            />
-            <span className="font-mono text-xs text-ink/60 mt-1 block">
-              Membantu Takar mendahulukan menu yang paling sering terjual
-            </span>
-          </label>
+          <label className="font-heading text-sm font-bold">Nama menu<input required placeholder="Contoh: Soto Ayam Semarang" value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
+          <label className="font-heading text-sm font-bold">Harga jual ke pembeli (Rp)<input required type="number" min="1000" step="500" value={sellPrice} onChange={(event) => setSellPrice(Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
+          <label className="font-heading text-sm font-bold">Sekali masak jadi berapa porsi?<input required type="number" min="1" value={batchYield} onChange={(event) => setBatchYield(Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
+          <label className="font-heading text-sm font-bold">Biasanya laku berapa porsi per minggu?<input type="number" min="0" value={weeklyVolume} onChange={(event) => setWeeklyVolume(Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
         </div>
 
-        {/* Dynamic Ingredients Section */}
-        <div className="space-y-4 bg-cream p-5 brutal-border-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-heading text-lg font-extrabold">
-              Bahan Pokok Sekali Masak:
-            </h2>
-            <span className="font-mono text-xs text-ink/70">
-              Harga bahan terbaru sudah disiapkan Takar
-            </span>
-          </div>
+        <section className="space-y-4 bg-cream p-5 brutal-border-2">
+          <div><h2 className="font-heading text-xl font-extrabold">Bahan yang dipakai</h2><p className="text-xs text-ink/70">Cari bahan pasar atau tulis bahan khas warungmu.</p></div>
+          <BahanCombobox daftar={bahan} saranUmum={saranUmum} sudahDipakai={sudahDipakai} onPilih={pilihBahan} />
+          {rows.map((row, index) => (
+            <KartuBahan key={row.key} row={row} index={index} batchYield={batchYield} error={rowErrors[index]} onChange={(next) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? next : item))} onRemove={() => setRows((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+          ))}
+        </section>
 
-          {rows.map((row, index) => {
-            const portionQty = row.batchQty / (batchYield || 1);
-            const cost = Math.round(portionQty * row.price);
-
-            return (
-              <div key={index} className="space-y-3 bg-white p-4 brutal-border-2">
-                <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-                  <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-                    <span className="font-heading font-bold text-sm">Bahan {index + 1}:</span>
-                    <select
-                      value={row.commodityId}
-                      onChange={(e) => handleCommodityChange(index, e.target.value)}
-                      className="w-full min-w-0 flex-1 bg-cream p-2 font-heading text-xs font-bold brutal-border-2 sm:max-w-sm"
-                    >
-                      {availableCommodities.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.unit})
-                          {c.current_price === null ? " — belum ada harga" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="w-fit bg-bright-green/30 px-2 py-1 font-mono text-xs border border-ink">
-                      Harga Pasar: {formatRupiah(row.price)}/{row.unit}
-                    </span>
-                    {rows.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeRow(index)}
-                        className="text-critical-red hover:underline font-heading text-xs font-bold"
-                      >
-                        Hapus
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="text-xs font-bold">
-                    “Sekali masak kamu beli berapa {row.unit}?”
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={row.batchQty}
-                      onChange={(e) => updateRowQty(index, Number(e.target.value))}
-                      className="mt-1 w-full bg-white p-2 text-center font-mono text-lg brutal-border-2"
-                    />
-                  </label>
-
-                  <div className="flex flex-col justify-center bg-cream p-3 font-mono text-xs brutal-border-2">
-                    <div className="text-ink/70">Perkiraan Takaran Per Porsi:</div>
-                    <strong className="text-sm">
-                      {portionQty.toFixed(3)} {row.unit} / porsi
-                    </strong>
-                    <div className="text-critical-red font-bold mt-1">
-                      Modal: {formatRupiah(cost)} / porsi
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          <button
-            type="button"
-            onClick={addIngredient}
-            className="brutal-btn bg-white px-4 py-2 text-xs font-heading font-bold"
-          >
-            Tambah Bahan Lain
-          </button>
-        </div>
-
-        {/* Small costs */}
         <section className="space-y-3 bg-white p-5 brutal-border-2">
-          <h2 className="font-heading text-lg font-extrabold">
-            Biaya Kecil & Kemasan Per Porsi:
-          </h2>
+          <h2 className="font-heading text-lg font-extrabold">Biaya kecil dan kemasan per porsi</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              ["kemasan", "Kemasan / Kertas Bungkus (Rp 350)"],
-              ["gas", "Gas Elpiji Kompor (Rp 450)"],
-              ["bumbu", "Bumbu Dapur & Garam (Rp 300)"],
-              ["plastik", "Plastik & Sendok Bebek (Rp 250)"],
-            ].map(([key, label]) => (
-              <label
-                key={key}
-                className={`flex cursor-pointer items-center justify-between gap-2 p-2.5 brutal-border-2 ${
-                  smallCosts[key as keyof typeof smallCosts] ? "bg-cream" : "bg-white"
-                }`}
-              >
-                <span className="flex items-center gap-2 text-xs font-bold">
-                  <input
-                    type="checkbox"
-                    checked={smallCosts[key as keyof typeof smallCosts]}
-                    onChange={() =>
-                      setSmallCosts((c) => ({
-                        ...c,
-                        [key]: !c[key as keyof typeof smallCosts],
-                      }))
-                    }
-                  />
-                  {label}
-                </span>
-              </label>
+            {[["kemasan", "Kemasan / kertas bungkus (Rp 350)"], ["gas", "Gas untuk memasak (Rp 450)"], ["bumbu", "Bumbu dapur dan garam (Rp 300)"], ["plastik", "Plastik dan sendok (Rp 250)"]].map(([key, label]) => (
+              <label key={key} className={`flex cursor-pointer items-center gap-2 p-2.5 text-xs font-bold brutal-border-2 ${smallCosts[key as keyof typeof smallCosts] ? "bg-cream" : "bg-white"}`}><input type="checkbox" checked={smallCosts[key as keyof typeof smallCosts]} onChange={() => setSmallCosts((current) => ({ ...current, [key]: !current[key as keyof typeof smallCosts] }))} />{label}</label>
             ))}
           </div>
         </section>
 
-        {/* Dynamic Summary Live Box */}
-        <div className="bg-ink p-4 text-cream brutal-card space-y-2 font-mono text-xs sm:text-sm">
-          <div className="flex justify-between border-b border-white/20 pb-2">
-            <span>PERKIRAAN MODAL PER PORSI:</span>
-            <strong className="text-critical-red text-base">{formatRupiah(totalModalPerPortion)}</strong>
-          </div>
-          <div className="flex justify-between border-b border-white/20 pb-2">
-            <span>HARGA JUALMU:</span>
-            <strong>{formatRupiah(sellPrice)}</strong>
-          </div>
-          <div className="flex justify-between pt-1">
-            <span>SISA SETELAH MODAL PER PORSI:</span>
-            <strong className={estimatedProfit > 0 ? "text-bright-green text-base" : "text-critical-red text-base"}>
-              {formatRupiah(estimatedProfit)} ({estimatedMargin}%)
-            </strong>
-          </div>
-        </div>
+        <div className="flex justify-between gap-3 bg-ink p-4 font-mono text-sm text-white brutal-card"><span>Modal bahan sementara per porsi</span><strong className="text-lg text-bright-green">{formatRupiah(Math.round(modalBahan))}</strong></div>
+        {formError && <div role="alert" className="bg-critical-red/10 p-3 text-sm font-bold text-critical-red brutal-border-2">{formError}</div>}
+        {saved && <div className="bg-bright-green p-3 text-center text-sm font-bold brutal-border-2">Menu dan resep sudah tersimpan.</div>}
 
-        {saved && (
-          <div className="bg-bright-green p-3 font-mono text-sm font-bold text-ink brutal-border-2 text-center">
-            Menu dan resep berhasil disimpan. Membuka daftar menu...
-          </div>
-        )}
-
-        <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-          <button
-            type="submit"
-            disabled={loading || saved}
-            className="brutal-btn flex-1 bg-critical-red px-6 py-3.5 font-heading font-extrabold text-white disabled:opacity-50"
-          >
-            {loading ? "Menyimpan..." : saved ? "Sudah Tersimpan" : edit ? "Simpan Perubahan" : "Simpan Menu Baru"}
-          </button>
-          <Link
-            href="/dashboard/menu"
-            className="brutal-btn bg-white px-6 py-3.5 text-center font-heading font-bold"
-          >
-            Batal
-          </Link>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button type="submit" disabled={loading || saved} className="brutal-btn flex-1 bg-critical-red px-6 py-3.5 font-heading font-extrabold text-white disabled:opacity-50">{loading ? "Menyimpan..." : saved ? "Sudah tersimpan" : edit ? "Simpan perubahan" : "Simpan menu baru"}</button>
+          <Link href="/dashboard/menu" className="brutal-btn bg-white px-6 py-3.5 text-center font-heading font-bold">Batal</Link>
         </div>
       </form>
     </div>

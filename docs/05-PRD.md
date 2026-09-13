@@ -123,7 +123,8 @@ Butuh gambaran agregat lintas warung binaan. **Di luar ruang lingkup MVP.**
 | F-18 | Kemasan dirinci dengan kalkulator pack | **1** |
 | F-19 | Alert agent AI | 2 |
 | F-20 | Saran substitusi bahan | 2 |
-| F-21 | Katalog barang non-BI + custom items | 2 |
+| F-21a | Bahan milik warung + harga belanja manual | **0** |
+| F-21b | Pencocokan otomatis dan katalog bersama lintas warung | 2 |
 | F-22 | Foto resep tulis tangan · input suara | 2 |
 | F-23 | Biaya tetap bulanan → untung bersih | 2 |
 

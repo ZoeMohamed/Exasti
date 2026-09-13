@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { hapusDbMenu, getDbMenuDetail, updateDbMenuActive, updateDbMenuPrice, updateDbMenuComplete } from "@/lib/services/menu-engine";
+import { hapusDbMenu, getDbMenuDetail, MenuInputError, updateDbMenuActive, updateDbMenuPrice, updateDbMenuComplete } from "@/lib/services/menu-engine";
 import { apiError, requireApiBusinessId } from "@/lib/auth/api";
 
 export async function GET(
@@ -77,6 +77,12 @@ export async function PUT(
     }
 
     // 2. Jika update lengkap menu dari formulir edit
+    if (!body.name || !body.sellPrice || !body.batchYield || !Array.isArray(body.recipe)) {
+      return NextResponse.json(
+        { error: "Nama menu, harga jual, takaran porsi, dan bahan wajib diisi." },
+        { status: 400 },
+      );
+    }
     const ok = await updateDbMenuComplete(id, {
       name: body.name,
       sellPrice: body.sellPrice,
@@ -95,6 +101,12 @@ export async function PUT(
 
     return NextResponse.json({ error: "Menu belum berhasil diperbarui" }, { status: 500 });
   } catch (err: unknown) {
+    if (err instanceof MenuInputError) {
+      return NextResponse.json(
+        { error: err.message, pesan: err.keberatan[0]?.pesan ?? err.message, keberatan: err.keberatan },
+        { status: err.status },
+      );
+    }
     return apiError(err, "Gagal memperbarui menu");
   }
 }

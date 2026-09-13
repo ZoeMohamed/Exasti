@@ -117,6 +117,10 @@ persona, prinsip teks, dan rancangan layar beserta alasannya.
 **File milikmu:** `app/(dashboard)/**` · `components/charts/**` ·
 `components/alerts/**` · `components/ui/**`
 
+**Berkas bahan bersama:** `lib/units.ts` · `lib/bahan/**` ·
+`components/menu/BahanCombobox.tsx` · `components/menu/KartuBahan.tsx`.
+Perubahan rumus wajib disertai kasus baru di `tests/uji-bahan.ts`.
+
 ---
 
 ## O3 — Layer AI

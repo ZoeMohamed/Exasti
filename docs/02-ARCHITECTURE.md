@@ -98,9 +98,11 @@ erDiagram
         text unit "kg"
     }
     catalog_items {
-        text id PK "CINCIN 2"
+        text id PK "w_uuid"
+        uuid business_id FK "NULL = katalog umum"
         text name "Tepung Terigu"
-        text unit
+        text nama_normal
+        text unit "kg|liter|pcs"
         bool approved
     }
     regions {
@@ -139,6 +141,12 @@ erDiagram
         text    commodity_id "referensi logis katalog"
         numeric batch_qty "2 (kg sekali masak)"
         numeric qty "0,25 (turunan per porsi)"
+        text    cara_pakai "per_masak|per_kemasan"
+        numeric jumlah_input "angka asli pemilik"
+        text    satuan_input
+        numeric isi_kemasan
+        text    satuan_kemasan
+        numeric porsi_per_kemasan
     }
     fixed_costs {
         uuid    id PK
@@ -164,6 +172,11 @@ erDiagram
         jsonb suggestion
     }
 ```
+
+`catalog_items.business_id` memisahkan bahan buatan tiap warung; RLS mengizinkan
+pemilik membaca dan mengubah bahan warungnya sendiri saja. Kolom input asli pada
+`recipe_items` menjaga halaman edit tetap menampilkan “340 gram, cukup 25 porsi”,
+bukan hanya angka hasil pembagian.
 
 `prices` memakai UUID sebagai primary key untuk Data API. Keunikan bisnisnya
 tetap dijaga oleh dua partial unique index: satu untuk harga BI
