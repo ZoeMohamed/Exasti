@@ -134,14 +134,26 @@ if (!detailText.includes("Rp 500")) throw new Error("Detail tidak menampilkan mo
 await screenshot("03-detail-harga-kamu");
 
 await command("Page.navigate", { url: `${baseUrl}/dashboard/menu/${menuId}/edit` });
-await waitFor(`location.pathname === '/dashboard/menu/${menuId}/edit' && document.querySelectorAll('article input[type=number]').length >= 4`, "edit resep lengkap", 20000);
+await waitFor(`location.pathname === '/dashboard/menu/${menuId}/edit' && document.querySelectorAll('article input[type=number]').length >= 2 && document.querySelector('article')?.textContent.includes('Modal bahan ini per porsi')`, "edit resep lengkap", 20000);
 const editValues = await evaluate("[...document.querySelectorAll('article input[type=number]')].map(el => el.value)");
 if (editValues[0] !== "340" || editValues[1] !== "25") throw new Error(`Takaran asli tidak kembali: ${editValues.join(',')}`);
+await delay(600);
 await screenshot("04-edit-takaran-asli");
 
 await command("Page.navigate", { url: `${baseUrl}/dashboard/belanja` });
 await waitFor("location.pathname === '/dashboard/belanja' && [...document.querySelectorAll('span')].some(el => /[1-9][0-9]* bahan siap dipakai/.test(el.textContent || '')) && !document.body?.textContent.includes('Menyiapkan riwayat belanja')", "halaman catat belanja lengkap", 25000);
 await screenshot("05-catat-belanja");
+
+await command("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+await command("Page.navigate", { url: `${baseUrl}/dashboard/menu/tambah` });
+await waitFor("location.pathname === '/dashboard/menu/tambah' && document.querySelector('input[role=combobox]') !== null", "form ponsel", 20000);
+await delay(400);
+await screenshot("06-form-ponsel");
+await command("Page.navigate", { url: `${baseUrl}/dashboard/belanja` });
+await waitFor("location.pathname === '/dashboard/belanja' && [...document.querySelectorAll('span')].some(el => /[1-9][0-9]* bahan siap dipakai/.test(el.textContent || ''))", "catat belanja ponsel", 25000);
+await delay(400);
+await screenshot("07-belanja-ponsel");
+await command("Emulation.clearDeviceMetricsOverride");
 const uiConsole = consoleEntries.filter((entry) => entry.type === "error" || entry.type === "warning");
 const uiNetwork = networkErrors.filter((entry) => entry.error !== "net::ERR_ABORTED");
 consoleEntries.length = 0;
@@ -178,6 +190,6 @@ if (!deleted) throw new Error("Menu uji tidak berhasil dibersihkan.");
 
 const badConsole = consoleEntries.filter((entry) => (entry.type === "error" || entry.type === "warning") && !entry.text.includes("status of 422"));
 const badNetwork = networkErrors.filter((entry) => entry.status !== 422 && entry.error !== "net::ERR_ABORTED");
-const report = { menuName, menuId, editValues, duplicateStatus: duplicateStatus.status, wrongUnitStatus: wrongUnitStatus.status, unknownPriceStatus, legacyStatus: legacyResult.status, legacyDeleted, deleted, uiConsole, uiNetwork, postValidationConsole: badConsole, postValidationNetwork: badNetwork, screenshots: ["01-form-kosong.png", "02-saus-500-per-porsi.png", "03-detail-harga-kamu.png", "04-edit-takaran-asli.png", "05-catat-belanja.png"] };
+const report = { menuName, menuId, editValues, duplicateStatus: duplicateStatus.status, wrongUnitStatus: wrongUnitStatus.status, unknownPriceStatus, legacyStatus: legacyResult.status, legacyDeleted, deleted, uiConsole, uiNetwork, postValidationConsole: badConsole, postValidationNetwork: badNetwork, screenshots: ["01-form-kosong.png", "02-saus-500-per-porsi.png", "03-detail-harga-kamu.png", "04-edit-takaran-asli.png", "05-catat-belanja.png", "06-form-ponsel.png", "07-belanja-ponsel.png"] };
 console.log(JSON.stringify(report, null, 2));
 socket.close();
