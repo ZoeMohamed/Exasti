@@ -124,6 +124,12 @@ const bahanResponse = await evaluate("fetch('/api/bahan').then(async r => ({ sta
 if (bahanResponse.status !== 200 || !bahanResponse.body.saranUmum?.length) throw new Error(`API bahan gagal: ${JSON.stringify(bahanResponse)}`);
 await screenshot("01-form-kosong");
 
+await setInput("input[name='batchYield']", "");
+await waitFor("document.querySelector(\"input[name='batchYield']\")?.value === ''", "jumlah porsi dapat dikosongkan saat diedit");
+if (!await evaluate("document.querySelector(\"input[name='batchYield']\")?.validity.valueMissing === true")) throw new Error("Jumlah porsi kosong tidak ditandai wajib diisi.");
+await setInput("input[name='batchYield']", 12);
+await waitFor("document.querySelector(\"input[name='batchYield']\")?.value === '12'", "jumlah porsi dapat diganti tanpa nol di depan");
+
 const menuName = `Uji Saus QA ${Date.now()}`;
 await setInput("form > div input", menuName, 0);
 await setInput("form > div input", 18000, 1);

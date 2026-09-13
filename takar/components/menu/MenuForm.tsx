@@ -61,7 +61,7 @@ export function MenuForm({
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [sellPrice, setSellPrice] = useState<number | "">(initialPrice);
-  const [batchYield, setBatchYield] = useState(initialYield);
+  const [batchYield, setBatchYield] = useState<number | "">(initialYield);
   const [weeklyVolume, setWeeklyVolume] = useState<number | "">(initialVolume || "");
   const [bahan, setBahan] = useState<BahanTersedia[]>([]);
   const [saranUmum, setSaranUmum] = useState<SaranUmum[]>([]);
@@ -100,7 +100,7 @@ export function MenuForm({
   );
 
   const modalBahan = rows.reduce((total, row) => {
-    const takaran = hitungTakaran(row.pemakaian, row.satuanDasar, batchYield || 1);
+    const takaran = hitungTakaran(row.pemakaian, row.satuanDasar, batchYield === "" ? 1 : batchYield);
     if ("galat" in takaran) return total;
     const manual = row.hargaBelanja ? hitungHargaPerDasar(row.hargaBelanja, row.satuanDasar) : null;
     const harga = manual && !("galat" in manual) ? manual.hargaPerDasar : row.harga;
@@ -223,7 +223,7 @@ export function MenuForm({
               className="bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
             />
           </label>
-          <label className="font-heading text-sm font-bold">Sekali masak jadi berapa porsi?<input required type="number" min="1" value={batchYield} onChange={(event) => setBatchYield(Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
+          <label className="font-heading text-sm font-bold">Sekali masak jadi berapa porsi?<input required name="batchYield" type="number" inputMode="numeric" min="1" step="1" value={batchYield} onChange={(event) => setBatchYield(event.target.value === "" ? "" : Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
           <label className="font-heading text-sm font-bold">Kira-kira laku berapa porsi per minggu? (boleh kosong)<input type="number" min="0" value={weeklyVolume} onChange={(event) => setWeeklyVolume(event.target.value === "" ? "" : Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /><span className="mt-1 block text-xs font-normal text-ink/60">Angka ini hanya perkiraan dari ingatanmu.</span></label>
         </div>
 
@@ -231,7 +231,7 @@ export function MenuForm({
           <div><h2 className="font-heading text-xl font-extrabold">Bahan yang dipakai</h2><p className="text-xs text-ink/70">Cari bahan pasar atau tulis bahan khas warungmu.</p></div>
           <BahanCombobox daftar={bahan} saranUmum={saranUmum} sudahDipakai={sudahDipakai} onPilih={pilihBahan} />
           {rows.map((row, index) => (
-            <KartuBahan key={row.key} row={row} index={index} batchYield={batchYield} error={rowErrors[index]} onChange={(next) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? next : item))} onRemove={() => setRows((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+            <KartuBahan key={row.key} row={row} index={index} batchYield={batchYield === "" ? 1 : batchYield} error={rowErrors[index]} onChange={(next) => setRows((current) => current.map((item, itemIndex) => itemIndex === index ? next : item))} onRemove={() => setRows((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
           ))}
         </section>
 
