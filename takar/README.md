@@ -6,7 +6,7 @@ TAKAR adalah dashboard keuangan warung untuk membantu pemilik warung memahami mo
 
 Pastikan software berikut sudah terpasang:
 
-- [Node.js](https://nodejs.org/) versi 22 atau lebih baru
+- [Node.js](https://nodejs.org/) versi 24
 - npm, biasanya sudah ikut terpasang bersama Node.js
 - Git, jika project diambil dari repository Git
 

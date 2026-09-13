@@ -3,16 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:check": "npx tsx scripts/db-check.ts",
-    "test:margin": "npx tsx tests/uji-margin.ts",
-    "test:time": "npx tsx tests/uji-tanggal.ts",
+    "db:check": "tsx scripts/db-check.ts",
+    "test:margin": "tsx tests/uji-margin.ts",
+    "test:time": "tsx tests/uji-tanggal.ts",
     "test": "npm run test:margin && npm run test:time"
   },
   "dependencies": {
@@ -32,6 +32,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4",
+    "tsx": "4.23.13",
     "typescript": "^5"
   }
 }
