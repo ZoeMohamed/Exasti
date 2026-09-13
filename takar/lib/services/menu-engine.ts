@@ -23,48 +23,6 @@ import {
 } from "@/lib/bahan/validasi";
 import type { Satuan, SatuanDasar } from "@/lib/units";
 
-/**
- * Memuat bahan seluruh menu dalam SATU kueri lewat view resep_efektif,
- * yang sudah menerapkan BR-09 (harga efektif) dan menyediakan harga
- * pembanding 7 hari untuk BR-04. Menggantikan kueri per-menu yang lama
- * berikut fallback harga karangan Rp 25.000.
- */
-const muatSemuaBahan = cache(async function (businessId: string): Promise<Map<string, BahanResep[]>> {
-  const res = await queryAppDb(
-    `select menu_item_id, commodity_id, nama, qty, harga, harga_lalu, dari_data
-     from resep_efektif where business_id = $1`,
-    [businessId],
-  );
-  const peta = new Map<string, BahanResep[]>();
-  for (const r of res?.rows ?? []) {
-    const daftar = peta.get(r.menu_item_id) ?? [];
-    daftar.push({
-      komoditasId: r.commodity_id,
-      nama: r.nama,
-      qty: Number(r.qty),
-      harga: r.harga === null ? null : Number(r.harga),
-      hargaLalu: r.harga_lalu === null ? null : Number(r.harga_lalu),
-      dariData: Boolean(r.dari_data),
-    });
-    peta.set(r.menu_item_id, daftar);
-  }
-  return peta;
-});
-
-const muatSemuaBiayaTetap = cache(async function (businessId: string): Promise<Map<string, number>> {
-  const res = await queryAppDb(
-    `select fc.menu_item_id, coalesce(sum(fc.amount), 0) total
-     from fixed_costs fc
-     join menu_items m on m.id = fc.menu_item_id
-     where m.business_id = $1
-     group by fc.menu_item_id`,
-    [businessId],
-  );
-  const peta = new Map<string, number>();
-  for (const r of res?.rows ?? []) peta.set(r.menu_item_id, Number(r.total));
-  return peta;
-});
-
 export interface ProfitHistoryPoint {
   date: string;
   label: string;
@@ -136,26 +94,53 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
   try {
     const businessId = await getCurrentBusinessId();
     const res = await queryAppDb(
-      `select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active,
+      `with bahan_per_menu as (
+         select menu_item_id,
+                jsonb_agg(jsonb_build_object(
+                  'komoditasId', commodity_id,
+                  'nama', nama,
+                  'qty', qty,
+                  'harga', harga,
+                  'hargaLalu', harga_lalu,
+                  'dariData', dari_data
+                )) as daftar
+         from resep_efektif
+         where business_id = $1
+         group by menu_item_id
+       ), biaya_per_menu as (
+         select fc.menu_item_id, coalesce(sum(fc.amount), 0) as total
+         from fixed_costs fc
+         join menu_items mi on mi.id = fc.menu_item_id
+         where mi.business_id = $1
+         group by fc.menu_item_id
+       )
+       select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active,
               (select max(date) from prices
                where region_id = b.region_id and business_id is null
-                 and not is_filled) as latest_price_date
+                 and not is_filled) as latest_price_date,
+              coalesce(bpm.daftar, '[]'::jsonb) as bahan,
+              coalesce(cpm.total, 0) as biaya_tetap
        from menu_items m
        join businesses b on b.id = m.business_id
+       left join bahan_per_menu bpm on bpm.menu_item_id = m.id
+       left join biaya_per_menu cpm on cpm.menu_item_id = m.id
        where m.business_id = $1`,
       [businessId],
     );
     if (!res || res.rows.length === 0) return { menus: [], latestDate: "" };
 
-    const [petaBahan, petaBiaya] = await Promise.all([
-      muatSemuaBahan(businessId),
-      muatSemuaBiayaTetap(businessId),
-    ]);
     const latestDate = keIsoTanggal(res.rows[0].latest_price_date) ?? "";
 
     const menus: Menu[] = res.rows.map((row) => {
-      const bahan = petaBahan.get(row.id) ?? [];
-      const biayaTetap = petaBiaya.get(row.id) ?? 0;
+      const bahan: BahanResep[] = (Array.isArray(row.bahan) ? row.bahan : []).map((item) => ({
+        komoditasId: String(item.komoditasId),
+        nama: String(item.nama),
+        qty: Number(item.qty),
+        harga: item.harga === null ? null : Number(item.harga),
+        hargaLalu: item.hargaLalu === null ? null : Number(item.hargaLalu),
+        dariData: Boolean(item.dariData),
+      }));
+      const biayaTetap = Number(row.biaya_tetap);
 
       // Seluruh keputusan angkanya diambil lib/margin.ts — tidak ada ambang
       // yang ditulis ulang di sini (BR-01, BR-02, BR-15).

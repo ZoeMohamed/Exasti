@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getDbBusinessProfile, getDbMenus } from "@/lib/services/menu-engine";
 import { labelWaktuRelatif, hariIniJakarta, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
@@ -6,11 +7,7 @@ import { MobileNav } from "@/components/layout/MobileNav";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
-  // Berurutan berarti dua perjalanan ke Mumbai yang saling menunggu.
-  // Keduanya tidak saling bergantung, jadi jalankan bersamaan.
+async function DashboardNavigation() {
   const [profile, { menus }] = await Promise.all([
     getDbBusinessProfile(),
     getDbMenus(),
@@ -27,7 +24,7 @@ export default async function DashboardLayout({
   const hargaBasi = hargaIso !== hariIniJakarta();
 
   return (
-    <div className="flex min-h-screen flex-col bg-cream pb-16 md:flex-row md:pb-0">
+    <>
       <DashboardSidebar
         businessName={profile.name}
         regionName={profile.region_name}
@@ -42,6 +39,37 @@ export default async function DashboardLayout({
         hargaTanggal={hargaIso ? tanggalIndonesia(hargaIso) : null}
         hargaBasi={hargaBasi}
       />
+    </>
+  );
+}
+
+function DashboardNavigationFallback() {
+  return (
+    <>
+      <DashboardSidebar
+        businessName="Warungmu"
+        regionName="Menyiapkan lokasi"
+        criticalCount={0}
+        menuCount={0}
+        lastSyncText="Menyiapkan data"
+        priceDateText={null}
+        priceStale={false}
+      />
+      <MobileHeader regionName="Warungmu" hargaTanggal={null} hargaBasi={false} />
+    </>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <div className="flex min-h-screen flex-col bg-cream pb-16 md:flex-row md:pb-0">
+      {/* Data navigasi tidak boleh menahan kerangka halaman utama. Tanpa
+          boundary ini, loading.tsx baru terlihat sesudah kueri layout selesai. */}
+      <Suspense fallback={<DashboardNavigationFallback />}>
+        <DashboardNavigation />
+      </Suspense>
       <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 p-4 sm:p-6 lg:p-8">
         {children}
       </main>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
@@ -22,7 +21,6 @@ async function getRegistrationErrorMessage(error: unknown): Promise<string> {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"masuk" | "daftar">("masuk");
@@ -47,8 +45,8 @@ export default function LoginPage() {
         }
       }
 
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error || !data.session) {
         setMessage(
           mode === "daftar"
             ? "Akun sudah dibuat, tetapi belum bisa masuk. Coba tekan Masuk."
@@ -58,8 +56,14 @@ export default function LoginPage() {
       }
 
       const next = new URL(window.location.href).searchParams.get("next");
-      router.replace(next?.startsWith("/") ? next : "/dashboard");
-      router.refresh();
+      const tujuan = next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+
+      // Sesudah daftar, akun dibuat oleh Edge Function lalu sesi ditulis oleh
+      // supabase-js ke cookie browser. Navigasi App Router dapat meminta RSC
+      // sebelum cookie itu terlihat oleh proxy, lalu proxy mengirim pengguna
+      // kembali ke /login. Muat dokumen baru agar cookie selesai tersimpan dan
+      // permintaan pertama ke dashboard membawa sesi yang baru dibuat.
+      window.location.replace(tujuan);
     } catch {
       setMessage("Koneksi sedang bermasalah. Coba lagi sebentar.");
     } finally {
