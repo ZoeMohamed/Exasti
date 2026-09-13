@@ -88,7 +88,7 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
       <section>
         <SectionTitle
           title="Kondisi Menu Kamu"
-          note="Diurutkan dari untung paling tipis ke paling tebal."
+          note="Perkiraan dampak uang mingguan terbesar ditampilkan lebih dulu."
           action={
             <Link
               href="/dashboard/menu/tambah"
@@ -99,9 +99,19 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
           }
         />
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {activeMenus.map((menu) => (
+          {activeMenus.length > 0 ? activeMenus.map((menu) => (
             <MenuCard key={menu.id} menu={menu} />
-          ))}
+          )) : (
+            <div className="col-span-full bg-white p-6 text-center brutal-card">
+              <h3 className="font-heading text-xl font-extrabold">Belum ada menu yang dihitung</h3>
+              <p className="mx-auto mt-2 max-w-lg text-sm text-ink/70">
+                Tambahkan menu pertama beserta bahan dan harga jualnya. Takar akan langsung menghitung modal dan sisa uang per porsi.
+              </p>
+              <Link href="/dashboard/menu/tambah" className="brutal-btn mt-4 inline-block bg-warning-yellow px-5 py-3 text-sm font-bold">
+                Tambah Menu Pertama
+              </Link>
+            </div>
+          )}
         </div>
       </section>
     </div>

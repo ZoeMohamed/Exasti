@@ -18,6 +18,7 @@ export type Menu = {
 export type Ingredient = {
   name: string;
   quantity: string;
+  unit?: "kg" | "liter" | "pcs";
   unitPrice: number;
   cost: number;
   source: "DATA PASAR" | "HARGA KAMU" | "PERKIRAAN";

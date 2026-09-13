@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { useSearchParams } from "next/navigation";
 
 async function getRegistrationErrorMessage(error: unknown): Promise<string> {
   if (error instanceof FunctionsHttpError) {
@@ -20,12 +21,17 @@ async function getRegistrationErrorMessage(error: unknown): Promise<string> {
   return "Akun belum bisa dibuat. Coba lagi sebentar.";
 }
 
-export default function LoginPage() {
+function LoginContent() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"masuk" | "daftar">("masuk");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  const visibleMessage = message ?? (searchParams.get("error") === "konfirmasi"
+    ? "Tautan masuk sudah tidak berlaku. Silakan masuk lagi dengan email dan kata sandi."
+    : null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,9 +125,9 @@ export default function LoginPage() {
             />
           </label>
 
-          {message ? (
+          {visibleMessage ? (
             <p role="status" className="bg-warning-yellow/30 p-3 text-sm font-semibold brutal-border-2">
-              {message}
+              {visibleMessage}
             </p>
           ) : null}
 
@@ -146,5 +152,13 @@ export default function LoginPage() {
         </button>
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-cream p-4"><p className="font-mono">Menyiapkan halaman masuk...</p></main>}>
+      <LoginContent />
+    </Suspense>
   );
 }

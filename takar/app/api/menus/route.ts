@@ -34,7 +34,9 @@ export async function POST(req: Request) {
       name: body.name,
       sellPrice: Number(body.sellPrice),
       batchYield: Number(body.batchYield),
-      weeklyVolume: body.weeklyVolume ? Number(body.weeklyVolume) : undefined,
+      weeklyVolume: body.weeklyVolume === undefined || body.weeklyVolume === null
+        ? undefined
+        : Number(body.weeklyVolume),
       recipe: body.recipe || [],
       fixedCosts: body.fixedCosts || [],
     });

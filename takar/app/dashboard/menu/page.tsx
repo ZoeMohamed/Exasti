@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { calculateDynamicMenus } from "@/lib/services/menu-engine";
+import { calculateDynamicMenus, getDbBusinessProfile } from "@/lib/services/menu-engine";
 import { MenuList } from "@/components/menu/MenuList";
 
 export const dynamic = "force-dynamic";
 
 export default async function MenuPage() {
-  const { menus, latestDate } = await calculateDynamicMenus();
+  const [{ menus, latestDate }, profile] = await Promise.all([
+    calculateDynamicMenus(),
+    getDbBusinessProfile(),
+  ]);
 
   const formattedDate = (() => {
     try {
@@ -27,8 +30,7 @@ export default async function MenuPage() {
             Menu Warung
           </h1>
           <p className="text-sm text-ink/70">
-          Total {menus.filter((menu) => menu.status !== "diistirahatkan").length} menu aktif dari {menus.length} menu dihitung memakai harga pasar
-            Kota Semarang ({formattedDate}).
+          Total {menus.filter((menu) => menu.status !== "diistirahatkan").length} menu aktif dari {menus.length} menu dihitung memakai harga pasar {profile.region_name} ({formattedDate}).
           </p>
         </div>
         <Link

@@ -12,7 +12,7 @@ interface MobileHeaderProps {
 export function MobileHeader({ regionName, hargaTanggal, hargaBasi }: MobileHeaderProps) {
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between border-b-[3px] border-ink bg-warning-yellow p-3.5 shadow-[2px_2px_0_#111] md:hidden">
-      <Link href="/dashboard" className="flex items-center gap-2">
+      <Link href="/dashboard" prefetch={false} className="flex items-center gap-2">
         <span className="flex h-8 w-8 items-center justify-center bg-ink text-xl font-heading font-black text-warning-yellow border-2 border-ink">
           T
         </span>
@@ -33,6 +33,7 @@ export function MobileHeader({ regionName, hargaTanggal, hargaBasi }: MobileHead
       </Link>
       <Link
         href="/dashboard/belanja"
+        prefetch={false}
         className="brutal-btn bg-bright-green px-3 py-1.5 text-xs font-heading font-extrabold"
       >
         Catat Nota

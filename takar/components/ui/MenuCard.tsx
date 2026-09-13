@@ -61,12 +61,14 @@ export function MenuCard({ menu }: { menu: Menu }) {
           </div>
         </div>
       </div>
-      <div className="mt-3 flex flex-col gap-1.5 border-t border-ink/10 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between">
-        <span className="font-semibold">
+      <div className="mt-3 flex min-w-0 flex-col gap-1.5 border-t border-ink/10 pt-2 text-xs sm:flex-row sm:items-start sm:justify-between">
+        <span className="min-w-0 font-semibold">
           Biaya terbesar: {menu.driver}
         </span>
-        <span className="font-mono text-[11px] text-ink/60 sm:shrink-0 sm:text-right">
-          {menu.servingsPerWeek} porsi/minggu
+        <span className="min-w-0 break-words font-mono text-[11px] text-ink/60 sm:max-w-[58%] sm:text-right">
+          {menu.servingsPerWeek > 0
+            ? `Perkiraan dari ${menu.servingsPerWeek} porsi yang kamu sebutkan`
+            : "Perkiraan jumlah jual belum diisi"}
         </span>
       </div>
       <p className="mt-2 font-mono text-[10px] leading-relaxed text-ink/55">

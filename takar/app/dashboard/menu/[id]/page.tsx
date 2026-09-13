@@ -4,6 +4,7 @@ import { getDbMenuDetail } from "@/lib/services/menu-engine";
 import { formatRupiah } from "@/lib/formatRupiah";
 import { MenuPriceActions } from "@/components/menu/MenuPriceActions";
 import { MenuAvailabilityAction } from "@/components/menu/MenuAvailabilityAction";
+import { MenuDeleteAction } from "@/components/menu/MenuDeleteAction";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,7 @@ export default async function MenuDetailPage({
             Harga bahan diperiksa setiap hari
           </span>
           <MenuAvailabilityAction menuId={id} active={status !== "diistirahatkan"} />
+          <MenuDeleteAction menuId={id} menuName={menu.name} />
         </div>
       </div>
 
@@ -125,7 +127,7 @@ export default async function MenuDetailPage({
             PENYEBAB UTAMA
           </span>
           <h2 className="mt-2 font-heading text-3xl font-extrabold sm:text-4xl">
-            Kenapa untungnya turun?
+            Apa yang paling memengaruhi untung?
           </h2>
           <p className="mt-1 font-medium text-ink/80">
             Takar melihat berapa rupiah tambahan biaya untuk setiap porsi berdasarkan takaran resep warungmu.

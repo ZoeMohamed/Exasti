@@ -57,7 +57,13 @@ export function KartuBahan({ row, index, batchYield, error, onChange, onRemove }
       onChange({ ...row, pemakaian: { cara, jumlah: 1, satuan: row.satuanDasar } });
     } else {
       const unit = row.satuanDasar === "kg" ? "gram" : row.satuanDasar === "liter" ? "ml" : "pcs";
-      onChange({ ...row, pemakaian: { cara, isi: 1, satuan: unit, porsi: 1 } });
+      onChange({
+        ...row,
+        pemakaian: { cara, isi: 1, satuan: unit, porsi: 1 },
+        hargaBelanja: row.hargaBelanja
+          ? { ...row.hargaBelanja, isi: 1, satuan: unit }
+          : row.hargaBelanja,
+      });
     }
   }
 
@@ -128,7 +134,7 @@ export function KartuBahan({ row, index, batchYield, error, onChange, onRemove }
       {pemakaianMasak ? (
         <div className="grid gap-3 sm:grid-cols-[1fr_2fr]">
           <label className="text-xs font-bold">
-            Jumlah sekali masak
+            Untuk sekali masak, kamu pakai berapa?
             <input type="number" min="0.0001" step="any" value={pemakaianMasak.jumlah || ""} onChange={(event) => onChange({ ...row, pemakaian: { cara: "per_masak", satuan: pemakaianMasak.satuan, jumlah: Number(event.target.value) } })} className="mt-1 w-full bg-white p-2 font-mono brutal-border-2" />
           </label>
           <div><p className="mb-1 text-xs font-bold">Satuan</p><UnitButtons value={pemakaianMasak.satuan} options={unitOptions} onChange={(satuan) => onChange({ ...row, pemakaian: { cara: "per_masak", jumlah: pemakaianMasak.jumlah, satuan } })} /></div>
@@ -137,9 +143,25 @@ export function KartuBahan({ row, index, batchYield, error, onChange, onRemove }
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="text-xs font-bold">
             Isi kemasan
-            <input type="number" min="0.0001" step="any" value={pemakaianKemasan?.isi || ""} onChange={(event) => pemakaianKemasan && onChange({ ...row, pemakaian: { cara: "per_kemasan", satuan: pemakaianKemasan.satuan, porsi: pemakaianKemasan.porsi, isi: Number(event.target.value) } })} className="mt-1 w-full bg-white p-2 font-mono brutal-border-2" />
+            <input type="number" min="0.0001" step="any" value={pemakaianKemasan?.isi || ""} onChange={(event) => {
+              if (!pemakaianKemasan) return;
+              const isi = Number(event.target.value);
+              onChange({
+                ...row,
+                pemakaian: { ...pemakaianKemasan, isi },
+                hargaBelanja: row.hargaBelanja
+                  ? { ...row.hargaBelanja, isi, satuan: pemakaianKemasan.satuan }
+                  : row.hargaBelanja,
+              });
+            }} className="mt-1 w-full bg-white p-2 font-mono brutal-border-2" />
           </label>
-          <div><p className="mb-1 text-xs font-bold">Satuan</p><UnitButtons value={pemakaianKemasan?.satuan ?? row.satuanDasar} options={unitOptions} onChange={(satuan) => pemakaianKemasan && onChange({ ...row, pemakaian: { cara: "per_kemasan", isi: pemakaianKemasan.isi, porsi: pemakaianKemasan.porsi, satuan } })} /></div>
+          <div><p className="mb-1 text-xs font-bold">Satuan</p><UnitButtons value={pemakaianKemasan?.satuan ?? row.satuanDasar} options={unitOptions} onChange={(satuan) => pemakaianKemasan && onChange({
+            ...row,
+            pemakaian: { ...pemakaianKemasan, satuan },
+            hargaBelanja: row.hargaBelanja
+              ? { ...row.hargaBelanja, isi: pemakaianKemasan.isi, satuan }
+              : row.hargaBelanja,
+          })} /></div>
           <label className="text-xs font-bold">
             Cukup untuk berapa porsi?
             <input type="number" min="0.01" step="any" value={pemakaianKemasan?.porsi || ""} onChange={(event) => pemakaianKemasan && onChange({ ...row, pemakaian: { cara: "per_kemasan", satuan: pemakaianKemasan.satuan, isi: pemakaianKemasan.isi, porsi: Number(event.target.value) } })} className="mt-1 w-full bg-white p-2 font-mono brutal-border-2" />
@@ -159,7 +181,7 @@ export function KartuBahan({ row, index, batchYield, error, onChange, onRemove }
           )}
         </div>
         {tampilkanHarga && (
-          <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_2fr]">
+          <div className={`mt-3 grid gap-3 ${pemakaianKemasan ? "sm:grid-cols-2" : "sm:grid-cols-[1fr_1fr_2fr]"}`}>
             <label className="text-xs font-bold">
               Harga yang dibayar
               <RupiahInput
@@ -178,14 +200,33 @@ export function KartuBahan({ row, index, batchYield, error, onChange, onRemove }
                 className="bg-white p-2 font-mono brutal-border-2"
               />
             </label>
-            <label className="text-xs font-bold">
-              Untuk isi
-              <input type="number" min="0.0001" step="any" value={row.hargaBelanja?.isi || ""} onChange={(event) => onChange({ ...row, hargaBelanja: { hargaKemasan: row.hargaBelanja?.hargaKemasan ?? 0, isi: Number(event.target.value), satuan: row.hargaBelanja?.satuan ?? row.pemakaian.satuan } })} className="mt-1 w-full bg-white p-2 font-mono brutal-border-2" />
-            </label>
-            <div><p className="mb-1 text-xs font-bold">Satuan isi</p><UnitButtons value={row.hargaBelanja?.satuan ?? row.pemakaian.satuan} options={unitOptions} onChange={(satuan) => onChange({ ...row, hargaBelanja: { hargaKemasan: row.hargaBelanja?.hargaKemasan ?? 0, isi: row.hargaBelanja?.isi ?? 1, satuan } })} /></div>
+            {pemakaianKemasan ? (
+              <div className="bg-white p-2 text-xs brutal-border-2">
+                Harga ini berlaku untuk <strong>{pemakaianKemasan.isi || 0} {pemakaianKemasan.satuan}</strong> yang kamu tulis di atas.
+              </div>
+            ) : (
+              <>
+                <label className="text-xs font-bold">
+                  Untuk isi
+                  <input type="number" min="0.0001" step="any" value={row.hargaBelanja?.isi || ""} onChange={(event) => onChange({ ...row, hargaBelanja: { hargaKemasan: row.hargaBelanja?.hargaKemasan ?? 0, isi: Number(event.target.value), satuan: row.hargaBelanja?.satuan ?? row.pemakaian.satuan } })} className="mt-1 w-full bg-white p-2 font-mono brutal-border-2" />
+                </label>
+                <div><p className="mb-1 text-xs font-bold">Satuan isi</p><UnitButtons value={row.hargaBelanja?.satuan ?? row.pemakaian.satuan} options={unitOptions} onChange={(satuan) => onChange({ ...row, hargaBelanja: { hargaKemasan: row.hargaBelanja?.hargaKemasan ?? 0, isi: row.hargaBelanja?.isi ?? 1, satuan } })} /></div>
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {!('galat' in takaran) && takaran.asumsi ? (
+        <p className="bg-warning-yellow/30 p-2 text-xs font-bold brutal-border-2">
+          Asumsi Takar: {takaran.asumsi}
+        </p>
+      ) : null}
+      {manual && !("galat" in manual) && manual.asumsi ? (
+        <p className="bg-warning-yellow/30 p-2 text-xs font-bold brutal-border-2">
+          Asumsi harga: {manual.asumsi}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap justify-between gap-2 bg-ink p-3 font-mono text-xs text-white brutal-border-2">
         <span>Modal bahan ini per porsi</span>

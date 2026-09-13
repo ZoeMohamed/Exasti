@@ -83,16 +83,24 @@ export default function BelanjaPage() {
     setLoading(true);
     setErrorMsg(null);
     setSaveSuccess(null);
+    setOcrResult(null);
+    setItems([]);
+    setPilihan({});
     setStatusStep("Menyiapkan foto nota...");
 
+    let firstTimer: ReturnType<typeof setTimeout> | undefined;
+    let secondTimer: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 30_000);
     try {
-      setTimeout(() => setStatusStep("Membaca nama barang dan harga..."), 500);
-      setTimeout(() => setStatusStep("Mencocokkan dengan bahan warungmu..."), 1200);
+      firstTimer = setTimeout(() => setStatusStep("Membaca nama barang dan harga..."), 500);
+      secondTimer = setTimeout(() => setStatusStep("Mencocokkan dengan bahan warungmu..."), 1200);
 
       const res = await fetch("/api/ai/parse-nota", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
 
       const data: OcrResponsePayload = await res.json();
@@ -114,8 +122,15 @@ export default function BelanjaPage() {
       setPilihan(cocok);
     } catch (err: unknown) {
       console.error("Gagal scan:", err);
-      setErrorMsg(err instanceof Error ? err.message : "Terjadi kesalahan saat memproses nota.");
+      setErrorMsg(
+        err instanceof Error && err.name === "AbortError"
+          ? "Membaca nota terlalu lama. Coba foto yang lebih kecil dan jelas."
+          : err instanceof Error ? err.message : "Terjadi kesalahan saat memproses nota.",
+      );
     } finally {
+      clearTimeout(deadline);
+      if (firstTimer) clearTimeout(firstTimer);
+      if (secondTimer) clearTimeout(secondTimer);
       setLoading(false);
       setStatusStep("");
     }
@@ -125,6 +140,16 @@ export default function BelanjaPage() {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"].includes(file.type)) {
+      setErrorMsg("Gunakan foto PNG, JPG, WEBP, HEIC, atau HEIF.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setErrorMsg("Ukuran foto maksimal 8 MB.");
+      e.target.value = "";
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -133,6 +158,7 @@ export default function BelanjaPage() {
       const base64Data = result.split(",")[1];
       processReceipt({ imageBase64: base64Data, mimeType: file.type });
     };
+    reader.onerror = () => setErrorMsg("Foto belum dapat dibuka. Pilih foto lain.");
     reader.readAsDataURL(file);
   }
 
@@ -451,7 +477,7 @@ export default function BelanjaPage() {
             {/* Info Pesan Hasil OCR */}
             {ocrResult?.message && (
               <div className="mt-4 bg-white p-3 brutal-border-2 text-xs font-mono text-ink/80">
-                Nama barang dan harga sudah dibaca. Periksa hasilnya sebelum menyimpan.
+                  {ocrResult.message}
               </div>
             )}
 

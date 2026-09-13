@@ -19,6 +19,7 @@ interface IngredientResponse {
   name: string;
   unitPrice: number;
   cost: number;
+  unit?: "kg" | "liter" | "pcs";
   source: "DATA PASAR" | "HARGA KAMU" | "PERKIRAAN";
 }
 
@@ -31,10 +32,9 @@ function SimulatorContent() {
   const [loadingMenu, setLoadingMenu] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Ingredient 1 & 2 definitions for the selected menu
-  const [ing1, setIng1] = useState({ name: "Daging Ayam Ras Segar", basePrice: 40500, portionQty: 0.25, unit: "kg" });
-  const [ing2, setIng2] = useState({ name: "Cabai Rawit Hijau", basePrice: 63750, portionQty: 0.015, unit: "kg" });
-  const [otherCost, setOtherCost] = useState(4308);
+  const [ing1, setIng1] = useState({ name: "Bahan pertama", basePrice: 0, portionQty: 0, unit: "kg" });
+  const [ing2, setIng2] = useState({ name: "Bahan kedua", basePrice: 0, portionQty: 0, unit: "kg" });
+  const [otherCost, setOtherCost] = useState(0);
 
   const [slider1Pct, setSlider1Pct] = useState(20);
   const [slider2Pct, setSlider2Pct] = useState(30);
@@ -43,7 +43,11 @@ function SimulatorContent() {
   // 1. Ambil daftar menu dari database
   useEffect(() => {
     fetch("/api/menus")
-      .then((r) => r.json())
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Daftar menu belum dapat dimuat.");
+        return data;
+      })
       .then((data) => {
         if (data.status === "ok" && data.menus) {
           setMenus(data.menus);
@@ -54,8 +58,8 @@ function SimulatorContent() {
           }
         }
       })
-      .catch(() => {
-        setErrorMessage("Daftar menu belum dapat dimuat. Coba segarkan halaman.");
+      .catch((error: unknown) => {
+        setErrorMessage(error instanceof Error ? error.message : "Daftar menu belum dapat dimuat. Coba segarkan halaman.");
         setLoadingMenu(false);
       });
   }, []);
@@ -75,18 +79,18 @@ function SimulatorContent() {
             const first = mainIngs[0];
             setIng1({
               name: first.name,
-              basePrice: first.unitPrice || 40500,
+              basePrice: first.unitPrice,
               portionQty: first.unitPrice > 0 ? first.cost / first.unitPrice : 0,
-              unit: "kg",
+              unit: first.unit || "kg",
             });
           }
           if (mainIngs.length > 1) {
             const second = mainIngs[1];
             setIng2({
               name: second.name,
-              basePrice: second.unitPrice || 63750,
+              basePrice: second.unitPrice,
               portionQty: second.unitPrice > 0 ? second.cost / second.unitPrice : 0,
-              unit: "kg",
+              unit: second.unit || "kg",
             });
           } else {
             setIng2({ name: "Bahan kedua belum ada", basePrice: 0, portionQty: 0, unit: "kg" });
@@ -168,7 +172,10 @@ function SimulatorContent() {
               setSelectedMenuId(event.target.value);
             }}
             className="bg-cream font-heading font-extrabold text-sm p-2.5 brutal-border-2 max-w-md"
+            disabled={menus.length === 0}
+            aria-label="Pilih menu untuk dicoba"
           >
+            {menus.length === 0 ? <option value="">Belum ada menu</option> : null}
             {menus.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name} ({formatRupiah(m.price)})
@@ -186,6 +193,19 @@ function SimulatorContent() {
         <div className="p-12 font-mono text-center bg-white brutal-card">
           Menyiapkan resep menu...
         </div>
+      ) : menus.length === 0 ? (
+        <section className="bg-white p-6 text-center brutal-card sm:p-8">
+          <h2 className="font-heading text-2xl font-extrabold">Belum ada menu untuk dicoba</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-ink/70">
+            Tambahkan resep dan harga jual menu pertama. Setelah tersimpan, menu itu otomatis tersedia di sini.
+          </p>
+          <Link
+            href="/dashboard/menu/tambah"
+            className="brutal-btn mt-5 inline-block bg-warning-yellow px-5 py-3 font-heading text-sm font-extrabold"
+          >
+            Tambah Menu Pertama
+          </Link>
+        </section>
       ) : (
         <div className="grid items-start gap-8 lg:grid-cols-12">
           <div className="space-y-8 bg-white p-6 sm:p-8 brutal-card lg:col-span-7">

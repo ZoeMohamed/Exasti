@@ -5,23 +5,10 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { hariIniJakarta, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
 
-type PackagingMode = "dine_in" | "takeaway" | "mixed";
-
-const PACKAGING_OPTIONS: Array<{
-  key: PackagingMode;
-  label: string;
-  desc: string;
-}> = [
-  { key: "dine_in", label: "Makan di Tempat (Piring)", desc: "Biaya kemasan Rp 0" },
-  { key: "takeaway", label: "Dibungkus", desc: "Biaya kemasan penuh" },
-  { key: "mixed", label: "Campur (50:50)", desc: "Perkiraan rata-rata" },
-];
-
 export default function SettingsPage() {
   const router = useRouter();
 
   const [name, setName] = useState("Warung Bu Sri");
-  const [packagingMode, setPackagingMode] = useState<PackagingMode>("mixed");
   const [regionId, setRegionId] = useState(1);
   const [regions, setRegions] = useState<Array<{ id: number; name: string }>>([
     { id: 1, name: "Kota Semarang" },
@@ -33,6 +20,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/business")
@@ -40,7 +28,6 @@ export default function SettingsPage() {
       .then((data) => {
         if (data.status === "ok" && data.profile) {
           setName(data.profile.name || "Warung Bu Sri");
-          setPackagingMode(data.profile.packaging_mode || "mixed");
           if (data.profile.region_id) setRegionId(data.profile.region_id);
           if (data.available_regions) setRegions(data.available_regions);
 
@@ -78,6 +65,7 @@ export default function SettingsPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    setErrorMessage(null);
     try {
       setSaving(true);
       const res = await fetch("/api/business", {
@@ -85,7 +73,6 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          packagingMode,
           regionId: Number(regionId),
         }),
       });
@@ -98,11 +85,11 @@ export default function SettingsPage() {
         }, 2000);
       } else {
         const data = await res.json();
-        alert(data.error || "Gagal menyimpan pengaturan");
+        setErrorMessage(data.error || "Pengaturan belum berhasil disimpan.");
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan jaringan.");
+      setErrorMessage("Koneksi sedang bermasalah. Coba lagi sebentar.");
     } finally {
       setSaving(false);
     }
@@ -116,7 +103,7 @@ export default function SettingsPage() {
             Pengaturan Warung
           </h1>
           <p className="mt-1 text-ink/80 text-sm">
-            Atur nama, lokasi, dan kebiasaan bungkus agar hitungan Takar sesuai dengan warungmu.
+            Atur nama dan lokasi acuan harga pasar untuk warungmu.
           </p>
         </div>
       </div>
@@ -151,40 +138,10 @@ export default function SettingsPage() {
               </select>
             </label>
 
-            <label className="font-heading text-sm font-bold">
-              Jenis Makanan Utama
-              <div className="mt-1 w-full bg-cream p-3 font-mono text-xs brutal-border-2">
-                Warung Olahan Daging & Sambal
-              </div>
-            </label>
-          </div>
-
-          <fieldset>
-            <legend className="mb-2 font-heading text-sm font-bold">
-              Kebiasaan Pembeli Terbanyak (Menentukan Perkiraan Biaya Kemasan):
-            </legend>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {PACKAGING_OPTIONS.map((item) => (
-                <label
-                  key={item.key}
-                  className={`p-3 text-center text-xs font-heading font-bold brutal-border-2 cursor-pointer transition ${
-                    packagingMode === item.key ? "bg-warning-yellow shadow-[2px_2px_0_#111]" : "bg-white hover:bg-cream"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="packagingMode"
-                    value={item.key}
-                    checked={packagingMode === item.key}
-                    onChange={() => setPackagingMode(item.key)}
-                    className="mr-1.5"
-                  />
-                  <span className="block font-bold">{item.label}</span>
-                  <span className="block font-mono text-[10px] text-ink/70 mt-1">{item.desc}</span>
-                </label>
-              ))}
+            <div className="bg-cream p-3 text-xs brutal-border-2">
+              Harga kemasan dan biaya kecil diisi untuk setiap menu karena harga grosir dan kebutuhan bungkus bisa berbeda.
             </div>
-          </fieldset>
+          </div>
 
           <div className="bg-cream p-4 font-mono text-xs brutal-border-2 space-y-1">
             <div className="flex items-center gap-2">
@@ -201,6 +158,11 @@ export default function SettingsPage() {
               Pengaturan warung berhasil disimpan.
             </div>
           )}
+          {errorMessage ? (
+            <div role="alert" className="bg-critical-red/10 p-3 text-sm font-bold text-critical-red brutal-border-2">
+              {errorMessage}
+            </div>
+          ) : null}
 
           <button
             type="submit"

@@ -16,6 +16,7 @@ export function bacaAngkaRupiah(value: string): number | "" {
   return Number.isSafeInteger(angka) ? angka : "";
 }
 
-export function formatRupiah(value: number) {
-  return `Rp ${value.toLocaleString("id-ID")}`;
+export function formatRupiah(value: number | string) {
+  const angka = typeof value === "number" ? value : Number(value);
+  return `Rp ${Number.isFinite(angka) ? Math.round(angka).toLocaleString("id-ID") : "0"}`;
 }

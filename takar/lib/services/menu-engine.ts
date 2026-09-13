@@ -12,6 +12,8 @@ import {
 } from "../margin";
 import type { DbQuery } from "@/lib/db/client";
 import { normalisasiNama } from "@/lib/bahan/cari";
+import { definisiPasar } from "@/lib/bahan/katalog-pasar";
+import { bandingkanPrioritasMenu } from "@/lib/priority";
 import { hitungHargaPerDasar, hitungTakaran, type Pemakaian } from "@/lib/bahan/takaran";
 import {
   bentukLama,
@@ -21,7 +23,7 @@ import {
   type BahanResepLama,
   type RefBahan,
 } from "@/lib/bahan/validasi";
-import type { Satuan, SatuanDasar } from "@/lib/units";
+import { keSatuanDasar, type Satuan, type SatuanDasar } from "@/lib/units";
 import {
   siapkanBiayaTetap,
   type BiayaTetapInput,
@@ -70,6 +72,11 @@ export interface DbMenuDetail {
     harga: number | null;
     sumberHarga: string;
     tanggalHarga: string | null;
+    hargaBelanja?: {
+      hargaKemasan: number;
+      isi: number;
+      satuan: Satuan;
+    };
     catatan?: string;
   }>;
   /** BR-10 / FR-28 — persen modal yang berasal dari data harga otomatis. */
@@ -123,7 +130,7 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
        select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active,
               (select max(date) from prices
                where region_id = b.region_id and business_id is null
-                 and not is_filled) as latest_price_date,
+                ) as latest_price_date,
               coalesce(bpm.daftar, '[]'::jsonb) as bahan,
               coalesce(cpm.total, 0) as biaya_tetap
        from businesses b
@@ -142,7 +149,7 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
     const menus: Menu[] = res.rows.filter((row) => row.id).map((row) => {
       const bahan: BahanResep[] = (Array.isArray(row.bahan) ? row.bahan : []).map((item) => ({
         komoditasId: String(item.komoditasId),
-        nama: String(item.nama),
+        nama: definisiPasar(String(item.komoditasId))?.namaTampil ?? String(item.nama),
         qty: Number(item.qty),
         harga: item.harga === null ? null : Number(item.harga),
         hargaLalu: item.hargaLalu === null ? null : Number(item.hargaLalu),
@@ -173,12 +180,8 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
       };
     });
 
-    // FR-21 — terurut dari untung paling tipis
-    menus.sort((a, b) => {
-      if (a.status === "diistirahatkan" && b.status !== "diistirahatkan") return 1;
-      if (a.status !== "diistirahatkan" && b.status === "diistirahatkan") return -1;
-      return a.profit - b.profit;
-    });
+    // BR-14 / FR-50 — jika volume tersedia, lihat dampak rupiah mingguan.
+    menus.sort(bandingkanPrioritasMenu);
 
     return { menus, latestDate };
   } catch (err) {
@@ -251,9 +254,12 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
 
     for (const r of bahanRes?.rows ?? []) {
       const harga = r.harga === null ? null : Number(r.harga);
+      const namaTampil = r.komoditas_bi
+        ? definisiPasar(String(r.commodity_id))?.namaTampil ?? String(r.nama)
+        : String(r.nama);
       bahan.push({
         komoditasId: r.commodity_id,
-        nama: r.nama,
+        nama: namaTampil,
         qty: Number(r.qty),
         harga,
         hargaLalu: r.harga_lalu === null ? null : Number(r.harga_lalu),
@@ -272,13 +278,32 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
         : `${Number(r.jumlah_input ?? r.batch_qty)} ${r.satuan_input ?? r.satuan} untuk ${m.batch_yield} porsi`;
 
       ingredients.push({
-        name: String(r.nama).toUpperCase(),
+        name: namaTampil,
         quantity,
+        unit: r.satuan as "kg" | "liter" | "pcs",
         unitPrice: harga === null ? 0 : Math.round(harga),
         cost: harga === null ? 0 : Math.round(Number(r.qty) * harga),
         source: hargaPemilik ? "HARGA KAMU" : r.dari_data ? "DATA PASAR" : "PERKIRAAN",
         sourceNote: String(r.alasan) + (tanggalHarga ? `, dicatat ${tanggalHarga}` : "") + tandaIsiMundur,
       });
+
+      let hargaBelanja: NonNullable<NonNullable<DbMenuDetail["recipeRows"]>[number]["hargaBelanja"]> | undefined;
+      if (hargaPemilik && r.harga_nota !== null) {
+        if (r.cara_pakai === "per_kemasan") {
+          const isi = Number(r.isi_kemasan);
+          const satuan = r.satuan_kemasan as Satuan;
+          const isiDasar = keSatuanDasar(isi, satuan, r.satuan as SatuanDasar);
+          hargaBelanja = {
+            hargaKemasan: "galat" in isiDasar
+              ? Number(r.harga_nota)
+              : Math.round(Number(r.harga_nota) * isiDasar.nilai),
+            isi,
+            satuan,
+          };
+        } else {
+          hargaBelanja = { hargaKemasan: Number(r.harga_nota), isi: 1, satuan: r.satuan as Satuan };
+        }
+      }
 
       recipeRows.push({
         bahan: r.komoditas_bi
@@ -296,11 +321,12 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
               jumlah: Number(r.jumlah_input ?? r.batch_qty),
               satuan: (r.satuan_input ?? r.satuan) as Satuan,
             },
-        name: r.nama,
+        name: namaTampil,
         satuanDasar: r.satuan as SatuanDasar,
         harga,
         sumberHarga: String(r.alasan),
         tanggalHarga,
+        hargaBelanja,
         catatan: r.note ?? undefined,
       });
     }
@@ -325,6 +351,7 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
         quantity: fc.pack_price !== null && fc.pack_qty !== null
           ? `${formatAngkaBiaya(fc.pack_price)} ÷ ${formatAngkaBiaya(fc.pack_qty)} isi${Number(fc.usage_qty ?? 1) === 1 ? "" : ` × ${formatAngkaBiaya(fc.usage_qty)} dipakai`}`
           : fc.is_estimated ? "perkiraan kami · bisa diubah" : "kamu yang isi",
+        unit: "pcs",
         unitPrice: amt,
         cost: amt,
         source: fc.is_estimated ? "PERKIRAAN" : "HARGA KAMU",
@@ -618,7 +645,7 @@ async function siapkanResep(
       [resolved.id, regionId, businessId, resolved.jenis],
     );
     const hargaEfektif = hargaManual ?? (hargaDb.rows[0]?.price == null ? null : Number(hargaDb.rows[0].price));
-    if (resolved.jenis === "warung" && hargaEfektif === null) {
+    if (hargaEfektif === null) {
       throw new MenuInputError("Harga bahan belum diisi.", 422, [{ indeks, nama: resolved.nama, pesan: `Isi harga belanja ${resolved.nama} terlebih dahulu.` }]);
     }
 
@@ -760,7 +787,7 @@ export async function updateDbMenuComplete(
     name?: string;
     sellPrice?: number;
     batchYield?: number;
-    weeklyVolume?: number;
+    weeklyVolume?: number | null;
     recipe?: MenuRecipeInput;
     fixedCosts?: BiayaTetapInput[];
   }
@@ -787,14 +814,15 @@ export async function updateDbMenuComplete(
         ? null
         : await siapkanResep(query, businessId, regionId, data.recipe, yieldCount, data.sellPrice ?? Number(menu.sell_price));
 
+      const volumeDikirim = data.weeklyVolume !== undefined;
       await query(
         `update menu_items
          set name = coalesce($1, name),
              sell_price = coalesce($2, sell_price),
              batch_yield = coalesce($3, batch_yield),
-             weekly_volume = coalesce($4, weekly_volume)
+             weekly_volume = case when $7::boolean then $4 else weekly_volume end
          where id = $5 and business_id = $6`,
-        [data.name ?? null, data.sellPrice ?? null, data.batchYield ?? null, data.weeklyVolume ?? null, menu.id, businessId],
+        [data.name ?? null, data.sellPrice ?? null, data.batchYield ?? null, data.weeklyVolume ?? null, menu.id, businessId, volumeDikirim],
       );
 
       if (data.recipe !== undefined) {
@@ -825,7 +853,7 @@ export const getDbBusinessProfile = cache(async function () {
              (SELECT count(*) FROM menu_items WHERE business_id = b.id AND active) as active_menus_count,
              (SELECT ran_at FROM ingest_runs ORDER BY ran_at DESC LIMIT 1) as last_ingest_time,
              (SELECT max(date) FROM prices
-              WHERE region_id = b.region_id AND business_id IS NULL AND NOT is_filled) as latest_price_date
+              WHERE region_id = b.region_id AND business_id IS NULL) as latest_price_date
       FROM businesses b
       LEFT JOIN regions r ON r.id = b.region_id
       WHERE b.id = $1
@@ -846,16 +874,15 @@ export const getDbBusinessProfile = cache(async function () {
  */
 export async function updateDbBusinessProfile(data: {
   name: string;
-  packagingMode: "dine_in" | "takeaway" | "mixed";
   regionId?: number;
 }): Promise<boolean> {
   try {
     const businessId = await getCurrentBusinessId();
     const res = await queryAppDb(
       `update businesses
-       set name = $1, packaging_mode = $2, region_id = coalesce($3, region_id)
-       where id = $4`,
-      [data.name, data.packagingMode, data.regionId ?? null, businessId],
+       set name = $1, region_id = coalesce($2, region_id)
+       where id = $3`,
+      [data.name, data.regionId ?? null, businessId],
     );
     return Boolean(res && res.rowCount && res.rowCount > 0);
   } catch (err) {

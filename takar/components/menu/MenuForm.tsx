@@ -54,7 +54,7 @@ export function MenuForm({
   initialName = "",
   initialPrice = 18000,
   initialYield = 8,
-  initialVolume = 100,
+  initialVolume = 0,
   initialRows = [],
   initialFixedCosts = [],
 }: MenuFormProps) {
@@ -62,7 +62,7 @@ export function MenuForm({
   const [name, setName] = useState(initialName);
   const [sellPrice, setSellPrice] = useState<number | "">(initialPrice);
   const [batchYield, setBatchYield] = useState(initialYield);
-  const [weeklyVolume, setWeeklyVolume] = useState(initialVolume);
+  const [weeklyVolume, setWeeklyVolume] = useState<number | "">(initialVolume || "");
   const [bahan, setBahan] = useState<BahanTersedia[]>([]);
   const [saranUmum, setSaranUmum] = useState<SaranUmum[]>([]);
   const [rows, setRows] = useState<IngredientRow[]>(
@@ -142,6 +142,22 @@ export function MenuForm({
     if (!name.trim()) return setFormError("Nama menu wajib diisi.");
     if (rows.length === 0) return setFormError("Tambahkan minimal satu bahan.");
 
+    const hargaBelumLengkap = Object.fromEntries(rows.flatMap((row, index) => {
+      const hargaManualValid = Boolean(
+        row.hargaBelanja &&
+        row.hargaBelanja.hargaKemasan > 0 &&
+        row.hargaBelanja.isi > 0,
+      );
+      if (row.harga === null && !hargaManualValid) {
+        return [[index, `Isi harga belanja ${row.name} agar modal tidak dianggap nol.`]];
+      }
+      return [];
+    }));
+    if (Object.keys(hargaBelumLengkap).length > 0) {
+      setRowErrors(hargaBelumLengkap);
+      return setFormError("Ada bahan yang belum memiliki harga belanja.");
+    }
+
     const hasilBiaya = siapkanBiayaTetap(biayaPayload);
     if (hasilBiaya.galat.length > 0) {
       setCostErrors(Object.fromEntries(hasilBiaya.galat.map((item) => [item.indeks, item.pesan])));
@@ -157,7 +173,7 @@ export function MenuForm({
           name: name.trim(),
           sellPrice: Number(sellPrice),
           batchYield: Number(batchYield),
-          weeklyVolume: Number(weeklyVolume),
+          weeklyVolume: weeklyVolume === "" ? null : Number(weeklyVolume),
           recipe: rows.map((row) => ({ bahan: row.bahan, pemakaian: row.pemakaian, harga: row.hargaBelanja, catatan: row.catatan })),
           fixedCosts: biayaPayload,
         }),
@@ -176,10 +192,8 @@ export function MenuForm({
         return;
       }
       setSaved(true);
-      window.setTimeout(() => {
-        router.push("/dashboard/menu");
-        router.refresh();
-      }, 800);
+      router.push("/dashboard/menu");
+      router.refresh();
     } catch {
       setFormError("Menu belum tersimpan. Periksa koneksi lalu coba lagi.");
     } finally {
@@ -210,7 +224,7 @@ export function MenuForm({
             />
           </label>
           <label className="font-heading text-sm font-bold">Sekali masak jadi berapa porsi?<input required type="number" min="1" value={batchYield} onChange={(event) => setBatchYield(Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
-          <label className="font-heading text-sm font-bold">Biasanya laku berapa porsi per minggu?<input type="number" min="0" value={weeklyVolume} onChange={(event) => setWeeklyVolume(Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
+          <label className="font-heading text-sm font-bold">Kira-kira laku berapa porsi per minggu? (boleh kosong)<input type="number" min="0" value={weeklyVolume} onChange={(event) => setWeeklyVolume(event.target.value === "" ? "" : Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /><span className="mt-1 block text-xs font-normal text-ink/60">Angka ini hanya perkiraan dari ingatanmu.</span></label>
         </div>
 
         <section className="space-y-4 bg-cream p-5 brutal-border-2">

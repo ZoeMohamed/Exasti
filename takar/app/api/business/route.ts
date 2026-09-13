@@ -30,13 +30,12 @@ export async function PUT(req: Request) {
   try {
     await requireApiBusinessId();
     const body = await req.json();
-    if (!body.name || !body.packagingMode) {
-      return NextResponse.json({ error: "Nama warung dan cara penyajian wajib diisi" }, { status: 400 });
+    if (!body.name) {
+      return NextResponse.json({ error: "Nama warung wajib diisi" }, { status: 400 });
     }
 
     const ok = await updateDbBusinessProfile({
       name: body.name,
-      packagingMode: body.packagingMode,
       regionId: body.regionId ? Number(body.regionId) : undefined,
     });
 

@@ -80,6 +80,7 @@ export function matchReceiptItem(
     alias: string;
     isBi: boolean;
     standardUnit: string;
+    specificity: number;
   }
 
   const allCandidates: Candidate[] = [];
@@ -91,6 +92,9 @@ export function matchReceiptItem(
         alias: normalizeText(alias),
         isBi: true,
         standardUnit: def.standardUnit,
+        // Nama merek menunjukkan jenis minyak kemasan secara lebih pasti
+        // daripada frasa umum seperti "minyak goreng" pada baris yang sama.
+        specificity: ["bimoli", "filma", "tropical", "sunco", "sania", "minyakita", "minyak kita", "fortune", "sovia"].includes(normalizeText(alias)) ? 100 : 0,
       });
     }
   }
@@ -102,13 +106,14 @@ export function matchReceiptItem(
         alias: normalizeText(alias),
         isBi: false,
         standardUnit: def.standardUnit,
+        specificity: 0,
       });
     }
   }
 
   // Urutkan kandidat dari alias terpanjang ke terpendek
   // Contoh: "telur ayam ras" (14 char) dicoba sebelum "ayam" (4 char)
-  allCandidates.sort((a, b) => b.alias.length - a.alias.length);
+  allCandidates.sort((a, b) => b.specificity - a.specificity || b.alias.length - a.alias.length);
 
   for (const cand of allCandidates) {
     const regex = new RegExp(`\\b${cand.alias}\\b`, "i");
