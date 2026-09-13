@@ -24,6 +24,7 @@ function SimulatorContent() {
   const [menus, setMenus] = useState<MenuItemOption[]>([]);
   const [selectedMenuId, setSelectedMenuId] = useState(initialMenu);
   const [loadingMenu, setLoadingMenu] = useState(true);
+  const [baseSellPrice, setBaseSellPrice] = useState(18000);
 
   // Ingredient 1 & 2 definitions for the selected menu
   const [ing1, setIng1] = useState({ name: "Daging Ayam Ras Segar", basePrice: 40500, portionQty: 0.25, unit: "kg" });
@@ -41,6 +42,10 @@ function SimulatorContent() {
       .then((data) => {
         if (data.status === "ok" && data.menus) {
           setMenus(data.menus);
+          const found = data.menus.find((m: MenuItemOption) => m.id === selectedMenuId);
+          if (found) {
+            setBaseSellPrice(found.price);
+          }
         }
       })
       .catch(console.error);
@@ -91,6 +96,7 @@ function SimulatorContent() {
           setOtherCost(fixedTotal || 1500);
 
           if (data.menu?.sellPrice) {
+            setBaseSellPrice(data.menu.sellPrice);
             if (selectedMenuId === initialMenu && paramPrice && paramPrice > 0) {
               setJual(paramPrice);
             } else {
@@ -159,6 +165,11 @@ function SimulatorContent() {
             onChange={(e) => {
               setLoadingMenu(true);
               setSelectedMenuId(e.target.value);
+              const found = menus.find((m) => m.id === e.target.value);
+              if (found) {
+                setBaseSellPrice(found.price);
+                setJual(found.price);
+              }
             }}
             className="bg-cream font-heading font-extrabold text-sm p-2.5 brutal-border-2 max-w-md"
           >
@@ -198,13 +209,14 @@ function SimulatorContent() {
 
             <Slider
               label="3. UBAH RENCANA HARGA JUAL"
-              subtext="Tentukan target harga jual per porsi di warungmu"
+              subtext="Tentukan target harga jual per porsi di warungmu (bebas geser slider atau ketik langsung)"
               value={jual}
-              min={Math.max(1000, Math.round(totalModal * 0.7))}
-              max={Math.round(totalModal * 2.5)}
+              min={Math.max(1000, Math.floor((baseSellPrice * 0.4) / 500) * 500)}
+              max={Math.max(25000, Math.ceil((baseSellPrice * 2.2) / 500) * 500)}
               step={500}
               onChange={setJual}
               money
+              basePrice={baseSellPrice}
             />
 
             <div className="bg-cream p-4 font-mono text-xs border border-ink space-y-1.5">
@@ -306,6 +318,7 @@ function Slider({
   step = 5,
   onChange,
   money,
+  basePrice,
 }: {
   label: string;
   subtext?: string;
@@ -315,18 +328,98 @@ function Slider({
   step?: number;
   onChange: (value: number) => void;
   money?: boolean;
+  basePrice?: number;
 }) {
+  const [editingText, setEditingText] = useState<string | null>(null);
+
+  const presets = [-10, 0, 20, 50];
+
   return (
-    <div className="space-y-2 bg-cream p-4 brutal-border-2">
+    <div className="space-y-3 bg-cream p-4 brutal-border-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <strong className="font-heading text-base sm:text-lg block">{label}</strong>
           {subtext && <span className="font-mono text-[11px] text-ink/70">{subtext}</span>}
         </div>
-        <span className="bg-warning-yellow px-2 py-0.5 font-mono text-xs font-bold border border-ink">
-          {money ? formatRupiah(value) : `${value >= 0 ? "+" : ""}${value}%`}
-        </span>
+
+        {money ? (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => onChange(Math.max(min, value - 500))}
+              className="brutal-btn bg-white px-2 py-1 font-mono text-xs font-bold"
+              title="Kurangi Rp 500"
+            >
+              -500
+            </button>
+            <div className="relative flex items-center">
+              <span className="absolute left-2 font-mono text-xs font-bold text-ink/60 pointer-events-none">Rp</span>
+              <input
+                type="number"
+                step={step}
+                value={editingText !== null ? editingText : value}
+                onFocus={() => setEditingText(String(value))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setEditingText(val);
+                  const num = Number(val);
+                  if (val !== "" && !isNaN(num)) {
+                    onChange(num);
+                  }
+                }}
+                onBlur={() => {
+                  if (editingText === "" || isNaN(Number(editingText))) {
+                    onChange(basePrice || min);
+                  }
+                  setEditingText(null);
+                }}
+                className="w-28 bg-warning-yellow pl-8 pr-2 py-1 font-mono text-xs font-bold border border-ink text-right focus:outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => onChange(Math.min(max, value + 500))}
+              className="brutal-btn bg-white px-2 py-1 font-mono text-xs font-bold"
+              title="Tambah Rp 500"
+            >
+              +500
+            </button>
+            {basePrice && value !== basePrice && (
+              <button
+                type="button"
+                onClick={() => onChange(basePrice)}
+                className="brutal-btn bg-white hover:bg-warning-yellow px-2 py-1 font-mono text-[11px] font-bold"
+                title={`Kembalikan ke harga asli: ${formatRupiah(basePrice)}`}
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <div className="flex gap-1 mr-1">
+              {presets.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => onChange(p)}
+                  className={`px-1.5 py-0.5 font-mono text-[10px] font-bold border border-ink transition ${
+                    value === p
+                      ? "bg-ink text-white"
+                      : "bg-white hover:bg-warning-yellow"
+                  }`}
+                >
+                  {p > 0 ? `+${p}%` : `${p}%`}
+                </button>
+              ))}
+            </div>
+            <span className="bg-warning-yellow px-2 py-0.5 font-mono text-xs font-bold border border-ink">
+              {value >= 0 ? `+${value}%` : `${value}%`}
+            </span>
+          </div>
+        )}
       </div>
+
       <input
         aria-label={label}
         type="range"

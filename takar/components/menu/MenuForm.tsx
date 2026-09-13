@@ -9,7 +9,7 @@ export interface IngredientRow {
   commodityId: string;
   name: string;
   price: number;
-  batchQty: number;
+  batchQty: number | "";
   unit: string;
   note?: string;
 }
@@ -100,9 +100,9 @@ export function MenuForm({
   const router = useRouter();
 
   const [name, setName] = useState(initialName);
-  const [sellPrice, setSellPrice] = useState(initialPrice);
-  const [batchYield, setBatchYield] = useState(initialYield);
-  const [weeklyVolume, setWeeklyVolume] = useState(initialVolume);
+  const [sellPrice, setSellPrice] = useState<number | "">(initialPrice);
+  const [batchYield, setBatchYield] = useState<number | "">(initialYield);
+  const [weeklyVolume, setWeeklyVolume] = useState<number | "">(initialVolume);
 
   const [availableCommodities, setAvailableCommodities] = useState<CommodityOption[]>([]);
   const [rows, setRows] = useState<IngredientRow[]>(
@@ -200,7 +200,7 @@ export function MenuForm({
     );
   }
 
-  function updateRowQty(index: number, batchQty: number) {
+  function updateRowQty(index: number, batchQty: number | "") {
     setRows((current) =>
       current.map((r, i) => (i === index ? { ...r, batchQty } : r))
     );
@@ -227,9 +227,13 @@ export function MenuForm({
     ]);
   }
 
+  const numSellPrice = Number(sellPrice) || 0;
+  const numBatchYield = Number(batchYield) || 1;
+
   // Hitung perkiraan modal per porsi
   const ingredientsCostPerPortion = rows.reduce((acc, r) => {
-    const portionQty = r.batchQty / (batchYield || 1);
+    const qty = Number(r.batchQty) || 0;
+    const portionQty = qty / numBatchYield;
     return acc + portionQty * r.price;
   }, 0);
 
@@ -240,13 +244,33 @@ export function MenuForm({
     (smallCosts.plastik ? 250 : 0);
 
   const totalModalPerPortion = Math.round(ingredientsCostPerPortion + fixedCostTotal);
-  const estimatedProfit = sellPrice - totalModalPerPortion;
-  const estimatedMargin = sellPrice > 0 ? ((estimatedProfit / sellPrice) * 100).toFixed(1) : "0";
+  const estimatedProfit = numSellPrice - totalModalPerPortion;
+  const estimatedMargin = numSellPrice > 0 ? ((estimatedProfit / numSellPrice) * 100).toFixed(1) : "0";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       alert("Nama menu tidak boleh kosong!");
+      return;
+    }
+
+    const finalSellPrice = Number(sellPrice);
+    const finalBatchYield = Number(batchYield);
+    const finalWeeklyVolume = Number(weeklyVolume);
+
+    if (!finalSellPrice || finalSellPrice <= 0) {
+      alert("Rencana harga jual harus diisi angka yang lebih dari 0!");
+      return;
+    }
+
+    if (!finalBatchYield || finalBatchYield < 1) {
+      alert("Hasil sekali masak (porsi) minimal 1 porsi!");
+      return;
+    }
+
+    const invalidRow = rows.find((r) => !Number(r.batchQty) || Number(r.batchQty) <= 0);
+    if (invalidRow) {
+      alert(`Takaran belanja untuk "${invalidRow.name}" belum diisi dengan benar!`);
       return;
     }
 
@@ -261,9 +285,9 @@ export function MenuForm({
 
       const payload = {
         name,
-        sellPrice: Number(sellPrice),
-        batchYield: Number(batchYield),
-        weeklyVolume: Number(weeklyVolume),
+        sellPrice: finalSellPrice,
+        batchYield: finalBatchYield,
+        weeklyVolume: finalWeeklyVolume,
         recipe: rows.map((r) => ({
           commodityId: r.commodityId,
           batchQty: Number(r.batchQty),
@@ -355,10 +379,14 @@ export function MenuForm({
             <input
               required
               type="number"
-              min="1000"
+              min="500"
               step="500"
+              placeholder="Contoh: 18000"
               value={sellPrice}
-              onChange={(e) => setSellPrice(Number(e.target.value))}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSellPrice(val === "" ? "" : Number(val));
+              }}
               className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
             />
           </label>
@@ -371,8 +399,12 @@ export function MenuForm({
               required
               type="number"
               min="1"
+              placeholder="Contoh: 8"
               value={batchYield}
-              onChange={(e) => setBatchYield(Number(e.target.value))}
+              onChange={(e) => {
+                const val = e.target.value;
+                setBatchYield(val === "" ? "" : Number(val));
+              }}
               className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
             />
             <span className="font-mono text-xs text-ink/60 mt-1 block">
@@ -385,8 +417,12 @@ export function MenuForm({
             <input
               type="number"
               min="0"
+              placeholder="Contoh: 100"
               value={weeklyVolume}
-              onChange={(e) => setWeeklyVolume(Number(e.target.value))}
+              onChange={(e) => {
+                const val = e.target.value;
+                setWeeklyVolume(val === "" ? "" : Number(val));
+              }}
               className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
             />
             <span className="font-mono text-xs text-ink/60 mt-1 block">
@@ -407,7 +443,7 @@ export function MenuForm({
           </div>
 
           {rows.map((row, index) => {
-            const portionQty = row.batchQty / (batchYield || 1);
+            const portionQty = (Number(row.batchQty) || 0) / (Number(batchYield) || 1);
             const cost = Math.round(portionQty * row.price);
 
             return (
@@ -450,11 +486,15 @@ export function MenuForm({
                     “Sekali masak kamu beli berapa {row.unit}?”
                     <input
                       type="number"
-                      min="0.01"
-                      step="0.01"
+                      min="0.001"
+                      step="any"
+                      placeholder="0"
                       value={row.batchQty}
-                      onChange={(e) => updateRowQty(index, Number(e.target.value))}
-                      className="mt-1 w-full bg-white p-2 text-center font-mono text-lg brutal-border-2"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        updateRowQty(index, val === "" ? "" : Number(val));
+                      }}
+                      className="mt-1 w-full bg-white p-2 text-center font-mono text-lg brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
                     />
                   </label>
 
@@ -525,7 +565,7 @@ export function MenuForm({
           </div>
           <div className="flex justify-between border-b border-white/20 pb-2">
             <span>HARGA JUALMU:</span>
-            <strong>{formatRupiah(sellPrice)}</strong>
+            <strong>{formatRupiah(numSellPrice)}</strong>
           </div>
           <div className="flex justify-between pt-1">
             <span>UNTUNG BERSIH PER PORSI:</span>

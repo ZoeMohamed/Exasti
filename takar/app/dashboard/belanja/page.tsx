@@ -215,10 +215,17 @@ export default function BelanjaPage() {
         };
       });
 
+      const validPayloadItems = payloadItems.filter((p) => p.price > 0);
+      if (validPayloadItems.length === 0) {
+        setErrorMsg("Semua harga belanja bernilai Rp 0 atau belum diisi. Masukkan harga yang valid terlebih dahulu.");
+        setSaving(false);
+        return;
+      }
+
       const res = await fetch("/api/prices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: payloadItems }),
+        body: JSON.stringify({ items: validPayloadItems }),
       });
 
       const data = await res.json();
