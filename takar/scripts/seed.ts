@@ -31,6 +31,7 @@ const CUSTOM_INGREDIENTS = [
   { id: "w_demo_mie_sawi", name: "Mie instan dan sayur sawi", normal: "mie instan dan sayur sawi", unit: "pcs", price: 3800 },
 ] as const;
 const CUSTOM_PRICE = new Map<string, number>(CUSTOM_INGREDIENTS.map((item) => [item.id, item.price]));
+const CUSTOM_RUNTIME_ID = new Map<string, string>();
 
 const COMMODITIES = [
   { id: "Beras", name: "Beras", unit: "kg" },
@@ -204,19 +205,22 @@ async function seed() {
     day: "2-digit",
   }).format(new Date());
   for (const item of CUSTOM_INGREDIENTS) {
-    await client.query(
+    const katalog = await client.query<{ id: string }>(
       `INSERT INTO catalog_items (id, business_id, name, nama_normal, unit, approved)
        VALUES ($1, $2, $3, $4, $5, true)
        ON CONFLICT (business_id, nama_normal) WHERE business_id IS NOT NULL
-       DO UPDATE SET name = EXCLUDED.name, unit = EXCLUDED.unit`,
+       DO UPDATE SET name = EXCLUDED.name, unit = EXCLUDED.unit
+       RETURNING id`,
       [item.id, BUSINESS_ID, item.name, item.normal, item.unit],
     );
+    const bahanId = katalog.rows[0].id;
+    CUSTOM_RUNTIME_ID.set(item.id, bahanId);
     await client.query(
       `INSERT INTO prices (commodity_id, region_id, business_id, date, price, source)
        VALUES ($1, 1, $2, $3, $4, 'seed_asumsi')
        ON CONFLICT (commodity_id, region_id, date, business_id) WHERE business_id IS NOT NULL
        DO UPDATE SET price = EXCLUDED.price, source = EXCLUDED.source`,
-      [item.id, BUSINESS_ID, tanggalJakarta, item.price],
+      [bahanId, BUSINESS_ID, tanggalJakarta, item.price],
     );
   }
 
@@ -235,6 +239,7 @@ async function seed() {
     // Resep
     for (const r of m.recipe) {
       const perPortionQty = r.batch_qty / m.batch_yield;
+      const commodityId = CUSTOM_RUNTIME_ID.get(r.commodity_id) ?? r.commodity_id;
       await client.query(`
         INSERT INTO recipe_items (
           menu_item_id, commodity_id, batch_qty, qty, note,
@@ -248,7 +253,7 @@ async function seed() {
           cara_pakai = EXCLUDED.cara_pakai,
           jumlah_input = EXCLUDED.jumlah_input,
           satuan_input = EXCLUDED.satuan_input;
-      `, [m.id, r.commodity_id, r.batch_qty, perPortionQty, r.note, CUSTOM_PRICE.has(r.commodity_id) ? "pcs" : "kg"]);
+      `, [m.id, commodityId, r.batch_qty, perPortionQty, r.note, CUSTOM_PRICE.has(r.commodity_id) ? "pcs" : "kg"]);
     }
 
     // Fixed costs
