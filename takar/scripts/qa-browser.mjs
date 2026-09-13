@@ -69,7 +69,12 @@ async function screenshot(name) {
 async function captureTiming(label) {
   const timing = await evaluate(`(() => {
     const nav = performance.getEntriesByType('navigation')[0];
-    return nav ? { responseStart: Math.round(nav.responseStart), domContentLoaded: Math.round(nav.domContentLoadedEventEnd), complete: Math.round(nav.duration) } : null;
+    return nav ? {
+      responseStart: Math.round(nav.responseStart),
+      domContentLoaded: Math.round(nav.domContentLoadedEventEnd),
+      complete: Math.round(nav.duration),
+      contentReady: Math.round(performance.now()),
+    } : null;
   })()`);
   pageTimings.push({ label, ...timing });
 }
@@ -108,7 +113,7 @@ if (registerFirst && await evaluate("document.querySelector('form') !== null")) 
   await waitFor("location.pathname === '/dashboard'", "login", 20000);
 }
 
-await waitFor("document.body?.textContent.includes('Ringkasan Warung') === true", "dashboard lengkap", 20000);
+await waitFor("!document.querySelector('.animate-pulse') && document.querySelector('main')?.textContent.includes('Ringkasan Warung Hari Ini')", "dashboard lengkap", 20000);
 await captureTiming("dashboard-akun-kosong");
 await screenshot("00-dashboard");
 
@@ -160,9 +165,7 @@ if (!detailHref) throw new Error("Tautan menu uji tidak ditemukan.");
 const menuId = detailHref.split("/").filter(Boolean).at(-1);
 
 await command("Page.navigate", { url: `${baseUrl}${detailHref}` });
-await waitFor("document.body?.textContent.includes('HARGA KAMU') === true", "label harga pemilik", 20000);
-const detailText = await evaluate("document.body.innerText");
-if (!detailText.includes("Rp 500")) throw new Error("Detail tidak menampilkan modal saus Rp500.");
+await waitFor("!document.querySelector('.animate-pulse') && [...document.querySelectorAll('main *')].some(el => el.children.length === 0 && el.textContent.includes('HARGA KAMU')) && document.querySelector('main')?.textContent.includes('Rp 500')", "detail harga pemilik Rp500", 20000);
 await screenshot("03-detail-harga-kamu");
 
 await command("Page.navigate", { url: `${baseUrl}/dashboard/menu/${menuId}/edit` });
@@ -175,7 +178,7 @@ await delay(600);
 await screenshot("04-edit-takaran-asli");
 
 await command("Page.navigate", { url: `${baseUrl}/dashboard` });
-await waitFor(`document.body?.textContent.includes(${JSON.stringify(menuName)}) === true`, "dashboard berisi menu", 20000);
+await waitFor(`!document.querySelector('.animate-pulse') && [...document.querySelectorAll('main a')].some(el => el.textContent.includes(${JSON.stringify(menuName)}))`, "dashboard berisi menu", 20000);
 await captureTiming("dashboard-berisi-menu");
 await screenshot("05-dashboard-berisi-menu");
 
@@ -267,6 +270,9 @@ if (!legacyDeleted) throw new Error("Menu uji bentuk lama tidak berhasil dibersi
 await command("Emulation.clearDeviceMetricsOverride");
 await command("Page.navigate", { url: `${baseUrl}/dashboard/menu/${menuId}` });
 await waitFor("document.body?.textContent.includes('Hapus menu') === true", "tombol hapus menu", 20000);
+// Teks server dapat tampil sesaat sebelum JavaScript tombol selesai aktif di
+// koneksi production. Tunggu hidrasi sebelum mensimulasikan klik manusia.
+await delay(700);
 await evaluate("[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Hapus menu')?.click(); true");
 await waitFor("document.body?.textContent.includes('Ya, hapus permanen') === true", "konfirmasi hapus");
 await evaluate("[...document.querySelectorAll('button')].find(b => b.textContent.includes('Ya, hapus permanen'))?.click(); true");
