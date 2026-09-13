@@ -72,10 +72,15 @@ create table if not exists prices (
   source       text not null default 'bi_hargapangan'
                check (source in ('bi_hargapangan','manual','nota_ocr')),
   is_filled    boolean not null default false,
+  filled_from_date date,
   fetched_at   timestamptz not null default now(),
   constraint prices_source_owner_check check (
     (business_id is null and source = 'bi_hargapangan') or
     (business_id is not null and source in ('manual','nota_ocr'))
+  ),
+  constraint prices_filled_source_ck check (
+    (not is_filled and filled_from_date is null) or
+    (is_filled and filled_from_date is not null and filled_from_date < date)
   )
 );
 

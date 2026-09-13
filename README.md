@@ -116,7 +116,7 @@ Detail: [04-EXECUTION.md](docs/04-EXECUTION.md#cincin)
 
 | Lapisan | Pilihan | Alasan |
 |---|---|---|
-| Frontend + API | Next.js 15 (App Router) + TypeScript | Satu repo, satu bahasa, satu deploy |
+| Frontend + API | Next.js 16 (App Router) + TypeScript | Satu repo, satu bahasa, satu deploy |
 | Styling | Tailwind | Cepat, konsisten |
 | Database | Postgres (Supabase) | Relasional, cocok untuk time-series harga |
 | Cron | Vercel Cron | Tidak perlu server terpisah |
@@ -129,22 +129,40 @@ harus bisa dimodifikasi siapa pun di tim dalam hitungan detik.
 ## Menjalankan
 
 ```bash
-cp .env.example .env.local     # isi DATABASE_URL dan GEMINI_API_KEY
+cp takar/.env.example takar/.env.local
+npm ci --prefix takar
+npm run dev
+```
+
+Buka <http://localhost:3000>. Detail setup, daftar perintah, dan troubleshooting
+ada di [takar/README.md](takar/README.md).
+
+### Database
+
+Gunakan connection string admin yang aman untuk migrasi berikut, bukan kredensial
+browser. Untuk aplikasi/serverless, gunakan transaction pooler port `6543`.
+
+```bash
+db_url="postgresql://..."
 
 # Terapkan schema Supabase dan hardening-nya.
-db_url="$(sed -n 's/^DATABASE_URL=//p' .env.local)"
 psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/01_migration.sql
 psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/03_security_alignment.sql
 psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/04_integrity_alignment.sql
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/05_resep_efektif.sql
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/06_security_and_price_provenance.sql
 psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/06_timezone_jakarta.sql
 
 # Uji schema, timezone, constraint, privilege, view, dan isolasi dua tenant.
 psql "$db_url" -X -v ON_ERROR_STOP=1 -f db/supabase/05_verify.sql
 ```
 
-Perintah aplikasi (`npm install`, seed, dan `npm run dev`) ditambahkan setelah
-scaffold Next.js tersedia. Saat ini repo berisi kontrak produk, eksperimen data,
-desain, dan lapisan database yang sudah dapat dijalankan mandiri.
+### Vercel
+
+Hubungkan repository ini ke Vercel dengan Production Branch `main` dan Root
+Directory `takar`. Tambahkan environment dari `takar/.env.example`; nilai rahasia
+tetap dibagikan lewat password manager, bukan Git. Panduan lengkap ada di
+[bagian Deployment Vercel](takar/README.md#deployment-vercel).
 
 ---
 

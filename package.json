@@ -1,0 +1,13 @@
+{
+  "name": "exasti-takar-root",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix takar run dev",
+    "build": "npm --prefix takar run build",
+    "start": "npm --prefix takar run start",
+    "lint": "npm --prefix takar run lint",
+    "test": "npm --prefix takar test",
+    "db:check": "npm --prefix takar run db:check"
+  }
+}
