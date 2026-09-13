@@ -7,6 +7,7 @@ import Image from "next/image";
 import { formatRupiah } from "@/lib/formatRupiah";
 import type { ParsedItem, OcrResponsePayload } from "@/lib/ai/ocr";
 import { BahanCombobox } from "@/components/menu/BahanCombobox";
+import { RupiahInput } from "@/components/ui/RupiahInput";
 import type { BahanTersedia, HasilCari } from "@/lib/bahan/cari";
 import { normalisasiNama } from "@/lib/bahan/cari";
 import type { SaranUmum } from "@/lib/bahan/katalog-pasar";
@@ -543,14 +544,19 @@ export default function BelanjaPage() {
 
                         <div className="col-span-5">
                           <label className="block font-mono text-[10px] text-ink/60 uppercase">
-                            Total Bayar (Rp)
+                            Total Bayar
                           </label>
-                          <input
-                            type="number"
+                          <RupiahInput
                             value={item.totalPrice ?? ""}
-                            onChange={(e) => updateItem(item.id, "totalPrice", e.target.value)}
+                            onValueChange={(value) => updateItem(
+                              item.id,
+                              "totalPrice",
+                              value === "" ? "" : String(value),
+                            )}
                             placeholder="0"
-                            className="mt-0.5 w-full p-1 text-sm font-mono font-bold border border-ink bg-cream-surface"
+                            wrapperClassName="mt-0.5"
+                            compact
+                            className="p-1 text-sm font-mono font-bold border border-ink bg-cream-surface"
                           />
                         </div>
 

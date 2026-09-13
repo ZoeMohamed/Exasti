@@ -4,6 +4,7 @@ import { formatRupiah } from "@/lib/formatRupiah";
 import { hitungHargaPerDasar, hitungTakaran } from "@/lib/bahan/takaran";
 import { SATUAN_PER_DASAR, type Satuan, type SatuanDasar } from "@/lib/units";
 import type { IngredientRow } from "./bahan-form-types";
+import { RupiahInput } from "@/components/ui/RupiahInput";
 
 interface Props {
   row: IngredientRow;
@@ -160,8 +161,22 @@ export function KartuBahan({ row, index, batchYield, error, onChange, onRemove }
         {tampilkanHarga && (
           <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_2fr]">
             <label className="text-xs font-bold">
-              Harga yang dibayar (Rp)
-              <input type="number" min="1" step="1" value={row.hargaBelanja?.hargaKemasan || ""} onChange={(event) => onChange({ ...row, hargaBelanja: { hargaKemasan: Number(event.target.value), isi: row.hargaBelanja?.isi ?? 1, satuan: row.hargaBelanja?.satuan ?? row.pemakaian.satuan } })} className="mt-1 w-full bg-white p-2 font-mono brutal-border-2" />
+              Harga yang dibayar
+              <RupiahInput
+                required
+                min={1}
+                value={row.hargaBelanja?.hargaKemasan || ""}
+                onValueChange={(value) => onChange({
+                  ...row,
+                  hargaBelanja: {
+                    hargaKemasan: value === "" ? 0 : value,
+                    isi: row.hargaBelanja?.isi ?? 1,
+                    satuan: row.hargaBelanja?.satuan ?? row.pemakaian.satuan,
+                  },
+                })}
+                wrapperClassName="mt-1"
+                className="bg-white p-2 font-mono brutal-border-2"
+              />
             </label>
             <label className="text-xs font-bold">
               Untuk isi

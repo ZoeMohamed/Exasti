@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BahanCombobox } from "./BahanCombobox";
 import { KartuBahan } from "./KartuBahan";
+import { RupiahInput } from "@/components/ui/RupiahInput";
 import {
   BiayaTambahanForm,
   barisDariBiayaAwal,
@@ -59,7 +60,7 @@ export function MenuForm({
 }: MenuFormProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
-  const [sellPrice, setSellPrice] = useState(initialPrice);
+  const [sellPrice, setSellPrice] = useState<number | "">(initialPrice);
   const [batchYield, setBatchYield] = useState(initialYield);
   const [weeklyVolume, setWeeklyVolume] = useState(initialVolume);
   const [bahan, setBahan] = useState<BahanTersedia[]>([]);
@@ -197,7 +198,17 @@ export function MenuForm({
       <form onSubmit={handleSubmit} className="relative space-y-6 bg-cream-surface p-6 sm:p-8 brutal-card">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="font-heading text-sm font-bold">Nama menu<input required placeholder="Contoh: Soto Ayam Semarang" value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
-          <label className="font-heading text-sm font-bold">Harga jual ke pembeli (Rp)<input required type="number" min="1000" step="500" value={sellPrice} onChange={(event) => setSellPrice(Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
+          <label className="font-heading text-sm font-bold">
+            Harga jual ke pembeli
+            <RupiahInput
+              required
+              min={1000}
+              value={sellPrice}
+              onValueChange={setSellPrice}
+              wrapperClassName="mt-1"
+              className="bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
+            />
+          </label>
           <label className="font-heading text-sm font-bold">Sekali masak jadi berapa porsi?<input required type="number" min="1" value={batchYield} onChange={(event) => setBatchYield(Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
           <label className="font-heading text-sm font-bold">Biasanya laku berapa porsi per minggu?<input type="number" min="0" value={weeklyVolume} onChange={(event) => setWeeklyVolume(Number(event.target.value))} className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none" /></label>
         </div>

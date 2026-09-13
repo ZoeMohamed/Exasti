@@ -1,6 +1,7 @@
 "use client";
 
 import { formatRupiah } from "@/lib/formatRupiah";
+import { RupiahInput } from "@/components/ui/RupiahInput";
 import {
   hitungBiayaGrosir,
   type BiayaTetapInput,
@@ -192,16 +193,15 @@ export function BiayaTambahanForm({ rows, errors, onChange }: Props) {
                 <div className="space-y-3">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="text-xs font-bold">
-                      Total harga satu pak (Rp)
-                      <input
+                      Total harga satu pak
+                      <RupiahInput
                         required
-                        type="number"
-                        min="1"
-                        step="1"
+                        min={1}
                         value={row.packPrice}
-                        onChange={(event) => ubah(index, { packPrice: angkaInput(event.target.value) })}
+                        onValueChange={(value) => ubah(index, { packPrice: value })}
                         placeholder="28000"
-                        className="mt-1 w-full bg-white p-2.5 font-mono brutal-border-2"
+                        wrapperClassName="mt-1"
+                        className="bg-white p-2.5 font-mono brutal-border-2"
                       />
                     </label>
                     <label className="text-xs font-bold">
@@ -244,16 +244,15 @@ export function BiayaTambahanForm({ rows, errors, onChange }: Props) {
                 </div>
               ) : (
                 <label className="block max-w-sm text-xs font-bold">
-                  Biaya untuk satu porsi (Rp)
-                  <input
+                  Biaya untuk satu porsi
+                  <RupiahInput
                     required
-                    type="number"
-                    min="1"
-                    step="any"
+                    min={1}
                     value={row.amount}
-                    onChange={(event) => ubah(index, { amount: angkaInput(event.target.value) })}
+                    onValueChange={(value) => ubah(index, { amount: value })}
                     placeholder="Contoh: 450"
-                    className="mt-1 w-full bg-white p-2.5 font-mono brutal-border-2"
+                    wrapperClassName="mt-1"
+                    className="bg-white p-2.5 font-mono brutal-border-2"
                   />
                 </label>
               )}

@@ -16,7 +16,8 @@
     "test:time": "tsx tests/uji-tanggal.ts",
     "test:bahan": "tsx tests/uji-bahan.ts",
     "test:biaya": "tsx tests/uji-biaya.ts",
-    "test": "npm run test:margin && npm run test:time && npm run test:bahan && npm run test:biaya"
+    "test:rupiah": "tsx tests/uji-rupiah.ts",
+    "test": "npm run test:margin && npm run test:time && npm run test:bahan && npm run test:biaya && npm run test:rupiah"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
