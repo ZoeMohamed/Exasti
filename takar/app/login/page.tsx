@@ -2,7 +2,24 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+
+async function getRegistrationErrorMessage(error: unknown): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    const payload = await error.context.json().catch(() => null);
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "message" in payload &&
+      typeof payload.message === "string"
+    ) {
+      return payload.message;
+    }
+  }
+
+  return "Akun belum bisa dibuat. Coba lagi sebentar.";
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,32 +34,37 @@ export default function LoginPage() {
     setPending(true);
     setMessage(null);
 
-    const supabase = createClient();
-    if (mode === "daftar") {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
-      });
+    try {
+      const supabase = createClient();
+
+      if (mode === "daftar") {
+        const { error: registrationError } = await supabase.functions.invoke("register-user", {
+          body: { email, password },
+        });
+        if (registrationError) {
+          setMessage(await getRegistrationErrorMessage(registrationError));
+          return;
+        }
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setMessage(
+          mode === "daftar"
+            ? "Akun sudah dibuat, tetapi belum bisa masuk. Coba tekan Masuk."
+            : "Email atau kata sandi belum cocok.",
+        );
+        return;
+      }
+
+      const next = new URL(window.location.href).searchParams.get("next");
+      router.replace(next?.startsWith("/") ? next : "/dashboard");
+      router.refresh();
+    } catch {
+      setMessage("Koneksi sedang bermasalah. Coba lagi sebentar.");
+    } finally {
       setPending(false);
-      setMessage(
-        error
-          ? error.message
-          : "Cek emailmu untuk mengaktifkan akun, lalu kembali masuk ke Takar.",
-      );
-      return;
     }
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setPending(false);
-    if (error) {
-      setMessage("Email atau kata sandi belum cocok.");
-      return;
-    }
-
-    const next = new URL(window.location.href).searchParams.get("next");
-    router.replace(next?.startsWith("/") ? next : "/dashboard");
-    router.refresh();
   }
 
   return (
@@ -71,8 +93,13 @@ export default function LoginPage() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               className="mt-1 w-full bg-cream p-3 font-mono brutal-border-2"
-              placeholder="kamu@warung.id"
+              placeholder="nama@email.com"
             />
+            {mode === "daftar" ? (
+              <span className="mt-1 block text-xs font-medium text-ink/60">
+                Boleh Gmail, Yahoo, atau email lain. Tidak perlu verifikasi email.
+              </span>
+            ) : null}
           </label>
           <label className="block font-heading text-sm font-bold">
             Kata sandi
