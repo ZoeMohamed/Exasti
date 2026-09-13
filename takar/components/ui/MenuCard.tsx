@@ -7,6 +7,7 @@ export function MenuCard({ menu }: { menu: Menu }) {
   return (
     <Link
       href={`/dashboard/menu/${menu.id}`}
+      prefetch={false}
       className="block cursor-pointer bg-white p-5 brutal-card"
     >
       <div className="flex items-start justify-between gap-2">
