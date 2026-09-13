@@ -74,7 +74,10 @@
 
 ## Skema database
 
-DDL lengkap dan tervalidasi: [`db/schema.sql`](../db/schema.sql)
+DDL Supabase lengkap dan tervalidasi:
+[`db/supabase/01_migration.sql`](../db/supabase/01_migration.sql).
+`db/schema.sql` adalah rancangan PostgreSQL awal tanpa Auth/RLS dan bukan sumber
+kebenaran untuk deployment Supabase.
 
 ```mermaid
 erDiagram
@@ -106,11 +109,19 @@ erDiagram
         int  bi_regency_id "1 = Kota Semarang"
         text name
     }
+    businesses {
+        uuid id PK
+        uuid owner_id FK "auth.users.id"
+        int region_id FK
+        text name
+        text packaging_mode
+    }
     prices {
-        text    commodity_id PK,FK
-        int     region_id PK,FK
-        uuid    business_id PK "NULL = publik BI"
-        date    date PK
+        uuid    id PK
+        text    commodity_id "referensi logis katalog"
+        int     region_id FK
+        uuid    business_id FK "NULL = publik BI"
+        date    date
         numeric price
         text    source "bi_hargapangan|manual|nota_ocr"
         bool    is_filled "hasil forward-fill"
@@ -125,7 +136,7 @@ erDiagram
     }
     recipe_items {
         uuid    id PK
-        text    commodity_id FK
+        text    commodity_id "referensi logis katalog"
         numeric batch_qty "2 (kg sekali masak)"
         numeric qty "0,25 (turunan per porsi)"
     }
@@ -149,10 +160,22 @@ erDiagram
         uuid  id PK
         text  severity
         text  headline
-        text  driver_commodity_id FK
+        text  driver_commodity_id "referensi logis katalog"
         jsonb suggestion
     }
 ```
+
+`prices` memakai UUID sebagai primary key untuk Data API. Keunikan bisnisnya
+tetap dijaga oleh dua partial unique index: satu untuk harga BI
+(`business_id IS NULL`) dan satu untuk harga warung. `commodity_id` adalah
+referensi logis ke `commodities` atau `catalog_items`; PostgreSQL tidak dapat
+menyatakan satu foreign key ke dua tabel berbeda.
+
+Semua 12 tabel `public` memakai RLS. View memakai `security_invoker=true`, dan
+grant `anon`/`authenticated` diberikan dengan pola revoke-then-grant agar default
+privilege project tidak memperluas akses. Suite
+[`db/supabase/05_verify.sql`](../db/supabase/05_verify.sql) menguji struktur,
+constraint, least privilege, formula harga efektif, serta isolasi dua warung.
 
 ### Kenapa `batch_qty` dan `qty` dua-duanya disimpan
 

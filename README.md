@@ -61,7 +61,8 @@ resep masing-masing warung. Itulah yang Takar hitung.
 | [docs/08-AI-USECASE.md](docs/08-AI-USECASE.md) | Peran AI per fitur, apa yang bukan AI, ketahanan, jawaban Q&A |
 | [docs/09-CARA-PAKAI.md](docs/09-CARA-PAKAI.md) | **Penjelasan untuk pemilik warung — tanpa istilah teknis** |
 | [docs/10-AI-VALIDATION.md](docs/10-AI-VALIDATION.md) | Brief validasi AI — 4 tes, kriteria lolos, rencana mundur |
-| [db/schema.sql](db/schema.sql) | DDL — tervalidasi di PostgreSQL 15 |
+| [db/supabase/01_migration.sql](db/supabase/01_migration.sql) | DDL Supabase — Auth, RLS, view, dan privilege; tervalidasi di PostgreSQL 17 |
+| [db/supabase/06_timezone_jakarta.sql](db/supabase/06_timezone_jakarta.sql) | Default timezone database — Asia/Jakarta (WIB / UTC+7) |
 
 > **Merancang antarmuka?** Mulai dari [07-UX.md](docs/07-UX.md) — persona,
 > kosakata yang boleh dipakai, dan alasan di balik tiap keputusan layar.
@@ -128,12 +129,22 @@ harus bisa dimodifikasi siapa pun di tim dalam hitungan detik.
 ## Menjalankan
 
 ```bash
-npm install
 cp .env.example .env.local     # isi DATABASE_URL dan GEMINI_API_KEY
-npm run db:migrate
-npm run seed -- --days 90      # tarik 90 hari harga Kota Semarang
-npm run dev
+
+# Terapkan schema Supabase dan hardening-nya.
+db_url="$(sed -n 's/^DATABASE_URL=//p' .env.local)"
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/01_migration.sql
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/03_security_alignment.sql
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/04_integrity_alignment.sql
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/06_timezone_jakarta.sql
+
+# Uji schema, timezone, constraint, privilege, view, dan isolasi dua tenant.
+psql "$db_url" -X -v ON_ERROR_STOP=1 -f db/supabase/05_verify.sql
 ```
+
+Perintah aplikasi (`npm install`, seed, dan `npm run dev`) ditambahkan setelah
+scaffold Next.js tersedia. Saat ini repo berisi kontrak produk, eksperimen data,
+desain, dan lapisan database yang sudah dapat dijalankan mandiri.
 
 ---
 

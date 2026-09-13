@@ -370,7 +370,7 @@ penjualan yang tidak dimiliki (C-4). Yang boleh: peringkat kesehatan.
 | **FR-17** | Sistem menyimpan snapshot harian per menu aktif | Satu baris `margin_snapshots` per menu per hari |
 | **FR-18** | Sistem menentukan pendorong sesuai BR-04 | **Uji contoh ayam vs cabai pada BR-04 wajib lolos** |
 | **FR-19** | Perhitungan margin bersifat fungsi murni tanpa I/O | `lib/margin.ts` tidak mengimpor klien database |
-| **FR-20** | Lookup harga mengikuti prioritas BR-09 | Harga milik warung mengalahkan harga publik pada komoditas sama |
+| **FR-20** | Lookup harga mengikuti BR-09 | Harga warung menjadi level dasar dan bergerak mengikuti rasio BI; fallback berlaku untuk data hilang/rasio tidak wajar |
 
 ### 3.4 Penyajian
 
@@ -524,7 +524,11 @@ Alternatif berbayar bila nanti butuh kualitas vision lebih tinggi: Claude Haiku 
 
 ### 5.3 Basis data
 
-Skema lengkap pada [`db/schema.sql`](../db/schema.sql), telah divalidasi pada PostgreSQL 15.
+Skema deployment pada
+[`db/supabase/01_migration.sql`](../db/supabase/01_migration.sql), dengan
+hardening dan suite verifikasi di folder yang sama, telah divalidasi pada
+PostgreSQL 17 di Supabase. `db/schema.sql` dipertahankan hanya sebagai rancangan
+PostgreSQL awal tanpa Auth/RLS.
 
 ---
 
