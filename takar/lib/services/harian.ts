@@ -3,9 +3,9 @@
 // seluruh keputusan angkanya diambil oleh lib/margin.ts yang murni.
 
 import { queryDb } from "../db/client";
-import { keIsoTanggal, hariIniJakarta } from "../tanggal";
+import { hariIniJakarta } from "../tanggal";
 import {
-  hitungHpp, hitungMargin, cariPendorong, cariPembanding,
+  AMBANG, hitungHpp, hitungMargin, cariPendorong,
   nilaiKeparahan, batasiAlert, saranHarga, susunKalimat, penyumbangTerbesar,
   type BahanResep, type CalonAlert,
 } from "../margin";
@@ -26,13 +26,15 @@ export interface HasilHarian {
  */
 export async function isiMundurHarga(tanggal: string): Promise<number> {
   const res = await queryDb(
-    `insert into prices (commodity_id, region_id, business_id, date, price, source, is_filled)
-     select k.commodity_id, k.region_id, null, $1::date, t.price, t.source, true
+    `insert into prices
+       (commodity_id, region_id, business_id, date, price, source, is_filled, filled_from_date)
+     select k.commodity_id, k.region_id, null, $1::date,
+            t.price, t.source, true, t.date
      from (
        select distinct commodity_id, region_id from prices where business_id is null
      ) k
      cross join lateral (
-       select p.price, p.source from prices p
+       select p.price, p.source, coalesce(p.filled_from_date, p.date) as date from prices p
        where p.business_id is null
          and p.commodity_id = k.commodity_id
          and p.region_id   = k.region_id
@@ -126,8 +128,9 @@ export async function buatAlert(tanggal: string): Promise<number> {
   for (const b of biz.rows) {
     // Hanya menu yang sedang dijual yang menghasilkan alert.
     const menus = await queryDb(
-      `select m.id, m.name, m.sell_price,
+      `select m.id, m.name, m.sell_price, m.active,
               kini.hpp, kini.margin_pct as margin_kini,
+              sebelum.margin_pct as margin_sebelum,
               lalu.margin_pct as margin_lalu,
               bulan.margin_pct as margin_30hari
        from menu_items m
@@ -138,6 +141,11 @@ export async function buatAlert(tanggal: string): Promise<number> {
        ) kini on true
        left join lateral (
          select margin_pct from margin_snapshots
+         where menu_item_id = m.id and date < $2::date
+         order by date desc limit 1
+       ) sebelum on true
+       left join lateral (
+         select margin_pct from margin_snapshots
          where menu_item_id = m.id and date <= $2::date - 7
          order by date desc limit 1
        ) lalu on true
@@ -146,7 +154,7 @@ export async function buatAlert(tanggal: string): Promise<number> {
          where menu_item_id = m.id and date <= $2::date - 30
          order by date desc limit 1
        ) bulan on true
-       where m.business_id = $1 and m.active`,
+       where m.business_id = $1`,
       [b.id, tanggal],
     );
     if (!menus) continue;
@@ -158,6 +166,30 @@ export async function buatAlert(tanggal: string): Promise<number> {
 
       const marginKini = Number(m.margin_kini);
       const marginLalu = m.margin_lalu === null ? null : Number(m.margin_lalu);
+
+      if (!m.active) {
+        const marginSebelum = m.margin_sebelum === null ? null : Number(m.margin_sebelum);
+        if (
+          marginKini >= AMBANG.sehatMin &&
+          marginSebelum !== null &&
+          marginSebelum < AMBANG.sehatMin
+        ) {
+          const bahan = await muatBahan(m.id);
+          calon.push({
+            menuItemId: m.id,
+            namaMenu: m.name,
+            marginSekarang: marginKini,
+            marginLalu: marginSebelum,
+            penurunanPoin: 0,
+            keparahan: "info",
+            pendorong: penyumbangTerbesar(bahan),
+            hpp: Number(m.hpp ?? 0),
+            hargaJual: Number(m.sell_price),
+            jenis: "pulih",
+          });
+        }
+        continue;
+      }
 
       const nilai = nilaiKeparahan(marginKini, marginLalu);
       if (!nilai) continue; // BR-06: sehat, atau rendah tapi stabil → diam
@@ -190,11 +222,17 @@ export async function buatAlert(tanggal: string): Promise<number> {
       const saran =
         a.keparahan === "info"
           ? null
-          : {
+          : (() => {
+              const menu = menus.rows.find((row) => row.id === a.menuItemId);
+              const margin30Hari = menu?.margin_30hari == null
+                ? null
+                : Number(menu.margin_30hari);
+              return {
               tipe: "reprice",
               harga_sekarang: a.hargaJual,
-              harga_saran: saranHarga(a.hpp, (menus.rows.find((r) => r.id === a.menuItemId) as any)?.margin_30hari),
-            };
+              harga_saran: saranHarga(a.hpp, margin30Hari),
+              };
+            })();
 
       const res = await queryDb(
         `insert into alerts

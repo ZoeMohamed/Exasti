@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { keIsoTanggal } from "@/lib/tanggal";
 import Link from "next/link";
+import Image from "next/image";
 import { formatRupiah } from "@/lib/formatRupiah";
 import type { ParsedItem, OcrResponsePayload } from "@/lib/ai/ocr";
 
@@ -37,7 +38,7 @@ export default function BelanjaPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Ambil komoditas & riwayat harga nota dari database Supabase
+  // 1. Ambil bahan & riwayat harga nota dari database Supabase
   useEffect(() => {
     fetch("/api/commodities")
       .then((r) => r.json())
@@ -73,11 +74,11 @@ export default function BelanjaPage() {
     setLoading(true);
     setErrorMsg(null);
     setSaveSuccess(null);
-    setStatusStep("Mengirim gambar nota...");
+    setStatusStep("Menyiapkan foto nota...");
 
     try {
-      setTimeout(() => setStatusStep("Google Gemini Flash sedang membaca baris nota..."), 500);
-      setTimeout(() => setStatusStep("Mencocokkan belanjaanmu dengan harga pasar Bank Indonesia..."), 1200);
+      setTimeout(() => setStatusStep("Membaca nama barang dan harga..."), 500);
+      setTimeout(() => setStatusStep("Mencocokkan dengan bahan warungmu..."), 1200);
 
       const res = await fetch("/api/ai/parse-nota", {
         method: "POST",
@@ -88,14 +89,14 @@ export default function BelanjaPage() {
       const data: OcrResponsePayload = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error((data as any).error || "Gagal memproses pembacaan nota.");
+        throw new Error(data.error || "Gagal memproses pembacaan nota.");
       }
 
       setOcrResult(data);
       setItems(data.items);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Gagal scan:", err);
-      setErrorMsg(err.message || "Terjadi kesalahan saat memproses nota.");
+      setErrorMsg(err instanceof Error ? err.message : "Terjadi kesalahan saat memproses nota.");
     } finally {
       setLoading(false);
       setStatusStep("");
@@ -124,15 +125,27 @@ export default function BelanjaPage() {
   }
 
   // Edit baris item di layar konfirmasi (FR-38)
-  function updateItem(id: string, field: keyof ParsedItem, value: any) {
+  function updateItem(
+    id: string,
+    field: "nameRaw" | "qty" | "unit" | "totalPrice",
+    value: string,
+  ) {
     setItems((prev) =>
       prev.map((it) => {
         if (it.id !== id) return it;
-        const updated = { ...it, [field]: value };
+        const normalizedValue =
+          field === "qty" || field === "totalPrice"
+            ? value === "" ? null : Number(value)
+            : value;
+        const updated: ParsedItem = {
+          ...it,
+          [field]: normalizedValue,
+          match: { ...it.match },
+        };
         // Hitung ulang harga per satuan
         if (field === "totalPrice" || field === "qty") {
-          const q = field === "qty" ? Number(value) : it.qty || 1;
-          const p = field === "totalPrice" ? Number(value) : it.totalPrice || 0;
+          const q = field === "qty" ? Number(normalizedValue) : it.qty || 1;
+          const p = field === "totalPrice" ? Number(normalizedValue) : it.totalPrice || 0;
           updated.match.pricePerUnit = q > 0 ? Math.round(p / q) : p;
         }
         return updated;
@@ -140,7 +153,7 @@ export default function BelanjaPage() {
     );
   }
 
-  // Ubah kecocokan komoditas secara manual jika diinginkan
+  // Ubah kecocokan bahan secara manual jika diinginkan
   function updateItemCommodity(id: string, commodityId: string) {
     const comm = commodities.find((c) => c.id === commodityId);
     setItems((prev) =>
@@ -194,7 +207,7 @@ export default function BelanjaPage() {
     setErrorMsg(null);
 
     try {
-      // Map item ke komoditas database jika tersedia
+      // Petakan item ke bahan database jika tersedia
       const payloadItems = items.map((it) => {
         const comm = commodities.find(
           (c) =>
@@ -223,14 +236,14 @@ export default function BelanjaPage() {
 
       const data = await res.json();
       if (data.status === "ok") {
-        setSaveSuccess(data.message || "Harga bahan berhasil dicatat ke database Supabase!");
+        setSaveSuccess(data.message || "Harga belanja berhasil disimpan.");
         fetchHistory();
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
-        setErrorMsg(data.message || "Gagal menyimpan harga ke database.");
+        setErrorMsg(data.message || "Harga belanja belum tersimpan. Coba lagi.");
       }
-    } catch (err: unknown) {
-      setErrorMsg("Terjadi kesalahan saat menyimpan harga ke Supabase.");
+    } catch {
+      setErrorMsg("Harga belanja belum tersimpan. Periksa koneksi lalu coba lagi.");
     } finally {
       setSaving(false);
     }
@@ -246,58 +259,51 @@ export default function BelanjaPage() {
           href="/dashboard"
           className="brutal-btn bg-white px-3 py-1.5 font-mono text-xs font-bold"
         >
-          ← Kembali ke Dashboard
+          Kembali ke Beranda
         </Link>
         <span className="bg-warning-yellow px-2.5 py-1 font-mono text-xs font-bold brutal-border-2">
-          Terhubung ke Supabase: {commodities.length} Komoditas Terdaftar
+          {commodities.length} bahan siap dipakai
         </span>
       </div>
 
       {/* BANNER UTAMA */}
       <section className="relative bg-white p-6 sm:p-8 brutal-card">
         <span className="inline-block bg-bright-green px-3 py-1 font-mono text-xs font-bold brutal-border-2 text-ink">
-          FITUR AI OCR · GOOGLE GEMINI FLASH + SUPABASE
+          CATAT BELANJA DARI FOTO
         </span>
         <h1 className="mt-3 font-heading text-3xl font-extrabold sm:text-4xl lg:text-5xl">
-          “Foto nota, biar Takar yang catat ke database.”
+          “Foto nota, biar Takar bantu mencatat.”
         </h1>
         <p className="mt-3 max-w-3xl text-base font-medium leading-relaxed text-ink/80 sm:text-lg">
-          Unggah foto nota dari pasar atau toko kelontong. Gemini Flash akan membaca nama barang,
-          jumlah, dan harganya, lalu mencocokkannya ke 21 komoditas Bank Indonesia dan resep warungmu di database.
+          Unggah foto nota dari pasar atau toko langganan. Takar akan membaca nama barang,
+          jumlah, dan harganya, lalu mencocokkannya dengan bahan yang dipakai warungmu.
         </p>
 
         {/* Banner Sukses Simpan */}
         {saveSuccess && (
           <div className="mt-6 bg-bright-green/20 border-3 border-ink p-5 brutal-border shadow-[4px_4px_0_#111]">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">🎉</span>
-              <div>
+            <div>
                 <h3 className="font-heading text-lg font-bold text-ink">
                   {saveSuccess}
                 </h3>
                 <p className="text-sm text-ink/80 mt-1">
-                  Modal menu warung dan perhitungan margin keuntungan otomatis diperbarui menggunakan harga belanja terbaru ini.
+                  Modal menu warung dan angka untung otomatis diperbarui menggunakan harga belanja terbaru ini.
                 </p>
                 <div className="mt-3 flex gap-3">
                   <Link
                     href="/dashboard"
                     className="brutal-btn bg-bright-green px-3 py-1.5 text-xs font-heading font-bold"
                   >
-                    Lihat Dashboard Menu →
+                    Lihat Beranda
                   </Link>
                 </div>
-              </div>
             </div>
           </div>
         )}
 
         {/* Notice Ketahanan & Privasi */}
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t-2 border-ink/20 pt-4 text-xs font-mono text-ink/70">
-          <div className="flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-full bg-bright-green"></span>
-            <span>Didukung: Google Gemini Flash Vision + Cache Cerdas</span>
-          </div>
-          <div>🛡️ Prinsip Takar: AI hanya membaca, pemilik selalu memverifikasi sebelum simpan.</div>
+        <div className="mt-6 border-t-2 border-ink/20 pt-4 text-xs font-mono text-ink/70">
+          Hasil bacaan selalu menunggu persetujuanmu. Tidak ada harga yang disimpan sebelum kamu memeriksanya.
         </div>
       </section>
 
@@ -324,12 +330,15 @@ export default function BelanjaPage() {
             <div className="mt-4 flex flex-col items-center justify-center border-2 border-dashed border-ink bg-cream p-6 text-center">
               {receiptImage ? (
                 <div className="space-y-3">
-                  <img
+                  <Image
                     src={receiptImage}
                     alt="Preview Nota"
+                    width={480}
+                    height={320}
+                    unoptimized
                     className="max-h-56 rounded border-2 border-ink object-contain shadow-[2px_2px_0_#111]"
                   />
-                  <p className="font-mono text-xs text-accent-green font-bold">✓ Foto nota terpilih</p>
+                  <p className="font-mono text-xs text-accent-green font-bold">Foto nota sudah dipilih</p>
                 </div>
               ) : (
                 <div className="mb-4 rotate-[-2deg] bg-white p-4 brutal-border-2 shadow-[2px_2px_0_#111]">
@@ -349,14 +358,14 @@ export default function BelanjaPage() {
                 disabled={loading}
                 className="brutal-btn mt-2 w-full bg-critical-red px-4 py-3 font-heading font-extrabold text-white text-sm"
               >
-                {loading ? "“Sedang Membaca Nota…”" : "📷 Ambil Foto / Unggah Nota"}
+                {loading ? "Sedang Membaca Nota..." : "Ambil Foto atau Unggah Nota"}
               </button>
             </div>
 
             {/* UJI CEPAT / DEMO SAMPLES */}
             <div className="mt-6 border-t-2 border-ink/10 pt-4">
               <span className="font-mono text-xs font-bold text-ink/80">
-                ⚡ Atau Gunakan Contoh Nota Demo (Siap Uji):
+                Belum punya foto? Gunakan contoh nota:
               </span>
               <div className="mt-3 space-y-2">
                 <button
@@ -407,39 +416,35 @@ export default function BelanjaPage() {
           <div className="border-t-8 border-t-warning-yellow bg-cream-surface p-6 brutal-card">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-mono text-xs font-bold uppercase text-critical-red">
-                LAYAR KONFIRMASI (S11)
+                PERIKSA HASIL BACAAN
               </span>
               {ocrResult && (
                 <span className="font-mono text-[11px] bg-white px-2 py-0.5 brutal-border-2">
-                  {ocrResult.source === "live_gemini"
-                    ? `🟢 Live: ${ocrResult.modelUsed || "Gemini Flash"} (${(ocrResult.latencyMs / 1000).toFixed(1)}s)`
-                    : ocrResult.source === "cache"
-                    ? `⚡ Dari Cache (${ocrResult.latencyMs}ms)`
-                    : "💡 Mode Demo Siap Saji"}
+                  {ocrResult.source === "offline_sample"
+                    ? "Contoh nota siap diperiksa"
+                    : `Nota selesai dibaca dalam ${Math.max(1, Math.round(ocrResult.latencyMs / 1000))} detik`}
                 </span>
               )}
             </div>
 
             <h2 className="mt-1 font-heading text-2xl font-extrabold">
-              “Cek dulu sebelum disimpan ke database.”
+              “Periksa dulu sebelum disimpan.”
             </h2>
             <p className="mt-1 text-xs text-ink/70">
-              Takar tidak pernah langsung menyimpan hasil scan tanpa persetujuanmu. Pastikan angka
-              rupiah dan jumlah barang sudah benar. Kamu bebas mengeditnya langsung.
+              Pastikan jumlah barang dan angka rupiahnya sudah benar. Kamu dapat mengubah setiap baris sebelum menyimpan.
             </p>
 
             {/* Error Message */}
             {errorMsg && (
               <div className="mt-4 bg-critical-red/10 border-2 border-critical-red p-3 text-xs text-critical-red font-medium">
-                ⚠️ {errorMsg}
+                {errorMsg}
               </div>
             )}
 
             {/* Info Pesan Hasil OCR */}
             {ocrResult?.message && (
-              <div className="mt-4 bg-white p-3 brutal-border-2 text-xs font-mono text-ink/80 flex items-center gap-2">
-                <span>ℹ️</span>
-                <span>{ocrResult.message}</span>
+              <div className="mt-4 bg-white p-3 brutal-border-2 text-xs font-mono text-ink/80">
+                Nama barang dan harga sudah dibaca. Periksa hasilnya sebelum menyimpan.
               </div>
             )}
 
@@ -450,7 +455,7 @@ export default function BelanjaPage() {
                 <div className="space-y-1">
                   <p className="font-heading text-lg font-bold text-ink">{statusStep}</p>
                   <p className="text-xs text-ink/60 font-mono">
-                    Memproses teks gambar dengan Google AI Studio...
+                    Mohon tunggu sebentar. Tulisan pada nota sedang dibaca.
                   </p>
                 </div>
               </div>
@@ -501,17 +506,17 @@ export default function BelanjaPage() {
                                 </option>
                                 {commodities.map((c) => (
                                   <option key={c.id} value={c.id}>
-                                    Petakan ke: {c.name} ({c.unit})
+                                    Samakan dengan: {c.name} ({c.unit})
                                   </option>
                                 ))}
                               </select>
                             ) : item.match.isBiCommodity ? (
                               <span className="bg-bright-green/20 px-2 py-0.5 font-mono text-[10px] font-bold text-accent-green border border-accent-green">
-                                ✓ Komoditas BI: {item.match.matchedName}
+                                Cocok dengan harga pasar: {item.match.matchedName}
                               </span>
                             ) : (
                               <span className="bg-warning-yellow/30 px-2 py-0.5 font-mono text-[10px] font-bold text-warung-brown border border-warung-brown">
-                                📦 Katalog Warung: {item.match.matchedName}
+                                Cocok dengan bahan warung: {item.match.matchedName}
                               </span>
                             )}
                           </div>
@@ -521,10 +526,10 @@ export default function BelanjaPage() {
                         <button
                           type="button"
                           onClick={() => removeItem(item.id)}
-                          className="text-ink/40 hover:text-critical-red p-1 font-bold text-sm"
+                          className="min-h-9 px-2 text-xs font-bold text-ink/60 underline hover:text-critical-red"
                           title="Hapus baris ini"
                         >
-                          ✕
+                          Hapus
                         </button>
                       </div>
 
@@ -587,7 +592,7 @@ export default function BelanjaPage() {
                   onClick={addNewItem}
                   className="w-full border-2 border-dashed border-ink p-2.5 font-heading text-xs font-bold text-ink/70 hover:bg-white hover:text-ink transition-colors"
                 >
-                  ＋ Tambah Baris Barang Manual
+                  Tambah Barang yang Belum Terbaca
                 </button>
 
                 {/* Total Ringkasan Nota */}
@@ -611,18 +616,17 @@ export default function BelanjaPage() {
                   className="brutal-btn mt-2 w-full bg-bright-green px-4 py-3.5 font-heading text-base font-extrabold text-ink shadow-[4px_4px_0_#111] disabled:opacity-50"
                 >
                   {saving
-                    ? "Menyimpan ke Supabase..."
-                    : "💾 Simpan ke Database & Update Untung Menu"}
+                    ? "Menyimpan..."
+                    : "Simpan Harga Belanja"}
                 </button>
               </div>
             ) : (
               /* EMPTY STATE */
               <div className="my-8 bg-warning-yellow/20 p-8 text-center brutal-border-2 space-y-3">
-                <span className="text-4xl">🧾</span>
-                <p className="font-heading text-base font-bold">Belum ada nota yang dipindai.</p>
+                <p className="font-heading text-base font-bold">Belum ada nota yang dibaca.</p>
                 <p className="text-xs text-ink/70 max-w-sm mx-auto">
-                  Ambil foto nota belanjamu di kolom kiri atau klik salah satu <b>Contoh Nota Demo</b>{" "}
-                  untuk melihat bagaimana Takar mengekstrak bahan masakan secara otomatis.
+                  Ambil foto nota belanjamu di kolom kiri atau pilih salah satu <b>contoh nota</b>{" "}
+                  untuk melihat bagaimana Takar membantu mencatat bahan masakan.
                 </p>
               </div>
             )}
@@ -638,19 +642,19 @@ export default function BelanjaPage() {
               Riwayat Harga Nota Warungmu
             </h2>
             <p className="text-xs text-ink/70">
-              Data harga yang telah kamu catat di database Supabase (prioritas di atas harga rata-rata BI).
+              Harga dari nota terakhir akan dipakai lebih dulu agar hitungan modal sesuai belanja warungmu.
             </p>
           </div>
           <button
             onClick={fetchHistory}
             className="brutal-btn bg-cream px-3 py-1.5 font-mono text-xs font-bold"
           >
-            🔄 Muat Ulang
+            Muat Ulang
           </button>
         </div>
 
         {historyLoading ? (
-          <div className="py-8 text-center font-mono text-xs">Memuat riwayat dari database...</div>
+          <div className="py-8 text-center font-mono text-xs">Menyiapkan riwayat belanja...</div>
         ) : receiptHistory.length > 0 ? (
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {receiptHistory.map((rec, i) => (
@@ -658,7 +662,7 @@ export default function BelanjaPage() {
                 <div>
                   <strong className="font-heading text-sm block">{rec.name}</strong>
                   <span className="font-mono text-[11px] text-ink/70">
-                    {keIsoTanggal(rec.date)} · {rec.source}
+                    {keIsoTanggal(rec.date)}
                   </span>
                 </div>
                 <div className="text-right">
@@ -672,7 +676,7 @@ export default function BelanjaPage() {
           </div>
         ) : (
           <div className="mt-4 bg-cream p-6 text-center font-mono text-xs text-ink/70 brutal-border-2">
-            Belum ada riwayat nota yang tersimpan. Setiap kali kamu memindai nota, harga belanjamu akan muncul di sini.
+            Belum ada riwayat nota yang tersimpan. Setiap kali kamu mencatat nota, harga belanjamu akan muncul di sini.
           </div>
         )}
       </section>

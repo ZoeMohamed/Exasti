@@ -2,17 +2,33 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { hariIniJakarta, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
+
+type PackagingMode = "dine_in" | "takeaway" | "mixed";
+
+const PACKAGING_OPTIONS: Array<{
+  key: PackagingMode;
+  label: string;
+  desc: string;
+}> = [
+  { key: "dine_in", label: "Makan di Tempat (Piring)", desc: "Biaya kemasan Rp 0" },
+  { key: "takeaway", label: "Dibungkus", desc: "Biaya kemasan penuh" },
+  { key: "mixed", label: "Campur (50:50)", desc: "Perkiraan rata-rata" },
+];
 
 export default function SettingsPage() {
   const router = useRouter();
 
   const [name, setName] = useState("Warung Bu Sri");
-  const [packagingMode, setPackagingMode] = useState<"dine_in" | "takeaway" | "mixed">("mixed");
+  const [packagingMode, setPackagingMode] = useState<PackagingMode>("mixed");
   const [regionId, setRegionId] = useState(1);
   const [regions, setRegions] = useState<Array<{ id: number; name: string }>>([
     { id: 1, name: "Kota Semarang" },
   ]);
   const [lastSyncText, setLastSyncText] = useState("Hari ini");
+  const [latestPriceText, setLatestPriceText] = useState("belum masuk");
+  const [priceStale, setPriceStale] = useState(true);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,10 +47,28 @@ export default function SettingsPage() {
           if (data.profile.last_ingest_time) {
             try {
               const d = new Date(data.profile.last_ingest_time);
-              setLastSyncText(`${d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")} WIB`);
+              const tanggal = d.toLocaleDateString("id-ID", {
+                timeZone: "Asia/Jakarta",
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              });
+              const jam = d.toLocaleTimeString("id-ID", {
+                timeZone: "Asia/Jakarta",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              });
+              setLastSyncText(`${tanggal}, ${jam} WIB`);
             } catch {
               // fallback
             }
+          }
+
+          const latestPriceIso = keIsoTanggal(data.profile.latest_price_date);
+          if (latestPriceIso) {
+            setLatestPriceText(tanggalIndonesia(latestPriceIso));
+            setPriceStale(latestPriceIso !== hariIniJakarta());
           }
         }
       })
@@ -82,16 +116,13 @@ export default function SettingsPage() {
             Pengaturan Warung
           </h1>
           <p className="mt-1 text-ink/80 text-sm">
-            Data ini tersimpan langsung di tabel <code className="bg-cream px-1.5 py-0.5 border border-ink">businesses</code> Supabase PostgreSQL.
+            Atur nama, lokasi, dan kebiasaan bungkus agar hitungan Takar sesuai dengan warungmu.
           </p>
         </div>
-        <span className="bg-warning-yellow px-2 py-1 font-mono text-xs font-bold border border-ink">
-          Tenant ID: Warung Bu Sri
-        </span>
       </div>
 
       {loading ? (
-        <div className="py-12 font-mono text-center">Memuat pengaturan dari database...</div>
+        <div className="py-12 font-mono text-center">Menyiapkan pengaturan warung...</div>
       ) : (
         <form onSubmit={handleSave} className="mt-6 max-w-2xl space-y-6">
           <label className="block font-heading text-sm font-bold">
@@ -106,7 +137,7 @@ export default function SettingsPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="font-heading text-sm font-bold">
-              Kota / Kabupaten (Wilayah Data BI)
+              Kota / Kabupaten untuk Harga Pasar
               <select
                 value={regionId}
                 onChange={(e) => setRegionId(Number(e.target.value))}
@@ -130,14 +161,10 @@ export default function SettingsPage() {
 
           <fieldset>
             <legend className="mb-2 font-heading text-sm font-bold">
-              Kebiasaan Pembeli Terbanyak (Menentukan Estimasi Biaya Kemasan):
+              Kebiasaan Pembeli Terbanyak (Menentukan Perkiraan Biaya Kemasan):
             </legend>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[
-                { key: "dine_in", label: "Makan di Tempat (Piring)", desc: "Biaya kemasan Rp 0" },
-                { key: "takeaway", label: "Bungkus / Takeaway", desc: "Biaya kemasan penuh" },
-                { key: "mixed", label: "Campur (50:50)", desc: "Estimasi rata-rata" },
-              ].map((item) => (
+              {PACKAGING_OPTIONS.map((item) => (
                 <label
                   key={item.key}
                   className={`p-3 text-center text-xs font-heading font-bold brutal-border-2 cursor-pointer transition ${
@@ -149,7 +176,7 @@ export default function SettingsPage() {
                     name="packagingMode"
                     value={item.key}
                     checked={packagingMode === item.key}
-                    onChange={() => setPackagingMode(item.key as any)}
+                    onChange={() => setPackagingMode(item.key)}
                     className="mr-1.5"
                   />
                   <span className="block font-bold">{item.label}</span>
@@ -161,17 +188,17 @@ export default function SettingsPage() {
 
           <div className="bg-cream p-4 font-mono text-xs brutal-border-2 space-y-1">
             <div className="flex items-center gap-2">
-              <b>STATUS DATA PASAR BANK INDONESIA:</b>
-              <span className="bg-bright-green px-2 py-0.5 border border-ink text-ink font-bold">
-                TERHUBUNG AKTIF (AWS Mumbai)
+              <b>HARGA BAHAN ACUAN:</b>
+              <span className={`${priceStale ? "bg-warning-yellow" : "bg-bright-green"} px-2 py-0.5 border border-ink text-ink font-bold`}>
+                DATA TERAKHIR {latestPriceText.toUpperCase()}
               </span>
             </div>
-            <p className="mt-1 text-ink/70">Terakhir sinkronisasi: {lastSyncText}</p>
+            <p className="mt-1 text-ink/70">Diperbarui: {lastSyncText}</p>
           </div>
 
           {saved && (
             <div className="bg-bright-green p-3 font-mono text-sm font-bold text-ink brutal-border-2">
-              ✅ Pengaturan warung berhasil disimpan ke database Supabase!
+              Pengaturan warung berhasil disimpan.
             </div>
           )}
 
@@ -180,7 +207,19 @@ export default function SettingsPage() {
             disabled={saving}
             className="brutal-btn bg-ink px-6 py-3 font-heading font-extrabold text-cream disabled:opacity-50"
           >
-            {saving ? "Menyimpan ke Database..." : "Simpan Pengaturan Warung"}
+            {saving ? "Menyimpan..." : "Simpan Pengaturan Warung"}
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              await createClient().auth.signOut();
+              router.replace("/login");
+              router.refresh();
+            }}
+            className="min-h-11 px-5 py-2 font-heading text-sm font-bold underline underline-offset-4"
+          >
+            Keluar dari akun
           </button>
         </form>
       )}

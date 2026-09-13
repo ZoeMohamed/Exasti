@@ -8,7 +8,7 @@ export type Menu = {
   price: number;
   modal: number;
   profit: number;
-  margin: number;
+  profitRate: number;
   status: MenuStatus;
   driver: string;
   servingsPerWeek: number;

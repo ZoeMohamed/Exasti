@@ -79,7 +79,7 @@ export function MenuForm({
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Ambil komoditas langsung dari database Supabase
+  // Ambil daftar bahan langsung dari database Supabase
   useEffect(() => {
     fetch("/api/commodities")
       .then((r) => r.json())
@@ -205,7 +205,7 @@ export function MenuForm({
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan jaringan saat menyimpan ke database.");
+      alert("Menu belum tersimpan. Periksa koneksi lalu coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -215,13 +215,13 @@ export function MenuForm({
     <div className="space-y-8">
       <section className="bg-white p-6 sm:p-8 brutal-card">
         <span className="mb-2 inline-block bg-accent-green px-2.5 py-0.5 font-mono text-xs font-bold uppercase text-white">
-          Simpan Langsung ke Supabase Database
+          Perhitungan Otomatis
         </span>
         <h1 className="font-heading text-3xl font-extrabold sm:text-4xl">
           {edit ? "Edit Catatan Resep Menu" : "“Sekali masak, kamu belanja berapa banyak?”"}
         </h1>
         <p className="mt-2 max-w-2xl text-sm font-medium text-ink/80 sm:text-lg">
-          Isi takaran belanja sekali masak dalam satuan kilogram atau liter. Takar akan otomatis menghitung modal per porsi berdasarkan harga komoditas pasar Bank Indonesia hari ini.
+          Isi jumlah bahan untuk sekali masak. Takar akan menghitung modal setiap porsi memakai harga bahan terbaru yang tersedia.
         </p>
       </section>
 
@@ -282,7 +282,7 @@ export function MenuForm({
               className="mt-1 w-full bg-white p-3 font-mono brutal-border-2 focus:bg-warning-yellow/10 focus:outline-none"
             />
             <span className="font-mono text-xs text-ink/60 mt-1 block">
-              Dipakai untuk pembobotan prioritas menu
+              Membantu Takar mendahulukan menu yang paling sering terjual
             </span>
           </label>
         </div>
@@ -294,7 +294,7 @@ export function MenuForm({
               Bahan Pokok Sekali Masak:
             </h2>
             <span className="font-mono text-xs text-ink/70">
-              Harga ditarik langsung dari tabel commodities Supabase
+              Harga bahan terbaru sudah disiapkan Takar
             </span>
           </div>
 
@@ -305,12 +305,12 @@ export function MenuForm({
             return (
               <div key={index} className="space-y-3 bg-white p-4 brutal-border-2">
                 <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
                     <span className="font-heading font-bold text-sm">Bahan {index + 1}:</span>
                     <select
                       value={row.commodityId}
                       onChange={(e) => handleCommodityChange(index, e.target.value)}
-                      className="bg-cream font-heading font-bold p-2 text-xs brutal-border-2 flex-1 max-w-sm"
+                      className="w-full min-w-0 flex-1 bg-cream p-2 font-heading text-xs font-bold brutal-border-2 sm:max-w-sm"
                     >
                       {availableCommodities.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -369,7 +369,7 @@ export function MenuForm({
             onClick={addIngredient}
             className="brutal-btn bg-white px-4 py-2 text-xs font-heading font-bold"
           >
-            + Tambah Bahan Lain dari Database
+            Tambah Bahan Lain
           </button>
         </div>
 
@@ -420,7 +420,7 @@ export function MenuForm({
             <strong>{formatRupiah(sellPrice)}</strong>
           </div>
           <div className="flex justify-between pt-1">
-            <span>UNTUNG BERSIH PER PORSI:</span>
+            <span>SISA SETELAH MODAL PER PORSI:</span>
             <strong className={estimatedProfit > 0 ? "text-bright-green text-base" : "text-critical-red text-base"}>
               {formatRupiah(estimatedProfit)} ({estimatedMargin}%)
             </strong>
@@ -429,7 +429,7 @@ export function MenuForm({
 
         {saved && (
           <div className="bg-bright-green p-3 font-mono text-sm font-bold text-ink brutal-border-2 text-center">
-            ✅ Sukses! Menu & takaran resep telah berhasil disimpan ke database Supabase. Mengalihkan...
+            Menu dan resep berhasil disimpan. Membuka daftar menu...
           </div>
         )}
 
@@ -439,7 +439,7 @@ export function MenuForm({
             disabled={loading || saved}
             className="brutal-btn flex-1 bg-critical-red px-6 py-3.5 font-heading font-extrabold text-white disabled:opacity-50"
           >
-            {loading ? "Menyimpan ke Supabase..." : saved ? "Tersimpan ✓" : edit ? "Simpan Perubahan ke Database ➔" : "Simpan Menu Baru ke Supabase ➔"}
+            {loading ? "Menyimpan..." : saved ? "Sudah Tersimpan" : edit ? "Simpan Perubahan" : "Simpan Menu Baru"}
           </button>
           <Link
             href="/dashboard/menu"

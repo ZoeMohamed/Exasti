@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatRupiah } from "@/lib/formatRupiah";
+import { simulatePrice } from "@/lib/calculations/simulator";
 
 interface MenuItemOption {
   id: string;
@@ -11,8 +12,14 @@ interface MenuItemOption {
   price: number;
   modal: number;
   profit: number;
-  margin: number;
-  status: "sehat" | "tipis" | "rugi";
+  status: "sehat" | "tipis" | "rugi" | "diistirahatkan";
+}
+
+interface IngredientResponse {
+  name: string;
+  unitPrice: number;
+  cost: number;
+  source: "DATA PASAR" | "HARGA KAMU" | "PERKIRAAN";
 }
 
 function SimulatorContent() {
@@ -20,8 +27,9 @@ function SimulatorContent() {
   const initialPrice = Number(searchParams.get("price")) || 18000;
 
   const [menus, setMenus] = useState<MenuItemOption[]>([]);
-  const [selectedMenuId, setSelectedMenuId] = useState("ayam-geprek");
+  const [selectedMenuId, setSelectedMenuId] = useState("");
   const [loadingMenu, setLoadingMenu] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Ingredient 1 & 2 definitions for the selected menu
   const [ing1, setIng1] = useState({ name: "Daging Ayam Ras Segar", basePrice: 40500, portionQty: 0.25, unit: "kg" });
@@ -39,68 +47,91 @@ function SimulatorContent() {
       .then((data) => {
         if (data.status === "ok" && data.menus) {
           setMenus(data.menus);
+          if (data.menus.length > 0) {
+            setSelectedMenuId(data.menus[0].id);
+          } else {
+            setLoadingMenu(false);
+          }
         }
       })
-      .catch(console.error);
+      .catch(() => {
+        setErrorMessage("Daftar menu belum dapat dimuat. Coba segarkan halaman.");
+        setLoadingMenu(false);
+      });
   }, []);
 
   // 2. Ambil komposisi resep menu yang dipilih dari database
   useEffect(() => {
-    setLoadingMenu(true);
+    if (!selectedMenuId) return;
     fetch(`/api/menus/${selectedMenuId}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.status === "ok" && data.ingredients) {
-          const mainIngs = data.ingredients.filter((i: any) => i.source === "DATA PASAR");
+          const ingredients = data.ingredients as IngredientResponse[];
+          const mainIngs = ingredients.filter(
+            (ingredient) => ingredient.source === "DATA PASAR" || ingredient.source === "HARGA KAMU",
+          );
           if (mainIngs.length > 0) {
             const first = mainIngs[0];
-            const q1 = parseFloat(first.quantity.split(" ")[0]) || 0.25;
             setIng1({
               name: first.name,
               basePrice: first.unitPrice || 40500,
-              portionQty: q1,
+              portionQty: first.unitPrice > 0 ? first.cost / first.unitPrice : 0,
               unit: "kg",
             });
           }
           if (mainIngs.length > 1) {
             const second = mainIngs[1];
-            const q2 = parseFloat(second.quantity.split(" ")[0]) || 0.015;
             setIng2({
               name: second.name,
               basePrice: second.unitPrice || 63750,
-              portionQty: q2,
+              portionQty: second.unitPrice > 0 ? second.cost / second.unitPrice : 0,
               unit: "kg",
             });
+          } else {
+            setIng2({ name: "Bahan kedua belum ada", basePrice: 0, portionQty: 0, unit: "kg" });
           }
 
-          const fixedTotal = data.ingredients
-            .filter((i: any) => i.source === "PERKIRAAN")
-            .reduce((acc: number, curr: any) => acc + curr.cost, 0);
-          setOtherCost(fixedTotal || 1500);
+          const simulatedIngredientCost = mainIngs
+            .slice(0, 2)
+            .reduce((total, ingredient) => total + Number(ingredient.cost || 0), 0);
+          setOtherCost(Math.max(0, Number(data.menu?.modal || 0) - simulatedIngredientCost));
 
           if (data.menu?.sellPrice) {
             setJual(data.menu.sellPrice);
           }
+          setErrorMessage(null);
+        } else {
+          setErrorMessage(data.error || "Rincian menu belum dapat dimuat.");
         }
       })
-      .catch(console.error)
+      .catch(() => setErrorMessage("Rincian menu belum dapat dimuat. Coba lagi."))
       .finally(() => setLoadingMenu(false));
   }, [selectedMenuId]);
 
   // Kalkulasi Simulasi
-  const simPrice1 = Math.round(ing1.basePrice * (1 + slider1Pct / 100));
-  const simPrice2 = Math.round(ing2.basePrice * (1 + slider2Pct / 100));
-
-  const cost1 = Math.round(ing1.portionQty * simPrice1);
-  const cost2 = Math.round(ing2.portionQty * simPrice2);
-
-  const totalModal = cost1 + cost2 + otherCost;
-  const profit = jual - totalModal;
-  const margin = jual > 0 ? (profit / jual) * 100 : 0;
-
-  const healthy = margin >= 15;
-  const loss = profit < 0;
-  const status = loss ? "rugi" : healthy ? "sehat" : "tipis";
+  const simulation = simulatePrice({
+    ayamPercent: slider1Pct,
+    cabaiPercent: slider2Pct,
+    sellingPrice: jual,
+    baseAyamPrice: ing1.basePrice,
+    baseCabaiPrice: ing2.basePrice,
+    portionAyamQty: ing1.portionQty,
+    portionCabaiQty: ing2.portionQty,
+    otherIngredientsCost: otherCost,
+  });
+  const {
+    simAyamPrice: simPrice1,
+    simCabaiPrice: simPrice2,
+    ayamCost: cost1,
+    cabaiCost: cost2,
+    modal: totalModal,
+    profit,
+    margin: profitRate,
+    status,
+  } = simulation;
+  const healthy = status === "sehat";
+  const loss = status === "rugi";
 
   return (
     <div className="space-y-8">
@@ -109,30 +140,33 @@ function SimulatorContent() {
           href="/dashboard"
           className="brutal-btn bg-white px-3 py-1.5 font-mono text-xs font-bold"
         >
-          ⬅ Kembali ke Beranda
+          Kembali ke Beranda
         </Link>
         <span className="bg-warning-yellow px-2 py-1 font-mono text-xs font-bold brutal-border-2">
-          Simulator Dinamis · Terhubung Penuh ke Database Supabase
+          Perubahan di sini belum mengubah harga jual
         </span>
       </div>
 
       <section className="bg-white p-6 sm:p-8 brutal-card">
         <span className="bg-critical-red px-2.5 py-0.5 font-mono text-xs font-bold text-white">
-          EKSPERIMEN TANPA TAKUT RUGI
+          COBA SEBELUM GANTI HARGA
         </span>
         <h1 className="mt-2 font-heading text-3xl font-extrabold sm:text-4xl lg:text-5xl">
           “Kalau harga bahan naik, untungmu jadi berapa?”
         </h1>
         <p className="mt-2 max-w-3xl text-ink/80 text-sm sm:text-base">
-          Pilih menu apa saja dari warungmu, lalu geser tuas harga bahan untuk menguji ketahanan margin keuntunganmu.
+          Pilih menu, lalu geser harga bahan untuk melihat sisa untung setiap porsinya.
         </p>
 
         {/* Menu Selector */}
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t-2 border-ink/20 pt-4">
-          <span className="font-heading font-bold text-sm">PILIH MENU DARI DATABASE:</span>
+          <span className="font-heading font-bold text-sm">PILIH MENU:</span>
           <select
             value={selectedMenuId}
-            onChange={(e) => setSelectedMenuId(e.target.value)}
+            onChange={(event) => {
+              setLoadingMenu(true);
+              setSelectedMenuId(event.target.value);
+            }}
             className="bg-cream font-heading font-extrabold text-sm p-2.5 brutal-border-2 max-w-md"
           >
             {menus.map((m) => (
@@ -144,16 +178,20 @@ function SimulatorContent() {
         </div>
       </section>
 
-      {loadingMenu ? (
+      {errorMessage ? (
+        <div role="alert" className="bg-critical-red p-5 font-heading font-bold text-white brutal-card">
+          {errorMessage}
+        </div>
+      ) : loadingMenu ? (
         <div className="p-12 font-mono text-center bg-white brutal-card">
-          Memuat resep menu dari database Supabase...
+          Menyiapkan resep menu...
         </div>
       ) : (
         <div className="grid items-start gap-8 lg:grid-cols-12">
           <div className="space-y-8 bg-white p-6 sm:p-8 brutal-card lg:col-span-7">
             <Slider
-              label={`1. SIMULASI ${ing1.name.toUpperCase()}`}
-              subtext={`Dasar BI: ${formatRupiah(ing1.basePrice)}/${ing1.unit} ➔ Simulasi: ${formatRupiah(simPrice1)}/${ing1.unit}`}
+              label={`1. COBA HARGA ${ing1.name.toUpperCase()}`}
+              subtext={`Harga sekarang ${formatRupiah(ing1.basePrice)}/${ing1.unit}, dicoba menjadi ${formatRupiah(simPrice1)}/${ing1.unit}`}
               value={slider1Pct}
               min={-20}
               max={50}
@@ -161,8 +199,8 @@ function SimulatorContent() {
             />
 
             <Slider
-              label={`2. SIMULASI ${ing2.name.toUpperCase()}`}
-              subtext={`Dasar BI: ${formatRupiah(ing2.basePrice)}/${ing2.unit} ➔ Simulasi: ${formatRupiah(simPrice2)}/${ing2.unit}`}
+              label={`2. COBA HARGA ${ing2.name.toUpperCase()}`}
+              subtext={`Harga sekarang ${formatRupiah(ing2.basePrice)}/${ing2.unit}, dicoba menjadi ${formatRupiah(simPrice2)}/${ing2.unit}`}
               value={slider2Pct}
               min={-30}
               max={100}
@@ -181,16 +219,16 @@ function SimulatorContent() {
             />
 
             <div className="bg-cream p-4 font-mono text-xs border border-ink space-y-1.5">
-              <div className="font-bold text-ink uppercase">Komposisi Takaran Resep Per Porsi:</div>
-              <div>• {ing1.name}: {ing1.portionQty.toFixed(3)} {ing1.unit} × {formatRupiah(simPrice1)} = <b>{formatRupiah(cost1)}</b></div>
-              <div>• {ing2.name}: {ing2.portionQty.toFixed(3)} {ing2.unit} × {formatRupiah(simPrice2)} = <b>{formatRupiah(cost2)}</b></div>
-              <div>• Biaya bahan pelengkap & kemasan: <b>{formatRupiah(otherCost)}</b></div>
+              <div className="font-bold text-ink uppercase">Takaran untuk satu porsi:</div>
+              <div>{ing1.name}: {ing1.portionQty.toFixed(3)} {ing1.unit} × {formatRupiah(simPrice1)} = <b>{formatRupiah(cost1)}</b></div>
+              <div>{ing2.name}: {ing2.portionQty.toFixed(3)} {ing2.unit} × {formatRupiah(simPrice2)} = <b>{formatRupiah(cost2)}</b></div>
+              <div>Bahan pelengkap dan kemasan: <b>{formatRupiah(otherCost)}</b></div>
             </div>
           </div>
 
           <div className="space-y-6 bg-ink p-6 text-cream brutal-card lg:col-span-5">
             <div className="flex justify-between border-b border-white/20 pb-3 font-mono text-xs">
-              <span>HASIL DAMPAK NYATA:</span>
+              <span>HASIL PERCOBAAN:</span>
               <b
                 className={`px-2 py-0.5 ${
                   healthy
@@ -206,7 +244,7 @@ function SimulatorContent() {
 
             <div>
               <span className="font-mono text-xs text-cream/70">
-                PERKIRAAN UNTUNG BERSIH:
+                SISA SETELAH MODAL PER PORSI:
               </span>
               <div
                 className={`font-mono text-5xl font-black ${
@@ -220,7 +258,7 @@ function SimulatorContent() {
                 {formatRupiah(profit)}
               </div>
               <span className="font-mono text-xs text-cream/70">
-                per porsi ({margin.toFixed(1)}% margin)
+                {profitRate.toFixed(1)} dari tiap seratus rupiah penjualan
               </span>
             </div>
 
@@ -228,10 +266,14 @@ function SimulatorContent() {
               <Row label="Harga Jualmu" value={formatRupiah(jual)} />
               <Row label="Total Modal Baru" value={formatRupiah(totalModal)} />
               <Row
-                label="Untung Bersih"
+                label="Sisa Setelah Modal"
                 value={`${profit >= 0 ? "+" : ""}${formatRupiah(profit)} / porsi`}
               />
             </div>
+
+            <p className="font-mono text-[11px] leading-relaxed text-cream/70">
+              Belum dikurangi sewa tempat, listrik bulanan, dan gaji pemilik.
+            </p>
 
             <div
               className={`p-3 text-xs leading-relaxed border-2 ${
@@ -243,17 +285,17 @@ function SimulatorContent() {
               }`}
             >
               {loss
-                ? "🚨 RUGI: Harga jual tidak menutup modal porsi. Segera naikkan harga jual atau kurangi takaran bahan."
+                ? "RUGI: Harga jual belum menutup modal satu porsi. Naikkan harga jual atau kurangi takaran bahan."
                 : healthy
-                  ? `AMAN. Untungnya ${margin.toFixed(1)} dari tiap seratus rupiah penjualan — masih kuat menahan harga naik.`
-                  : `⚠️ UNTUNG TIPIS (${margin.toFixed(1)}%): Sangat rentan tergerus jika harga bahan naik lagi. Disarankan jual di ${formatRupiah(Math.ceil((totalModal / 0.85) / 500) * 500)}.`}
+                  ? `AMAN. Untungnya ${profitRate.toFixed(1)} dari tiap seratus rupiah penjualan — masih kuat menahan harga naik.`
+                  : `UNTUNG TIPIS (${profitRate.toFixed(1)}%): Untung mudah habis jika harga bahan naik lagi. Coba jual di ${formatRupiah(Math.ceil((totalModal / 0.85) / 500) * 500)}.`}
             </div>
 
             <Link
               href={`/dashboard/menu/${selectedMenuId}`}
               className="brutal-btn block w-full bg-white text-center py-2.5 text-xs font-heading font-extrabold text-ink"
             >
-              Lihat Rincian Lengkap Menu Ini ➔
+              Lihat Rincian Menu Ini
             </Link>
           </div>
         </div>

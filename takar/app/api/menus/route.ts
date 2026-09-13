@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDbMenus, createDbMenu, periksaResepSebelumSimpan } from "@/lib/services/menu-engine";
+import { apiError, requireApiBusinessId } from "@/lib/auth/api";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    await requireApiBusinessId();
     const { menus, latestDate } = await getDbMenus();
     return NextResponse.json({
       status: "ok",
@@ -12,13 +14,13 @@ export async function GET() {
       menus,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Gagal mengambil data menu";
-    return NextResponse.json({ status: "error", message }, { status: 500 });
+    return apiError(err, "Gagal mengambil data menu");
   }
 }
 
 export async function POST(req: Request) {
   try {
+    await requireApiBusinessId();
     const body = await req.json();
 
     if (!body.name || !body.sellPrice || !body.batchYield) {
@@ -57,14 +59,13 @@ export async function POST(req: Request) {
     if (menuId) {
       return NextResponse.json({
         status: "ok",
-        message: `Menu "${body.name}" berhasil disimpan ke Supabase`,
+        message: `Menu "${body.name}" berhasil disimpan`,
         menuId,
       });
     }
 
-    return NextResponse.json({ error: "Gagal menyimpan menu ke database" }, { status: 500 });
+    return NextResponse.json({ error: "Menu belum berhasil disimpan" }, { status: 500 });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Gagal menyimpan menu";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(err, "Gagal menyimpan menu");
   }
 }

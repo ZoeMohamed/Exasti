@@ -1,7 +1,10 @@
 import { cache } from "react";
-import { queryDb } from "../db/client";
+import {
+  getCurrentBusinessId,
+  queryAppDb,
+  withAppTransaction,
+} from "../auth/context";
 import { keIsoTanggal } from "../tanggal";
-import { formatRupiah } from "../formatRupiah";
 import type { Menu, Ingredient } from "@/types/menu";
 import {
   hitungHpp, hitungMargin, kesehatan, cariPendorong, cariPembanding,
@@ -14,10 +17,11 @@ import {
  * pembanding 7 hari untuk BR-04. Menggantikan kueri per-menu yang lama
  * berikut fallback harga karangan Rp 25.000.
  */
-const muatSemuaBahan = cache(async function (): Promise<Map<string, BahanResep[]>> {
-  const res = await queryDb(
+const muatSemuaBahan = cache(async function (businessId: string): Promise<Map<string, BahanResep[]>> {
+  const res = await queryAppDb(
     `select menu_item_id, commodity_id, nama, qty, harga, harga_lalu, dari_data
-     from resep_efektif`,
+     from resep_efektif where business_id = $1`,
+    [businessId],
   );
   const peta = new Map<string, BahanResep[]>();
   for (const r of res?.rows ?? []) {
@@ -35,10 +39,14 @@ const muatSemuaBahan = cache(async function (): Promise<Map<string, BahanResep[]
   return peta;
 });
 
-const muatSemuaBiayaTetap = cache(async function (): Promise<Map<string, number>> {
-  const res = await queryDb(
-    `select menu_item_id, coalesce(sum(amount), 0) total
-     from fixed_costs group by menu_item_id`,
+const muatSemuaBiayaTetap = cache(async function (businessId: string): Promise<Map<string, number>> {
+  const res = await queryAppDb(
+    `select fc.menu_item_id, coalesce(sum(fc.amount), 0) total
+     from fixed_costs fc
+     join menu_items m on m.id = fc.menu_item_id
+     where m.business_id = $1
+     group by fc.menu_item_id`,
+    [businessId],
   );
   const peta = new Map<string, number>();
   for (const r of res?.rows ?? []) peta.set(r.menu_item_id, Number(r.total));
@@ -64,8 +72,8 @@ export interface DbMenuDetail {
   weeklyVolume: number;
   modal: number;
   profit: number;
-  margin: number;
-  status: "sehat" | "tipis" | "rugi";
+  profitRate: number;
+  status: "sehat" | "tipis" | "rugi" | "diistirahatkan";
   driver: string;
   ingredients: Ingredient[];
   driverNote: {
@@ -91,17 +99,6 @@ export interface DbMenuDetail {
   bahanTanpaHarga?: number;
 }
 
-function nameToSlug(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("geprek")) return "ayam-geprek";
-  if (n.includes("bakar")) return "ayam-bakar-madu";
-  if (n.includes("goreng") && n.includes("nasi")) return "nasi-goreng";
-  if (n.includes("lele")) return "pecel-lele";
-  if (n.includes("mie") || n.includes("dok")) return "mie-dok-dok";
-  if (n.includes("teh")) return "es-teh-jumbo";
-  return n.replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
-
 function getMenuIcon(name: string): string {
   const n = name.toLowerCase();
   if (n.includes("ayam")) return "🍗";
@@ -123,17 +120,23 @@ function getMenuIcon(name: string): string {
  */
 export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; latestDate: string }> {
   try {
-    const res = await queryDb(
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(
       `select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active,
               (select max(date) from prices
-               where region_id = b.region_id and business_id is null) as latest_price_date
+               where region_id = b.region_id and business_id is null
+                 and not is_filled) as latest_price_date
        from menu_items m
        join businesses b on b.id = m.business_id
-       where m.active`,
+       where m.business_id = $1`,
+      [businessId],
     );
     if (!res || res.rows.length === 0) return { menus: [], latestDate: "" };
 
-    const [petaBahan, petaBiaya] = await Promise.all([muatSemuaBahan(), muatSemuaBiayaTetap()]);
+    const [petaBahan, petaBiaya] = await Promise.all([
+      muatSemuaBahan(businessId),
+      muatSemuaBiayaTetap(businessId),
+    ]);
     const latestDate = keIsoTanggal(res.rows[0].latest_price_date) ?? "";
 
     const menus: Menu[] = res.rows.map((row) => {
@@ -155,8 +158,8 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
         price: sellPrice,
         modal: hpp,
         profit: sellPrice - hpp,
-        margin,
-        status: kesehatan(margin),
+        profitRate: margin,
+        status: row.active ? kesehatan(margin) : "diistirahatkan",
         driver: pendorong ? pendorong.nama : "Harga bahan stabil",
         servingsPerWeek: row.weekly_volume ?? 0,
         category: row.name.toLowerCase().includes("teh") ? "Minuman" : "Makanan Utama",
@@ -164,12 +167,16 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
     });
 
     // FR-21 — terurut dari untung paling tipis
-    menus.sort((a, b) => a.profit - b.profit);
+    menus.sort((a, b) => {
+      if (a.status === "diistirahatkan" && b.status !== "diistirahatkan") return 1;
+      if (a.status !== "diistirahatkan" && b.status === "diistirahatkan") return -1;
+      return a.profit - b.profit;
+    });
 
     return { menus, latestDate };
   } catch (err) {
     console.error("Error getDbMenus:", err);
-    return { menus: [], latestDate: "" };
+    throw err;
   }
 });
 
@@ -179,14 +186,16 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
  */
 export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetail | null> {
   try {
-    const menuRes = await queryDb(
+    const businessId = await getCurrentBusinessId();
+    const menuRes = await queryAppDb(
       `select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active
        from menu_items m
-       where m.id::text = $1
-          or lower(m.name) like $2
-          or lower(replace(m.name, ' ', '-')) like $2
+       where m.business_id = $1
+         and (m.id::text = $2
+          or lower(m.name) = $3
+          or lower(replace(m.name, ' ', '-')) = $3)
        limit 1`,
-      [menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`],
+      [businessId, menuIdOrSlug, menuIdOrSlug.replace(/-/g, " ").toLowerCase()],
     );
     if (!menuRes || menuRes.rows.length === 0) return null;
 
@@ -196,17 +205,17 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     // Empat kueri berikut tidak saling bergantung. Dijalankan berurutan,
     // masing-masing menunggu ~180 ms ke Mumbai; dijalankan bersamaan,
     // totalnya tinggal satu kali tunggu.
-    const fcPromise = queryDb(
+    const fcPromise = queryAppDb(
       `select label, amount, is_estimated from fixed_costs where menu_item_id = $1`,
       [m.id],
     );
-    const margin30Promise = queryDb(
+    const margin30Promise = queryAppDb(
       `select margin_pct from margin_snapshots
        where menu_item_id = $1 and date <= current_date - 30
        order by date desc limit 1`,
       [m.id],
     );
-    const histPromise = queryDb(
+    const histPromise = queryAppDb(
       `select date, hpp, sell_price, margin_pct, round(sell_price - hpp) as untung
        from margin_snapshots where menu_item_id = $1
        order by date desc limit 30`,
@@ -214,7 +223,7 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     );
 
     // ── bahan lewat resep_efektif ──
-    const bahanRes = await queryDb(
+    const bahanRes = await queryAppDb(
       `select commodity_id, nama, satuan, qty, batch_qty, harga, harga_lalu,
               dari_data, alasan, harga_diisi_mundur, bi_tanggal
        from resep_efektif where menu_item_id = $1`,
@@ -319,8 +328,8 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
       weeklyVolume: m.weekly_volume ?? 0,
       modal: hpp,
       profit: sellPrice - hpp,
-      margin,
-      status: kesehatan(margin),
+      profitRate: margin,
+      status: m.active ? kesehatan(margin) : "diistirahatkan",
       driver: pendorong ? pendorong.nama : "Harga bahan stabil",
       ingredients,
       // FR-24 — blok "gara-gara X, bukan Y"
@@ -343,7 +352,7 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     };
   } catch (err) {
     console.error("Error getDbMenuDetail:", err);
-    return null;
+    throw err;
   }
 }
 
@@ -359,43 +368,41 @@ export async function createDbMenu(data: {
   fixedCosts?: Array<{ label: string; amount: number }>;
 }): Promise<string | null> {
   try {
-    const bizRes = await queryDb(`SELECT id FROM businesses LIMIT 1;`);
-    const businessId = bizRes?.rows[0]?.id || "00000000-0000-0000-0000-000000000001";
-
-    // Insert menu_item
-    const mRes = await queryDb(
-      `INSERT INTO menu_items (business_id, name, sell_price, batch_yield, weekly_volume, active)
-       VALUES ($1, $2, $3, $4, $5, true)
-       RETURNING id;`,
-      [businessId, data.name, data.sellPrice, data.batchYield, data.weeklyVolume || 100]
-    );
-
-    if (!mRes || mRes.rows.length === 0) return null;
-    const menuId = mRes.rows[0].id;
-
-    // Insert recipe_items
-    for (const r of data.recipe) {
-      const perPortionQty = r.batchQty / data.batchYield;
-      await queryDb(
-        `INSERT INTO recipe_items (menu_item_id, commodity_id, batch_qty, qty, note)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (menu_item_id, commodity_id) DO UPDATE SET batch_qty = EXCLUDED.batch_qty, qty = EXCLUDED.qty;`,
-        [menuId, r.commodityId, r.batchQty, perPortionQty, r.note || null]
+    const businessId = await getCurrentBusinessId();
+    return await withAppTransaction(async (query) => {
+      const mRes = await query<{ id: string }>(
+        `insert into menu_items (business_id, name, sell_price, batch_yield, weekly_volume, active)
+         values ($1, $2, $3, $4, $5, true)
+         returning id`,
+        [businessId, data.name, data.sellPrice, data.batchYield, data.weeklyVolume ?? null],
       );
-    }
+      const menuId = mRes.rows[0]?.id;
+      if (!menuId) throw new Error("Menu tidak berhasil dibuat.");
 
-    // Insert fixed_costs
-    if (data.fixedCosts && data.fixedCosts.length > 0) {
-      for (const fc of data.fixedCosts) {
-        await queryDb(
-          `INSERT INTO fixed_costs (menu_item_id, label, amount, is_estimated)
-           VALUES ($1, $2, $3, true);`,
-          [menuId, fc.label, fc.amount]
+      for (const recipe of data.recipe) {
+        await query(
+          `insert into recipe_items (menu_item_id, commodity_id, batch_qty, qty, note)
+           values ($1, $2, $3, $4, $5)`,
+          [
+            menuId,
+            recipe.commodityId,
+            recipe.batchQty,
+            recipe.batchQty / data.batchYield,
+            recipe.note || null,
+          ],
         );
       }
-    }
 
-    return menuId;
+      for (const fixedCost of data.fixedCosts ?? []) {
+        await query(
+          `insert into fixed_costs (menu_item_id, label, amount, is_estimated)
+           values ($1, $2, $3, true)`,
+          [menuId, fixedCost.label, fixedCost.amount],
+        );
+      }
+
+      return menuId;
+    });
   } catch (err) {
     console.error("Error createDbMenu:", err);
     return null;
@@ -407,19 +414,35 @@ export async function createDbMenu(data: {
  */
 export async function updateDbMenuPrice(menuIdOrSlug: string, newPrice: number): Promise<boolean> {
   try {
-    const res = await queryDb(
-      `UPDATE menu_items
-       SET sell_price = $1
-       WHERE id::text = $2 
-          OR lower(name) LIKE $3
-          OR lower(replace(name, ' ', '-')) LIKE $3;`,
-      [newPrice, menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`]
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(
+      `update menu_items
+       set sell_price = $1
+       where business_id = $2
+         and (id::text = $3
+          or lower(name) = $4
+          or lower(replace(name, ' ', '-')) = $4)`,
+      [newPrice, businessId, menuIdOrSlug, menuIdOrSlug.replace(/-/g, " ").toLowerCase()],
     );
     return Boolean(res && res.rowCount && res.rowCount > 0);
   } catch (err) {
     console.error("Error updateDbMenuPrice:", err);
     return false;
   }
+}
+
+export async function updateDbMenuActive(menuIdOrSlug: string, active: boolean): Promise<boolean> {
+  const businessId = await getCurrentBusinessId();
+  const result = await queryAppDb(
+    `update menu_items
+     set active = $1
+     where business_id = $2
+       and (id::text = $3
+        or lower(name) = $4
+        or lower(replace(name, ' ', '-')) = $4)`,
+    [active, businessId, menuIdOrSlug, menuIdOrSlug.replace(/-/g, " ").toLowerCase()],
+  );
+  return Boolean(result.rowCount);
 }
 
 /**
@@ -437,57 +460,54 @@ export async function updateDbMenuComplete(
   }
 ): Promise<boolean> {
   try {
-    // 1. Temukan UUID menu
-    const mRes = await queryDb(
-      `SELECT id, batch_yield FROM menu_items
-       WHERE id::text = $1 
-          OR lower(name) LIKE $2 
-          OR lower(replace(name, ' ', '-')) LIKE $2
-       LIMIT 1;`,
-      [menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`]
-    );
+    const businessId = await getCurrentBusinessId();
+    return await withAppTransaction(async (query) => {
+      const mRes = await query<{ id: string; batch_yield: number }>(
+        `select id, batch_yield from menu_items
+         where business_id = $1
+           and (id::text = $2
+            or lower(name) = $3
+            or lower(replace(name, ' ', '-')) = $3)
+         limit 1`,
+        [businessId, menuIdOrSlug, menuIdOrSlug.replace(/-/g, " ").toLowerCase()],
+      );
+      const menu = mRes.rows[0];
+      if (!menu) return false;
+      const yieldCount = data.batchYield ?? menu.batch_yield;
 
-    if (!mRes || mRes.rows.length === 0) return false;
-    const menuId = mRes.rows[0].id;
-    const yieldCount = data.batchYield || mRes.rows[0].batch_yield || 8;
+      await query(
+        `update menu_items
+         set name = coalesce($1, name),
+             sell_price = coalesce($2, sell_price),
+             batch_yield = coalesce($3, batch_yield),
+             weekly_volume = coalesce($4, weekly_volume)
+         where id = $5 and business_id = $6`,
+        [data.name ?? null, data.sellPrice ?? null, data.batchYield ?? null, data.weeklyVolume ?? null, menu.id, businessId],
+      );
 
-    // 2. Update kolom menu_items
-    await queryDb(
-      `UPDATE menu_items
-       SET name = coalesce($1, name),
-           sell_price = coalesce($2, sell_price),
-           batch_yield = coalesce($3, batch_yield),
-           weekly_volume = coalesce($4, weekly_volume)
-       WHERE id = $5;`,
-      [data.name || null, data.sellPrice || null, data.batchYield || null, data.weeklyVolume || null, menuId]
-    );
-
-    // 3. Update resep bila dikirim
-    if (data.recipe && data.recipe.length > 0) {
-      await queryDb(`DELETE FROM recipe_items WHERE menu_item_id = $1;`, [menuId]);
-      for (const r of data.recipe) {
-        const perPortionQty = r.batchQty / yieldCount;
-        await queryDb(
-          `INSERT INTO recipe_items (menu_item_id, commodity_id, batch_qty, qty, note)
-           VALUES ($1, $2, $3, $4, $5);`,
-          [menuId, r.commodityId, r.batchQty, perPortionQty, r.note || null]
-        );
+      if (data.recipe !== undefined) {
+        await query("delete from recipe_items where menu_item_id = $1", [menu.id]);
+        for (const recipe of data.recipe) {
+          await query(
+            `insert into recipe_items (menu_item_id, commodity_id, batch_qty, qty, note)
+             values ($1, $2, $3, $4, $5)`,
+            [menu.id, recipe.commodityId, recipe.batchQty, recipe.batchQty / yieldCount, recipe.note || null],
+          );
+        }
       }
-    }
 
-    // 4. Update biaya tetap bila dikirim
-    if (data.fixedCosts && data.fixedCosts.length > 0) {
-      await queryDb(`DELETE FROM fixed_costs WHERE menu_item_id = $1;`, [menuId]);
-      for (const fc of data.fixedCosts) {
-        await queryDb(
-          `INSERT INTO fixed_costs (menu_item_id, label, amount, is_estimated)
-           VALUES ($1, $2, $3, true);`,
-          [menuId, fc.label, fc.amount]
-        );
+      if (data.fixedCosts !== undefined) {
+        await query("delete from fixed_costs where menu_item_id = $1", [menu.id]);
+        for (const fixedCost of data.fixedCosts) {
+          await query(
+            `insert into fixed_costs (menu_item_id, label, amount, is_estimated)
+             values ($1, $2, $3, true)`,
+            [menu.id, fixedCost.label, fixedCost.amount],
+          );
+        }
       }
-    }
-
-    return true;
+      return true;
+    });
   } catch (err) {
     console.error("Error updateDbMenuComplete:", err);
     return false;
@@ -499,34 +519,30 @@ export async function updateDbMenuComplete(
  */
 export const getDbBusinessProfile = cache(async function () {
   try {
-    const res = await queryDb(`
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(`
       SELECT b.id,
              b.name,
              b.packaging_mode,
              r.id as region_id,
              r.name as region_name,
-             (SELECT count(*) FROM menu_items WHERE active) as active_menus_count,
+             (SELECT count(*) FROM menu_items WHERE business_id = b.id AND active) as active_menus_count,
              (SELECT ran_at FROM ingest_runs ORDER BY ran_at DESC LIMIT 1) as last_ingest_time,
-             (SELECT max(date) FROM prices WHERE region_id = b.region_id AND business_id IS NULL) as latest_price_date
+             (SELECT max(date) FROM prices
+              WHERE region_id = b.region_id AND business_id IS NULL AND NOT is_filled) as latest_price_date
       FROM businesses b
       LEFT JOIN regions r ON r.id = b.region_id
+      WHERE b.id = $1
       LIMIT 1;
-    `);
+    `, [businessId]);
 
-    if (res && res.rows.length > 0) {
-      return res.rows[0];
-    }
+    const profile = res.rows[0];
+    if (!profile) throw new Error("Profil warung tidak ditemukan.");
+    return profile;
   } catch (err) {
     console.error("Error getDbBusinessProfile:", err);
+    throw err;
   }
-
-  return {
-    name: "Warung Bu Sri",
-    packaging_mode: "mixed",
-    region_name: "Kota Semarang",
-    active_menus_count: 6,
-    latest_price_date: "2026-09-11",
-  };
 });
 
 /**
@@ -538,12 +554,12 @@ export async function updateDbBusinessProfile(data: {
   regionId?: number;
 }): Promise<boolean> {
   try {
-    const res = await queryDb(
-      // WHERE wajib: tanpa ini satu penyimpanan menimpa SELURUH warung.
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(
       `update businesses
        set name = $1, packaging_mode = $2, region_id = coalesce($3, region_id)
-       where id = (select id from businesses order by created_at limit 1)`,
-      [data.name, data.packagingMode, data.regionId || null]
+       where id = $4`,
+      [data.name, data.packagingMode, data.regionId ?? null, businessId],
     );
     return Boolean(res && res.rowCount && res.rowCount > 0);
   } catch (err) {
@@ -589,12 +605,14 @@ export const updateMenuPrice = updateDbMenuPrice;
  */
 export async function hapusDbMenu(menuIdOrSlug: string): Promise<boolean> {
   try {
-    const res = await queryDb(
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(
       `delete from menu_items
-       where id::text = $1
-          or lower(name) like $2
-          or lower(replace(name, ' ', '-')) like $2`,
-      [menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`],
+       where business_id = $1
+         and (id::text = $2
+          or lower(name) = $3
+          or lower(replace(name, ' ', '-')) = $3)`,
+      [businessId, menuIdOrSlug, menuIdOrSlug.replace(/-/g, " ").toLowerCase()],
     );
     return Boolean(res?.rowCount);
   } catch (err) {
@@ -614,14 +632,29 @@ export async function periksaResepSebelumSimpan(
 ): Promise<Array<{ nama: string; biayaPerPorsi: number; pesan: string }>> {
   if (!recipe?.length || !batchYield || batchYield <= 0) return [];
 
+  const businessId = await getCurrentBusinessId();
   const ids = recipe.map((r) => r.commodityId);
-  const res = await queryDb(
-    `select lp.commodity_id, coalesce(c.name, ci.name, lp.commodity_id) nama, lp.price
-     from latest_prices lp
-     left join commodities   c  on c.id  = lp.commodity_id
-     left join catalog_items ci on ci.id = lp.commodity_id
-     where lp.commodity_id = any($1) and lp.business_id is null`,
-    [ids],
+  const res = await queryAppDb(
+    `select ids.commodity_id,
+            coalesce(c.name, ci.name, ids.commodity_id) nama,
+            coalesce(nota.price, pasar.price) price
+     from unnest($1::text[]) ids(commodity_id)
+     join businesses b on b.id = $2
+     left join commodities c on c.id = ids.commodity_id
+     left join catalog_items ci on ci.id = ids.commodity_id
+     left join lateral (
+       select p.price from prices p
+       where p.commodity_id = ids.commodity_id and p.region_id = b.region_id
+         and p.business_id = b.id
+       order by p.date desc limit 1
+     ) nota on true
+     left join lateral (
+       select p.price from prices p
+       where p.commodity_id = ids.commodity_id and p.region_id = b.region_id
+         and p.business_id is null
+       order by p.date desc limit 1
+     ) pasar on true`,
+    [ids, businessId],
   );
 
   const harga = new Map<string, { nama: string; price: number }>();

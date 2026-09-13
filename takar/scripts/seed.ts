@@ -289,7 +289,7 @@ async function seed() {
   for (let i = 0; i < pricePoints.length; i += CHUNK_SIZE) {
     const chunk = pricePoints.slice(i, i + CHUNK_SIZE);
     const valueClauses: string[] = [];
-    const values: any[] = [];
+    const values: Array<string | number> = [];
     let pIdx = 1;
 
     for (const item of chunk) {
@@ -311,9 +311,10 @@ async function seed() {
   // [6] Snapshot 30 hari untuk riwayat untung (ProfitHistory)
   console.log("[6] Menghitung & Menyimpan Snapshot Margin 30 Hari Terakhir...");
   const dateRes = await client.query(`
-    SELECT DISTINCT date FROM prices WHERE region_id = 1 AND business_id IS NULL ORDER BY date DESC LIMIT 30;
+    SELECT DISTINCT date::text as date FROM prices
+    WHERE region_id = 1 AND business_id IS NULL ORDER BY date DESC LIMIT 30;
   `);
-  const dates = dateRes.rows.map((r) => r.date.toISOString().split("T")[0]);
+  const dates = dateRes.rows.map((r) => String(r.date));
 
   for (const targetDate of dates) {
     // Ambil harga pada targetDate

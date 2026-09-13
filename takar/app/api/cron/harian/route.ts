@@ -6,30 +6,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { jalankanHarian } from "@/lib/services/harian";
 import { syncBiPricesToDatabase } from "@/lib/services/bi-ingest";
 import { queryDb } from "@/lib/db/client";
+import { authorizeSystemRequest } from "@/lib/auth/api";
 
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
-  // Vercel Cron mengirim header ini. Bila CRON_SECRET diisi, wajib cocok.
-  const rahasia = process.env.CRON_SECRET;
-  if (rahasia) {
-    const kirim = req.headers.get("authorization");
-    if (kirim !== `Bearer ${rahasia}`) {
-      return NextResponse.json({ error: "Tidak berwenang" }, { status: 401 });
-    }
-  }
+  const unauthorized = authorizeSystemRequest(req);
+  if (unauthorized) return unauthorized;
 
   const mulai = Date.now();
   const langkah: Record<string, unknown> = {};
   const lewatiIngest = req.nextUrl.searchParams.get("ingest") === "0";
-  let tanggal = req.nextUrl.searchParams.get("tanggal") || undefined;
+  const tanggal = req.nextUrl.searchParams.get("tanggal") || undefined;
 
   // 1. Tarik harga BI. FR-06: kegagalan dicatat, tidak menghentikan sisanya.
   if (!lewatiIngest) {
     try {
       const bi = await syncBiPricesToDatabase(14);
       langkah.ingest = { status: "ok", baris: bi.count, terbaru: bi.latestDate };
-      if (!tanggal) tanggal = bi.latestDate;
     } catch (err) {
       const pesan = err instanceof Error ? err.message : String(err);
       langkah.ingest = { status: "gagal", pesan };

@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
-import { keIsoTanggal, hariIniJakarta } from "@/lib/tanggal";
-import { queryDb } from "@/lib/db/client";
+import { hariIniJakarta } from "@/lib/tanggal";
+import {
+  getCurrentBusinessId,
+  queryAppDb,
+  withAppTransaction,
+} from "@/lib/auth/context";
+import { apiError } from "@/lib/auth/api";
 
 export const dynamic = "force-dynamic";
-
-const DEFAULT_BUSINESS_ID = "00000000-0000-0000-0000-000000000001";
 
 /**
  * [GET] Mengambil riwayat harga nota belanja warung sendiri
  */
 export async function GET() {
   try {
-    const res = await queryDb(
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(
       `SELECT p.commodity_id,
               coalesce(c.name, p.commodity_id) as name,
               coalesce(c.unit, 'kg') as unit,
@@ -24,7 +28,7 @@ export async function GET() {
        WHERE p.business_id = $1
        ORDER BY p.date DESC, p.fetched_at DESC
        LIMIT 20;`,
-      [DEFAULT_BUSINESS_ID]
+      [businessId],
     );
 
     return NextResponse.json({
@@ -32,8 +36,7 @@ export async function GET() {
       prices: res?.rows || [],
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Gagal mengambil riwayat nota";
-    return NextResponse.json({ status: "error", message }, { status: 500 });
+    return apiError(err, "Gagal mengambil riwayat nota");
   }
 }
 
@@ -42,47 +45,71 @@ export async function GET() {
  */
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { items, date } = body;
+    const businessId = await getCurrentBusinessId();
+    const body: unknown = await req.json();
+    const parsed = typeof body === "object" && body !== null
+      ? body as { items?: unknown; date?: unknown }
+      : {};
 
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(parsed.items) || parsed.items.length === 0) {
       return NextResponse.json(
         { status: "error", message: "Data belanja kosong atau tidak valid" },
         { status: 400 }
       );
     }
 
-    const targetDate = date || hariIniJakarta();
+    const targetDate = typeof parsed.date === "string" ? parsed.date : hariIniJakarta();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate) || Number.isNaN(Date.parse(`${targetDate}T00:00:00Z`))) {
+      return NextResponse.json(
+        { status: "error", message: "Tanggal belanja tidak valid." },
+        { status: 400 },
+      );
+    }
+
+    const items = parsed.items.flatMap((item) => {
+      if (typeof item !== "object" || item === null) return [];
+      const value = item as { commodity_id?: unknown; price?: unknown };
+      const commodityId = typeof value.commodity_id === "string" ? value.commodity_id.trim() : "";
+      const price = typeof value.price === "number" ? value.price : Number(value.price);
+      if (!commodityId || !Number.isFinite(price) || price <= 0) return [];
+      return [{ commodityId, price }];
+    });
+
+    if (items.length === 0) {
+      return NextResponse.json(
+        { status: "error", message: "Tidak ada harga valid untuk disimpan." },
+        { status: 400 },
+      );
+    }
 
     // Ambil region_id warung
-    const bRes = await queryDb(
+    const bRes = await queryAppDb<{ region_id: number }>(
       "SELECT region_id FROM businesses WHERE id = $1 LIMIT 1;",
-      [DEFAULT_BUSINESS_ID]
+      [businessId],
     );
-    const regionId = bRes?.rows[0]?.region_id || 1;
+    const regionId = bRes.rows[0]?.region_id;
+    if (!regionId) throw new Error("Wilayah warung belum dikonfigurasi.");
 
-    let savedCount = 0;
-    for (const item of items) {
-      if (!item.commodity_id || !item.price || item.price <= 0) continue;
-
-      // Q9: Simpan harga nota sendiri
-      await queryDb(
-        `INSERT INTO prices (commodity_id, region_id, business_id, date, price, source)
-         VALUES ($1, $2, $3, $4, $5, 'nota_ocr')
-         ON CONFLICT (commodity_id, region_id, date, business_id) WHERE business_id IS NOT NULL
-         DO UPDATE SET price = EXCLUDED.price, fetched_at = now();`,
-        [item.commodity_id, regionId, DEFAULT_BUSINESS_ID, targetDate, item.price]
-      );
-      savedCount++;
-    }
+    const savedCount = await withAppTransaction(async (query) => {
+      for (const item of items) {
+        await query(
+          `insert into prices (commodity_id, region_id, business_id, date, price, source)
+           values ($1, $2, $3, $4, $5, 'nota_ocr')
+           on conflict (commodity_id, region_id, date, business_id)
+             where business_id is not null
+           do update set price = excluded.price, fetched_at = now()`,
+          [item.commodityId, regionId, businessId, targetDate, item.price],
+        );
+      }
+      return items.length;
+    });
 
     return NextResponse.json({
       status: "ok",
-      message: `${savedCount} bahan dari nota berhasil dicatat ke database Supabase!`,
+      message: `${savedCount} harga bahan dari nota berhasil disimpan.`,
       savedCount,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Gagal menyimpan harga nota";
-    return NextResponse.json({ status: "error", message }, { status: 500 });
+    return apiError(err, "Gagal menyimpan harga nota");
   }
 }

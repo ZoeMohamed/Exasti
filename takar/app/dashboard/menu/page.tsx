@@ -27,7 +27,7 @@ export default async function MenuPage() {
             Menu Warung
           </h1>
           <p className="text-sm text-ink/70">
-            Total {menus.length} menu aktif dipantau secara langsung berdasarkan harga pasar
+          Total {menus.filter((menu) => menu.status !== "diistirahatkan").length} menu aktif dari {menus.length} menu dihitung memakai harga pasar
             Kota Semarang ({formattedDate}).
           </p>
         </div>
@@ -41,10 +41,10 @@ export default async function MenuPage() {
       <MenuList menus={menus} />
       <div className="bg-cream p-6 brutal-card">
         <h2 className="font-heading text-lg font-bold">
-          💡 Informasi Perhitungan Modal
+          Cara Takar Menghitung Modal
         </h2>
         <p className="mt-1 text-sm text-ink/80">
-          Setiap menu dihitung dari takaran resep batch (sekali masak) dibagi jumlah porsi yang dihasilkan, kemudian dikalikan harga harian komoditas Bank Indonesia.
+          Total bahan untuk sekali masak dibagi jumlah porsi yang dihasilkan. Hasilnya dihitung memakai harga bahan terbaru yang tersedia.
         </p>
       </div>
     </div>

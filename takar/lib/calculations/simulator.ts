@@ -26,8 +26,8 @@ export function simulatePrice({
   const cabaiCost = Math.round(portionCabaiQty * simCabaiPrice);
   const modal = ayamCost + cabaiCost + otherIngredientsCost;
   const profit = sellingPrice - modal;
-  const margin = (profit / sellingPrice) * 100;
-  const status = profit < 0 ? "rugi" : margin < 15 ? "tipis" : "sehat";
+  const margin = hitungMargin(sellingPrice, modal);
+  const status = kesehatan(margin);
 
   return {
     simAyamPrice,
@@ -40,3 +40,4 @@ export function simulatePrice({
     status,
   } as const;
 }
+import { hitungMargin, kesehatan } from "../margin";

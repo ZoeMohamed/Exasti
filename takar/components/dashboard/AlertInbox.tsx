@@ -6,7 +6,7 @@
 // Aturan yang mengikat tampilan ini:
 //   BR-06  maksimal 3, diurutkan critical → warning → info
 //   FR-22  keadaan terbaca tanpa warna: ada label teks + angka rupiah
-//   FR-29  tanpa kata "margin", "HPP", atau "komoditas"
+//   FR-29  seluruh istilah memakai bahasa sehari-hari pemilik warung
 //   Takar hanya bersuara kalau ada masalah — tidak ada masalah, tidak ada kartu.
 
 import { useState } from "react";

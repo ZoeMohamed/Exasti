@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { queryDb } from "@/lib/db/client";
+import { getCurrentBusinessId, queryAppDb } from "@/lib/auth/context";
+import { apiError } from "@/lib/auth/api";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    const businessId = await getCurrentBusinessId();
     // Satu baris per komoditas. Versi sebelumnya menjoin latest_prices tanpa
     // menyaring business_id, padahal view itu mengembalikan satu baris untuk
     // harga BI DAN satu lagi untuk harga nota warung — komoditas yang pernah
@@ -13,7 +15,7 @@ export async function GET() {
     // Harga nota warung didahulukan bila ada, karena itu yang benar-benar
     // dibayar. Kalau tidak ada harga sama sekali, kolomnya null — tidak
     // diisi angka karangan.
-    const res = await queryDb(`
+    const res = await queryAppDb(`
       select c.id,
              c.name,
              c.unit,
@@ -24,9 +26,7 @@ export async function GET() {
                else 'belum ada harga'
              end as sumber_harga
       from commodities c
-      cross join lateral (
-        select id, region_id from businesses order by created_at limit 1
-      ) b
+      join businesses b on b.id = $1
       left join lateral (
         select p.price from prices p
         where p.commodity_id = c.id and p.region_id = b.region_id
@@ -40,14 +40,13 @@ export async function GET() {
         order by p.date desc limit 1
       ) bi on true
       order by c.sort_order asc, c.name asc;
-    `);
+    `, [businessId]);
 
     return NextResponse.json({
       status: "ok",
       commodities: res?.rows || [],
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Gagal mengambil daftar bahan";
-    return NextResponse.json({ status: "error", message }, { status: 500 });
+    return apiError(err, "Gagal mengambil daftar bahan");
   }
 }

@@ -12,9 +12,12 @@ interface DashboardHomeProps {
 }
 
 export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps) {
-  const activeCount = menus.length;
-  const criticalMenus = menus.filter((m) => m.status === "tipis" || m.status === "rugi");
-  const avgProfit = Math.round(menus.reduce((acc, m) => acc + m.profit, 0) / (menus.length || 1));
+  const activeMenus = menus.filter((menu) => menu.status !== "diistirahatkan");
+  const activeCount = activeMenus.length;
+  const criticalMenus = activeMenus.filter((menu) => menu.status === "tipis" || menu.status === "rugi");
+  const avgProfit = Math.round(
+    activeMenus.reduce((total, menu) => total + menu.profit, 0) / (activeMenus.length || 1),
+  );
 
   // Format tanggal BI
   const formattedDate = (() => {
@@ -33,10 +36,10 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
     <div className="space-y-8">
       <section className="relative bg-white p-6 sm:p-8 brutal-card">
         <span className="absolute right-6 -top-3 rotate-2 bg-warning-yellow px-3 py-1 font-mono text-xs font-bold brutal-border">
-          📍 Semarang · Update Harga BI ({formattedDate})
+          Harga pasar Semarang · {formattedDate}
         </span>
         <span className="mb-3 inline-block bg-ink px-2.5 py-1 font-mono text-xs font-bold uppercase text-cream">
-          Analisis Keuangan Warung Hari Ini
+          Ringkasan Warung Hari Ini
         </span>
         <h1 className="max-w-3xl font-heading text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
           “Hari ini, ada{" "}
@@ -46,19 +49,19 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
           yang perlu kamu lihat.”
         </h1>
         <p className="mt-4 max-w-2xl text-base font-medium leading-relaxed text-ink/80 sm:text-lg">
-          Harga daging ayam dan cabai di Semarang bergerak dinamis dari data Bank Indonesia.
+          Harga ayam dan cabai di Semarang dapat berubah setiap hari.
           Jangan sampai jualan laris manis tapi pas dihitung uangnya malah habis untuk modal.
         </p>
         <div className="mt-8 grid grid-cols-1 gap-4 border-t-2 border-ink/20 pt-6 sm:grid-cols-3">
           <Metric
             label="Menu Aktif Jualan"
             value={`${activeCount} Menu`}
-            note="Dipantau otomatis harian"
+            note="Dihitung ulang setiap hari"
           />
           <Metric
             label="Untung Rata-Rata"
             value={formatRupiah(avgProfit)}
-            note="per porsi (semua menu)"
+            note="per porsi · belum dikurangi sewa dan listrik"
             tone="green"
           />
           <Metric
@@ -96,7 +99,7 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
           }
         />
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {menus.map((menu) => (
+          {activeMenus.map((menu) => (
             <MenuCard key={menu.id} menu={menu} />
           ))}
         </div>
@@ -151,77 +154,6 @@ function SectionTitle({
         <p className="text-xs text-ink/70 sm:text-sm">{note}</p>
       </div>
       {action}
-    </div>
-  );
-}
-
-function Alert({
-  title,
-  status,
-  tone,
-  value,
-  body,
-  href,
-  action,
-}: {
-  title: string;
-  status: string;
-  tone: "red" | "yellow" | "green";
-  value: string;
-  body: string;
-  href: string;
-  action: string;
-}) {
-  const styles = {
-    red: {
-      border: "border-t-critical-red",
-      badge: "bg-critical-red text-white",
-      value: "text-critical-red",
-      button: "bg-ink text-cream",
-    },
-    yellow: {
-      border: "border-t-warning-yellow",
-      badge: "bg-warning-yellow text-ink",
-      value: "text-ink",
-      button: "bg-warning-yellow",
-    },
-    green: {
-      border: "border-t-accent-green",
-      badge: "bg-white text-ink",
-      value: "text-accent-green",
-      button: "bg-cream-surface",
-    },
-  }[tone];
-  return (
-    <div
-      className={`relative flex flex-col justify-between border-t-8 bg-white p-6 brutal-card ${styles.border}`}
-    >
-      <span
-        className={`absolute right-4 -top-5 px-3 py-1 text-xs font-heading font-extrabold brutal-border-2 ${styles.badge}`}
-      >
-        {status}
-      </span>
-      <div>
-        <span className="font-mono text-xs font-bold uppercase text-ink/60">
-          Prioritas Pantauan
-        </span>
-        <h3 className="mt-0.5 font-heading text-2xl font-extrabold">{title}</h3>
-        <div className="mt-4 bg-cream p-3.5 brutal-border-2">
-          <span className="block text-xs font-bold">Untung sekarang:</span>
-          <strong className={`font-mono text-3xl ${styles.value}`}>
-            {value}
-          </strong>
-        </div>
-        <div className="my-4 bg-cream p-3 brutal-border-2">
-          <p className="text-xs font-semibold text-ink/80">{body}</p>
-        </div>
-      </div>
-      <Link
-        href={href}
-        className={`brutal-btn w-full py-2.5 text-center text-sm font-heading font-bold ${styles.button}`}
-      >
-        {action} ➔
-      </Link>
     </div>
   );
 }

@@ -66,7 +66,13 @@ create table if not exists prices (
   source       text not null default 'bi_hargapangan'
                check (source in ('bi_hargapangan','manual','nota_ocr')),
   is_filled    boolean not null default false,
+  filled_from_date date,
   fetched_at   timestamptz not null default now()
+);
+
+alter table prices add constraint prices_filled_source_ck check (
+  (not is_filled and filled_from_date is null)
+  or (is_filled and filled_from_date is not null and filled_from_date < date)
 );
 
 -- PK parsial: business_id NULL tidak bisa jadi bagian PK biasa,

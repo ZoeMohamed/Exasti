@@ -1,5 +1,5 @@
 import { getDbBusinessProfile, getDbMenus } from "@/lib/services/menu-engine";
-import { jamJakarta } from "@/lib/tanggal";
+import { labelWaktuRelatif, hariIniJakarta, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MobileNav } from "@/components/layout/MobileNav";
@@ -16,19 +16,15 @@ export default async function DashboardLayout({
     getDbMenus(),
   ]);
 
-  const criticalCount = menus.filter((m) => m.status === "tipis" || m.status === "rugi").length;
-  const menuCount = menus.length;
+  const activeMenus = menus.filter((menu) => menu.status !== "diistirahatkan");
+  const criticalCount = activeMenus.filter((menu) => menu.status === "tipis" || menu.status === "rugi").length;
+  const menuCount = activeMenus.length;
 
-  let lastSyncText = "Hari ini";
-  if (profile.last_ingest_time) {
-    try {
-      // Jam harus WIB, bukan jam server. Di Vercel server berjalan di UTC,
-      // sehingga "13:30 WIB" akan tertulis 06:30.
-      lastSyncText = `Hari ini, ${jamJakarta(new Date(profile.last_ingest_time))} WIB`;
-    } catch {
-      // fallback
-    }
-  }
+  // Jangan pernah mengaku "hari ini" tanpa memeriksanya.
+  const sinkron = labelWaktuRelatif(profile.last_ingest_time);
+
+  const hargaIso = keIsoTanggal(profile.latest_price_date);
+  const hargaBasi = hargaIso !== hariIniJakarta();
 
   return (
     <div className="flex min-h-screen flex-col bg-cream pb-16 md:flex-row md:pb-0">
@@ -37,9 +33,15 @@ export default async function DashboardLayout({
         regionName={profile.region_name}
         criticalCount={criticalCount}
         menuCount={menuCount}
-        lastSyncText={lastSyncText}
+        lastSyncText={sinkron.teks}
+        priceDateText={hargaIso ? tanggalIndonesia(hargaIso) : null}
+        priceStale={hargaBasi}
       />
-      <MobileHeader />
+      <MobileHeader
+        regionName={profile.region_name}
+        hargaTanggal={hargaIso ? tanggalIndonesia(hargaIso) : null}
+        hargaBasi={hargaBasi}
+      />
       <main className="mx-auto w-full min-w-0 max-w-7xl flex-1 p-4 sm:p-6 lg:p-8">
         {children}
       </main>

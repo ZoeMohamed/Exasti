@@ -35,7 +35,7 @@ const kalam = Kalam({
 
 export const metadata: Metadata = {
   title: "TAKAR | Tahu untungmu sebelum habis",
-  description: "Dashboard keuangan warung untuk memahami untung setiap menu.",
+  description: "Ringkasan keuangan warung untuk memahami untung setiap menu.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

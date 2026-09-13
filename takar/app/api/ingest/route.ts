@@ -1,7 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { syncBiPricesToDatabase } from "@/lib/services/bi-ingest";
+import { authorizeSystemRequest } from "@/lib/auth/api";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const unauthorized = authorizeSystemRequest(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const result = await syncBiPricesToDatabase(90);
     return NextResponse.json({

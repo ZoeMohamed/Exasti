@@ -4,9 +4,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { parseReceipt } from "@/lib/ai/ocr";
+import { apiError, requireApiBusinessId } from "@/lib/auth/api";
 
 export async function POST(req: NextRequest) {
   try {
+    await requireApiBusinessId();
     const contentType = req.headers.get("content-type") || "";
 
     // 1. Format Multipart Form Data (Upload File Gambar)
@@ -48,14 +50,8 @@ export async function POST(req: NextRequest) {
 
     const result = await parseReceipt({ imageBase64, mimeType, sampleId });
     return NextResponse.json(result);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("API /api/ai/parse-nota error:", err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: err.message || "Gagal memproses pembacaan nota belanja.",
-      },
-      { status: 500 },
-    );
+    return apiError(err, "Gagal memproses pembacaan nota belanja.");
   }
 }

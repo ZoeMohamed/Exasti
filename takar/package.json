@@ -2,14 +2,22 @@
   "name": "takar",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:check": "npx tsx scripts/db-check.ts"
+    "db:check": "npx tsx scripts/db-check.ts",
+    "test:margin": "npx tsx tests/uji-margin.ts",
+    "test:time": "npx tsx tests/uji-tanggal.ts",
+    "test": "npm run test:margin && npm run test:time"
   },
   "dependencies": {
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
     "next": "16.3.5",
     "pg": "^8.23.0",
     "react": "19.2.8",

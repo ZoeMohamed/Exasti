@@ -83,7 +83,7 @@ export async function syncBiPricesToDatabase(daysBack = 90): Promise<{ count: nu
 
   const series = await fetchBiDataRaw(start, today);
   let totalUpserted = 0;
-  let latestDate = "2026-09-11";
+  let latestDate: string | null = null;
 
   // Simpan ke Supabase. Dikirim per-bongkah, bukan satu baris satu kueri —
   // versi satu-per-satu memakan 65 detik untuk 14 hari dan melewati batas
@@ -91,7 +91,7 @@ export async function syncBiPricesToDatabase(daysBack = 90): Promise<{ count: nu
   const baris: Array<[string, number, string, number]> = [];
   for (const [commodityName, dates] of Object.entries(series)) {
     for (const [dateStr, price] of Object.entries(dates)) {
-      if (dateStr > latestDate) latestDate = dateStr;
+      if (!latestDate || dateStr > latestDate) latestDate = dateStr;
       baris.push([commodityName, 1, dateStr, price]);
     }
   }
@@ -111,10 +111,21 @@ export async function syncBiPricesToDatabase(daysBack = 90): Promise<{ count: nu
       `insert into prices (commodity_id, region_id, date, price, source, is_filled)
        values ${nilai.join(", ")}
        on conflict (commodity_id, region_id, date) where business_id is null
-       do update set price = excluded.price, fetched_at = now()`,
+       do update set price      = excluded.price,
+                     fetched_at = now(),
+                     -- Hari yang sempat diisi mundur lalu BI-nya terbit menyusul
+                     -- harus kehilangan tandanya. Tanpa baris ini, harga asli
+                     -- tetap dilabeli "memakai harga tanggal lama" selamanya.
+                     is_filled  = false,
+                     filled_from_date = null,
+                     source     = excluded.source`,
       params,
     );
     totalUpserted += bongkah.length;
+  }
+
+  if (!latestDate) {
+    throw new Error("BI tidak mengembalikan satu pun harga untuk rentang yang diminta.");
   }
 
   // Catat ke ingest_runs

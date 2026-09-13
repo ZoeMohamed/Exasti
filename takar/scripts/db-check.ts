@@ -56,7 +56,8 @@ async function check() {
     }
 
     const latestPrice = await client.query(`
-      SELECT commodity_id, price, date 
+      SELECT commodity_id, price, date::text as date, is_filled,
+             filled_from_date::text as filled_from_date
       FROM prices 
       WHERE region_id = 1 
       ORDER BY date DESC 
@@ -65,7 +66,8 @@ async function check() {
 
     console.log("\n🏷️ CONTOH DATA HARGA BI TERBARU DI SUPABASE:");
     for (const p of latestPrice.rows) {
-      console.log(`  • ${p.commodity_id.padEnd(25)} : Rp ${Number(p.price).toLocaleString("id-ID")} (Tanggal: ${new Date(p.date).toISOString().split("T")[0]})`);
+      const asal = p.is_filled ? `, harga aktual ${p.filled_from_date}` : ", aktual";
+      console.log(`  • ${p.commodity_id.padEnd(25)} : Rp ${Number(p.price).toLocaleString("id-ID")} (Tanggal pakai: ${p.date}${asal})`);
     }
 
     const commRes = await client.query("SELECT id, name, unit FROM commodities ORDER BY name LIMIT 10");
@@ -87,8 +89,8 @@ async function check() {
     }
 
     console.log("\n🎯 PROYEK ANDA RESMI TERHUBUNG KE SUPABASE CLOUD!\n");
-  } catch (err: any) {
-    console.error("❌ GAGAL TERHUBUNG KE SUPABASE:", err.message);
+  } catch (err: unknown) {
+    console.error("❌ GAGAL TERHUBUNG KE SUPABASE:", err instanceof Error ? err.message : String(err));
   } finally {
     await client.end();
   }

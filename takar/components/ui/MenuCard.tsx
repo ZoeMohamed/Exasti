@@ -13,7 +13,7 @@ export function MenuCard({ menu }: { menu: Menu }) {
         <span
           className={`px-2.5 py-0.5 text-xs font-heading font-extrabold brutal-border-2 ${statusClass(menu.status)}`}
         >
-          {statusLabel(menu.status)} ({menu.margin.toLocaleString("id-ID")}%)
+          {statusLabel(menu.status)} ({menu.profitRate.toLocaleString("id-ID")}%)
         </span>
         <span className="font-mono text-[11px] text-ink/60">
           Harga: {formatRupiah(menu.price)}
@@ -27,11 +27,11 @@ export function MenuCard({ menu }: { menu: Menu }) {
       <div
         className="mt-2 h-2 w-full overflow-hidden bg-ink/10 brutal-border"
         role="img"
-        aria-label={`Untung ${menu.margin} dari tiap seratus rupiah penjualan`}
+        aria-label={`Untung ${menu.profitRate} dari tiap seratus rupiah penjualan`}
       >
         <div
           className="h-full bg-ink"
-          style={{ width: `${Math.max(0, Math.min(100, menu.margin))}%` }}
+          style={{ width: `${Math.max(0, Math.min(100, menu.profitRate))}%` }}
         />
       </div>
       <div className="mt-3 flex items-baseline justify-between bg-cream p-3 brutal-border-2">
@@ -40,7 +40,13 @@ export function MenuCard({ menu }: { menu: Menu }) {
             Untung per porsi:
           </span>
           <div
-            className={`font-mono text-2xl font-bold ${menu.status === "sehat" ? "text-accent-green" : "text-critical-red"}`}
+            className={`font-mono text-2xl font-bold ${
+              menu.status === "sehat"
+                ? "text-accent-green"
+                : menu.status === "diistirahatkan"
+                  ? "text-ink/60"
+                  : "text-critical-red"
+            }`}
           >
             {formatRupiah(menu.profit)}
           </div>
@@ -54,14 +60,17 @@ export function MenuCard({ menu }: { menu: Menu }) {
           </div>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-between border-t border-ink/10 pt-2 text-xs">
+      <div className="mt-3 flex flex-col gap-1.5 border-t border-ink/10 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between">
         <span className="font-semibold">
-          {menu.icon} Pendorong: {menu.driver}
+          Biaya terbesar: {menu.driver}
         </span>
-        <span className="font-mono text-[11px] text-ink/60">
+        <span className="font-mono text-[11px] text-ink/60 sm:shrink-0 sm:text-right">
           {menu.servingsPerWeek} porsi/minggu
         </span>
       </div>
+      <p className="mt-2 font-mono text-[10px] leading-relaxed text-ink/55">
+        Belum dikurangi sewa tempat, listrik bulanan, dan gaji pemilik.
+      </p>
     </Link>
   );
 }

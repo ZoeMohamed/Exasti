@@ -9,6 +9,7 @@ export function statusLabel(status: MenuStatus) {
         : "DIISTIRAHATKAN";
 }
 export function statusClass(status: MenuStatus) {
+  if (status === "diistirahatkan") return "bg-ink/15 text-ink";
   return status === "sehat"
     ? "bg-bright-green text-ink"
     : status === "tipis"

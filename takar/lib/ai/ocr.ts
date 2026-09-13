@@ -29,6 +29,30 @@ export interface OcrResponsePayload {
   hash: string;
   message: string;
   isOfflineMode?: boolean;
+  error?: string;
+}
+
+interface RawReceiptItem {
+  nameRaw?: unknown;
+  qty?: unknown;
+  unit?: unknown;
+  totalPrice?: unknown;
+}
+
+function normalizeRawItem(it: RawReceiptItem, idx: number): ParsedItem {
+  const nameRaw = typeof it.nameRaw === "string" ? it.nameRaw : "Barang";
+  const qty = typeof it.qty === "number" ? it.qty : null;
+  const unit = typeof it.unit === "string" ? it.unit : null;
+  const totalPrice = typeof it.totalPrice === "number" ? it.totalPrice : null;
+  return {
+    id: `item-${idx + 1}`,
+    nameRaw,
+    qty,
+    unit,
+    totalPrice,
+    match: matchReceiptItem(nameRaw, qty, unit, totalPrice),
+    isConfirmed: false,
+  };
 }
 
 // Prompt standar tervalidasi dari docs/10-AI-VALIDATION.md & docs/08-AI-USECASE.md
@@ -162,17 +186,9 @@ export async function parseReceipt(options: {
     const inputHash = hashInput(`${OCR_RECEIPT_PROMPT}:${options.imageBase64}`);
 
     // Cek cache terlebih dahulu
-    const cached = await getCachedAiResult("nota_ocr", inputHash);
-    if (cached && cached.items) {
-      const items: ParsedItem[] = cached.items.map((it: any, idx: number) => ({
-        id: `item-${idx + 1}`,
-        nameRaw: it.nameRaw || "Barang",
-        qty: it.qty ?? null,
-        unit: it.unit ?? null,
-        totalPrice: it.totalPrice ?? null,
-        match: matchReceiptItem(it.nameRaw, it.qty, it.unit, it.totalPrice),
-        isConfirmed: false,
-      }));
+    const cached = await getCachedAiResult<{ items?: RawReceiptItem[] }>("nota_ocr", inputHash);
+    if (cached && Array.isArray(cached.items)) {
+      const items = cached.items.map(normalizeRawItem);
 
       return {
         success: true,
@@ -181,7 +197,7 @@ export async function parseReceipt(options: {
         items,
         totalNota: items.reduce((acc, curr) => acc + (curr.totalPrice || 0), 0),
         hash: inputHash,
-        message: "Data nota dibaca seketika dari riwayat cache (tanpa jeda jaringan).",
+        message: "Nota selesai dibaca dan siap diperiksa.",
       };
     }
 
@@ -193,16 +209,9 @@ export async function parseReceipt(options: {
       responseSchema: OCR_RESPONSE_SCHEMA,
     });
 
-    if (result.success && result.data && Array.isArray(result.data.items)) {
-      const items: ParsedItem[] = result.data.items.map((it: any, idx: number) => ({
-        id: `item-${idx + 1}`,
-        nameRaw: it.nameRaw || "Barang",
-        qty: typeof it.qty === "number" ? it.qty : null,
-        unit: typeof it.unit === "string" ? it.unit : null,
-        totalPrice: typeof it.totalPrice === "number" ? it.totalPrice : null,
-        match: matchReceiptItem(it.nameRaw, it.qty, it.unit, it.totalPrice),
-        isConfirmed: false,
-      }));
+    const resultData = result.data as { items?: RawReceiptItem[] } | null;
+    if (result.success && resultData && Array.isArray(resultData.items)) {
+      const items = resultData.items.map(normalizeRawItem);
 
       return {
         success: true,
@@ -212,7 +221,7 @@ export async function parseReceipt(options: {
         items,
         totalNota: items.reduce((acc, curr) => acc + (curr.totalPrice || 0), 0),
         hash: inputHash,
-        message: `Berhasil membaca ${items.length} baris barang menggunakan Google Gemini Flash (${result.modelUsed}).`,
+        message: `${items.length} baris barang berhasil dibaca dan siap diperiksa.`,
       };
     }
 
@@ -237,10 +246,7 @@ export async function parseReceipt(options: {
       items,
       totalNota: items.reduce((acc, curr) => acc + (curr.totalPrice || 0), 0),
       hash: inputHash,
-      message:
-        result.error?.includes("GEMINI_API_KEY tidak ditemukan")
-          ? "💡 Menampilkan simulasi pembacaan nota pasar (Tambahkan GEMINI_API_KEY di .env.local untuk live OCR)."
-          : `💡 Panggilan API (${result.error}) dialihkan ke mode ketahanan demo tanpa memutus alur pengguna.`,
+      message: "Contoh nota siap diperiksa. Tidak ada catatan yang disimpan sebelum kamu menyetujuinya.",
       isOfflineMode: true,
     };
   }

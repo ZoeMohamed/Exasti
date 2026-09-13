@@ -13,13 +13,19 @@ export const GEMINI_MODELS = [
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
 // In-memory cache fallback untuk Mode Pesawat / tanpa Postgres
-const memoryAiCache = new Map<string, { output: any; timestamp: number }>();
+const memoryAiCache = new Map<string, { output: unknown; timestamp: number }>();
+
+interface GeminiApiResponse {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+  }>;
+}
 
 export function hashInput(input: string | Buffer): string {
   return createHash("sha256").update(input).digest("hex");
 }
 
-export async function getCachedAiResult<T = any>(
+export async function getCachedAiResult<T = unknown>(
   kind: string,
   inputHash: string,
 ): Promise<T | null> {
@@ -41,7 +47,7 @@ export async function getCachedAiResult<T = any>(
       memoryAiCache.set(memoryKey, { output, timestamp: Date.now() });
       return output as T;
     }
-  } catch (err) {
+  } catch {
     // Graceful fallback jika DB belum di-setup
   }
 
@@ -51,7 +57,7 @@ export async function getCachedAiResult<T = any>(
 export async function setCachedAiResult(
   kind: string,
   inputHash: string,
-  output: any,
+  output: unknown,
 ): Promise<void> {
   const memoryKey = `${kind}:${inputHash}`;
   memoryAiCache.set(memoryKey, { output, timestamp: Date.now() });
@@ -63,7 +69,7 @@ export async function setCachedAiResult(
        ON CONFLICT (kind, input_hash) DO UPDATE SET output = $3`,
       [kind, inputHash, JSON.stringify(output)],
     );
-  } catch (err) {
+  } catch {
     // Database belum tersambung, simpan di memory cache
   }
 }
@@ -72,12 +78,12 @@ export interface GeminiCallParams {
   prompt: string;
   imageBase64?: string;
   mimeType?: string;
-  responseSchema?: Record<string, any>;
+  responseSchema?: Record<string, unknown>;
 }
 
 export interface GeminiCallResult {
   success: boolean;
-  data: any;
+  data: unknown;
   modelUsed?: string;
   cached: boolean;
   latencyMs: number;
@@ -120,7 +126,11 @@ export async function callGeminiVisionWithFallback(
   // Rantai fallback model
   for (const model of GEMINI_MODELS) {
     try {
-      const parts: any[] = [{ text: params.prompt }];
+      const parts: Array<
+        { text: string } | {
+          inline_data: { mime_type: string; data: string };
+        }
+      > = [{ text: params.prompt }];
       if (params.imageBase64) {
         parts.push({
           inline_data: {
@@ -130,7 +140,14 @@ export async function callGeminiVisionWithFallback(
         });
       }
 
-      const body: any = {
+      const body: {
+        contents: Array<{ parts: typeof parts }>;
+        generationConfig: {
+          responseMimeType: string;
+          temperature: number;
+          responseSchema?: Record<string, unknown>;
+        };
+      } = {
         contents: [{ parts }],
         generationConfig: {
           responseMimeType: "application/json",
@@ -169,7 +186,7 @@ export async function callGeminiVisionWithFallback(
         break;
       }
 
-      const resJson = await response.json();
+      const resJson = await response.json() as GeminiApiResponse;
       const candidate = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!candidate) {
         lastError = `[${model}] Respons kosong dari Gemini.`;
@@ -188,9 +205,11 @@ export async function callGeminiVisionWithFallback(
         cached: false,
         latencyMs: Date.now() - startTime,
       };
-    } catch (err: any) {
-      lastError = `[${model}] ${err.name === "AbortError" ? "Timeout" : err.message}`;
-      console.warn(`Error saat memanggil ${model}:`, err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      const isTimeout = err instanceof Error && err.name === "AbortError";
+      lastError = `[${model}] ${isTimeout ? "Timeout" : message}`;
+      console.warn(`Error saat memanggil ${model}:`, message);
     }
   }
 
