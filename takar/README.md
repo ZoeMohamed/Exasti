@@ -102,6 +102,7 @@ Hubungkan repository GitHub `ZoeMohamed/Exasti`, lalu gunakan pengaturan berikut
 | Root Directory | `takar` |
 | Install Command | `npm ci` |
 | Build Command | `npm run build` |
+| Function Region | `bom1` (Mumbai, dekat dengan database) |
 
 Tambahkan seluruh variabel dari `.env.example` melalui Vercel Project Settings.
 Nilai produksi wajib memakai:
