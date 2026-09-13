@@ -5,7 +5,7 @@ interface MobileHeaderProps {
   regionName?: string | null;
   /** Tanggal harga terakhir, sudah dalam bentuk "13 Sep 2026". */
   hargaTanggal?: string | null;
-  /** true bila harga terakhir bukan hari ini. */
+  /** true bila sinkronisasi yang seharusnya sudah berjalan belum berhasil. */
   hargaBasi?: boolean;
 }
 
@@ -23,11 +23,7 @@ export function MobileHeader({ regionName, hargaTanggal, hargaBasi }: MobileHead
           {/* Jangan mengaku "hari ini" tanpa memeriksa tanggalnya. */}
           <small className="font-mono text-[10px] font-bold">
             {regionName ?? "Warungmu"} ·{" "}
-            {hargaTanggal
-              ? hargaBasi
-                ? `Harga ${hargaTanggal}`
-                : "Harga hari ini"
-              : "Harga belum masuk"}
+            {hargaTanggal ? `Harga ${hargaTanggal}${hargaBasi ? " · perlu diperbarui" : ""}` : "Harga belum masuk"}
           </small>
         </span>
       </Link>

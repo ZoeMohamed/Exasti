@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { hariIniJakarta, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
+import { hargaPasarPerluDiperbarui, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -55,7 +55,7 @@ export default function SettingsPage() {
           const latestPriceIso = keIsoTanggal(data.profile.latest_price_date);
           if (latestPriceIso) {
             setLatestPriceText(tanggalIndonesia(latestPriceIso));
-            setPriceStale(latestPriceIso !== hariIniJakarta());
+            setPriceStale(hargaPasarPerluDiperbarui(latestPriceIso, data.profile.last_ingest_time));
           }
         }
       })

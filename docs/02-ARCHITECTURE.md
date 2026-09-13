@@ -107,8 +107,8 @@ erDiagram
     }
     regions {
         int  id PK
-        int  bi_province_id "13"
-        int  bi_regency_id "1 = Kota Semarang"
+        int  bi_province_id "14 = Jawa Tengah"
+        int  bi_regency_id "35 = Kota Semarang"
         text name
     }
     businesses {
@@ -234,8 +234,8 @@ Demo tidak boleh bergantung panggilan live. Lihat §Ketahanan.
 | Param | Nilai | Catatan |
 |---|---|---|
 | `price_type_id` | `1` | Pasar tradisional |
-| `province_id` | `13` | Jawa Tengah |
-| `regency_id` | int | Kosongkan untuk level provinsi |
+| `province_id` | `14` | Jawa Tengah |
+| `regency_id` | `35` | Kota Semarang |
 | `start_date` / `end_date` | `MM/DD/YYYY` | **lihat jebakan** |
 | `comcat_id` | kosong | Semua komoditas |
 | `tipe_laporan` | `1` | |
@@ -251,12 +251,12 @@ Demo tidak boleh bergantung panggilan live. Lihat §Ketahanan.
 4. **Angka memakai pemisah ribuan koma:** `"16,350"` → `16350`.
 5. **BI publikasi 13:00 WIB, hari kerja saja.** Jalankan cron 13:30.
 6. **Mapping `province_id`/`regency_id` ke nama wilayah tidak terdokumentasi.**
-   Harus dipetakan manual sekali. `province_id=13`, `regency_id=1` = Kota Semarang
-   (terverifikasi).
+   Harus divalidasi ke endpoint referensi BI. Saat ini `province_id=14`,
+   `regency_id=35` = Kota Semarang.
 7. **Nama komoditas punya spasi di belakang** — mis. `"Cabai Merah Keriting "`.
    Selalu `.strip()`. Nama aslinya juga berbeda dari dugaan: `Daging Ayam Ras Segar`,
    `Cabai Rawit Hijau`, `Beras Kualitas Medium I`.
-8. **Respons memuat 28 baris, bukan 21** — baris kategori induk ikut terkirim
+8. **Respons Semarang memuat 31 baris, bukan 21** — baris kategori induk ikut terkirim
    bersama variannya. Jangan dihitung dua kali.
 9. **Rentang > 120 hari sering timeout.** Pecah per 90 hari lalu gabungkan
    (lihat `scripts/cari_demo_window.py`).
@@ -264,7 +264,7 @@ Demo tidak boleh bergantung panggilan live. Lihat §Ketahanan.
 ### Contoh panggilan terverifikasi
 
 ```bash
-curl -s 'https://www.bi.go.id/hargapangan/WebSite/TabelHarga/GetGridDataDaerah?price_type_id=1&comcat_id=&province_id=13&regency_id=&market_id=&tipe_laporan=1&start_date=09/08/2026&end_date=09/11/2026' \
+curl -s 'https://www.bi.go.id/hargapangan/WebSite/TabelHarga/GetGridDataDaerah?price_type_id=1&comcat_id=&province_id=14&regency_id=35&market_id=&tipe_laporan=1&start_date=09/08/2026&end_date=09/11/2026' \
   -H 'X-Requested-With: XMLHttpRequest'
 ```
 

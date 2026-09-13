@@ -4,6 +4,7 @@ import { formatRupiah } from "@/lib/formatRupiah";
 import { MenuCard } from "@/components/ui/MenuCard";
 import { AlertInbox } from "@/components/dashboard/AlertInbox";
 import type { AlertTampil } from "@/lib/services/alerts";
+import { tanggalIndonesia } from "@/lib/tanggal";
 
 interface DashboardHomeProps {
   menus: Menu[];
@@ -19,18 +20,7 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
     activeMenus.reduce((total, menu) => total + menu.profit, 0) / (activeMenus.length || 1),
   );
 
-  // Format tanggal BI
-  const formattedDate = (() => {
-    try {
-      const d = new Date(latestDate);
-      if (!isNaN(d.getTime())) {
-        const day = d.getDate();
-        const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-        return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
-      }
-    } catch {}
-    return latestDate;
-  })();
+  const formattedDate = tanggalIndonesia(latestDate);
 
   return (
     <div className="space-y-8">

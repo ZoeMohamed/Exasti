@@ -176,7 +176,7 @@ async function seed() {
   console.log("[1] Menyiapkan Wilayah Kota Semarang...");
   await client.query(`
     INSERT INTO regions (id, bi_province_id, bi_regency_id, name, level)
-    VALUES (1, 13, 1, 'Kota Semarang', 'regency')
+    VALUES (1, 14, 35, 'Kota Semarang', 'regency')
     ON CONFLICT (bi_province_id, bi_regency_id) DO UPDATE SET name = EXCLUDED.name;
   `);
 
@@ -282,8 +282,8 @@ async function seed() {
   const params = new URLSearchParams({
     price_type_id: "1",
     comcat_id: "",
-    province_id: "13",
-    regency_id: "1",
+    province_id: "14",
+    regency_id: "35",
     market_id: "",
     tipe_laporan: "1",
     start_date: `${mmStart}/${ddStart}/${yyyyStart}`,

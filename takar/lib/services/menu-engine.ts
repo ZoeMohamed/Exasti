@@ -4,7 +4,7 @@ import {
   queryAppDb,
   withAppTransaction,
 } from "../auth/context";
-import { hariIniJakarta, keIsoTanggal } from "../tanggal";
+import { hariIniJakarta, keIsoTanggal, tanggalIndonesia } from "../tanggal";
 import type { Menu, Ingredient } from "@/types/menu";
 import {
   hitungHpp, hitungMargin, kesehatan, cariPendorong, cariPembanding,
@@ -129,7 +129,7 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
        )
        select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active,
               (select max(date) from prices
-               where region_id = b.region_id and business_id is null
+               where region_id = b.region_id and business_id is null and not is_filled
                 ) as latest_price_date,
               coalesce(bpm.daftar, '[]'::jsonb) as bahan,
               coalesce(cpm.total, 0) as biaya_tetap
@@ -268,7 +268,7 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
 
       // FR-27: harga hasil isi mundur ditandai di UI
       const tandaIsiMundur = r.harga_diisi_mundur
-        ? ` · memakai harga ${keIsoTanggal(r.bi_tanggal)}`
+        ? ` · memakai harga ${tanggalIndonesia(r.bi_tanggal)}`
         : "";
 
       const tanggalHarga = keIsoTanggal(r.tanggal_beli ?? r.bi_tanggal);
@@ -284,7 +284,7 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
         unitPrice: harga === null ? 0 : Math.round(harga),
         cost: harga === null ? 0 : Math.round(Number(r.qty) * harga),
         source: hargaPemilik ? "HARGA KAMU" : r.dari_data ? "DATA PASAR" : "PERKIRAAN",
-        sourceNote: String(r.alasan) + (tanggalHarga ? `, dicatat ${tanggalHarga}` : "") + tandaIsiMundur,
+        sourceNote: String(r.alasan) + (tanggalHarga ? `, dicatat ${tanggalIndonesia(tanggalHarga)}` : "") + tandaIsiMundur,
       });
 
       let hargaBelanja: NonNullable<NonNullable<DbMenuDetail["recipeRows"]>[number]["hargaBelanja"]> | undefined;
@@ -851,9 +851,9 @@ export const getDbBusinessProfile = cache(async function () {
              r.id as region_id,
              r.name as region_name,
              (SELECT count(*) FROM menu_items WHERE business_id = b.id AND active) as active_menus_count,
-             (SELECT ran_at FROM ingest_runs ORDER BY ran_at DESC LIMIT 1) as last_ingest_time,
+             (SELECT ran_at FROM ingest_runs WHERE status = 'ok' ORDER BY ran_at DESC LIMIT 1) as last_ingest_time,
              (SELECT max(date) FROM prices
-              WHERE region_id = b.region_id AND business_id IS NULL) as latest_price_date
+              WHERE region_id = b.region_id AND business_id IS NULL AND NOT is_filled) as latest_price_date
       FROM businesses b
       LEFT JOIN regions r ON r.id = b.region_id
       WHERE b.id = $1

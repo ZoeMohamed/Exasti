@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { getDbBusinessProfile, getDbMenus } from "@/lib/services/menu-engine";
-import { labelWaktuRelatif, hariIniJakarta, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
+import { hargaPasarPerluDiperbarui, labelWaktuRelatif, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MobileNav } from "@/components/layout/MobileNav";
@@ -21,7 +21,7 @@ async function DashboardNavigation() {
   const sinkron = labelWaktuRelatif(profile.last_ingest_time);
 
   const hargaIso = keIsoTanggal(profile.latest_price_date);
-  const hargaBasi = hargaIso !== hariIniJakarta();
+  const hargaBasi = hargaPasarPerluDiperbarui(hargaIso, profile.last_ingest_time);
 
   return (
     <>

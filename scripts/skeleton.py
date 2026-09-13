@@ -20,8 +20,8 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 BASE = "https://www.bi.go.id/hargapangan/WebSite/TabelHarga"
-PROVINCE_ID = 13   # Jawa Tengah
-REGENCY_ID = 1     # Kota Semarang
+PROVINCE_ID = 14   # Jawa Tengah
+REGENCY_ID = 35    # Kota Semarang
 
 # ── JEBAKAN #1 ────────────────────────────────────────────────────────────
 # Parameter request memakai MM/DD/YYYY, tetapi kunci tanggal di respons

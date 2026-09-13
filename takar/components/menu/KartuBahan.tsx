@@ -5,6 +5,7 @@ import { hitungHargaPerDasar, hitungTakaran } from "@/lib/bahan/takaran";
 import { SATUAN_PER_DASAR, type Satuan, type SatuanDasar } from "@/lib/units";
 import type { IngredientRow } from "./bahan-form-types";
 import { RupiahInput } from "@/components/ui/RupiahInput";
+import { tanggalIndonesia } from "@/lib/tanggal";
 
 interface Props {
   row: IngredientRow;
@@ -172,7 +173,7 @@ export function KartuBahan({ row, index, batchYield, error, onChange, onRemove }
       <div className="bg-cream p-3 brutal-border-2">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <span>
-            {row.harga === null ? "Harga belum diisi" : `${formatRupiah(row.harga)}/${row.satuanDasar} · ${row.sumberHarga}${row.tanggalHarga ? `, ${row.tanggalHarga}` : ""}`}
+            {row.harga === null ? "Harga belum diisi" : `${formatRupiah(row.harga)}/${row.satuanDasar} · ${row.sumberHarga}${row.tanggalHarga ? `, ${tanggalIndonesia(row.tanggalHarga)}` : ""}`}
           </span>
           {!tampilkanHarga && (
             <button type="button" onClick={mulaiHarga} className="font-heading font-bold underline">

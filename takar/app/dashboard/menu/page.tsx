@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { calculateDynamicMenus, getDbBusinessProfile } from "@/lib/services/menu-engine";
 import { MenuList } from "@/components/menu/MenuList";
+import { tanggalIndonesia } from "@/lib/tanggal";
 
 export const dynamic = "force-dynamic";
 
@@ -10,17 +11,7 @@ export default async function MenuPage() {
     getDbBusinessProfile(),
   ]);
 
-  const formattedDate = (() => {
-    try {
-      const d = new Date(latestDate);
-      if (!isNaN(d.getTime())) {
-        const day = d.getDate();
-        const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-        return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
-      }
-    } catch {}
-    return latestDate;
-  })();
+  const formattedDate = tanggalIndonesia(latestDate);
 
   return (
     <div className="space-y-6">

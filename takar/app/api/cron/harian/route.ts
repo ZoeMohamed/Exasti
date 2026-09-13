@@ -3,12 +3,25 @@
 // Dijadwalkan oleh vercel.json pukul 06:30 UTC = 13:30 WIB.
 
 import { NextRequest, NextResponse } from "next/server";
-import { jalankanHarian } from "@/lib/services/harian";
+import { jalankanHarian, jalankanHarianDenganBackfill } from "@/lib/services/harian";
 import { syncBiPricesToDatabase } from "@/lib/services/bi-ingest";
 import { queryDb } from "@/lib/db/client";
 import { authorizeSystemRequest } from "@/lib/auth/api";
 
 export const maxDuration = 300;
+
+function koneksiTerputus(error: unknown): boolean {
+  const kode = typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code)
+    : "";
+  const pesan = error instanceof Error ? error.message : String(error);
+  return ["ETIMEDOUT", "ECONNRESET", "EPIPE", "57P01"].includes(kode) ||
+    /ETIMEDOUT|ECONNRESET|Connection terminated|read timeout/i.test(pesan);
+}
+
+async function jedaSingkat(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 350));
+}
 
 export async function GET(req: NextRequest) {
   const unauthorized = authorizeSystemRequest(req);
@@ -39,7 +52,19 @@ export async function GET(req: NextRequest) {
 
   // 2..4 — isi mundur, snapshot, alert
   try {
-    const hasil = await jalankanHarian(tanggal);
+    const jalankan = () => tanggal
+      ? jalankanHarian(tanggal)
+      : jalankanHarianDenganBackfill();
+    let hasil;
+    try {
+      hasil = await jalankan();
+      langkah.harianPercobaan = 1;
+    } catch (error) {
+      if (!koneksiTerputus(error)) throw error;
+      await jedaSingkat();
+      hasil = await jalankan();
+      langkah.harianPercobaan = 2;
+    }
     langkah.harian = hasil;
   } catch (err) {
     return NextResponse.json(

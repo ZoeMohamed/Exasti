@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { keIsoTanggal } from "@/lib/tanggal";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { tanggalIndonesia } from "@/lib/tanggal";
 import Link from "next/link";
 import Image from "next/image";
 import { formatRupiah } from "@/lib/formatRupiah";
@@ -12,7 +12,9 @@ import type { BahanTersedia, HasilCari } from "@/lib/bahan/cari";
 import { normalisasiNama } from "@/lib/bahan/cari";
 import type { SaranUmum } from "@/lib/bahan/katalog-pasar";
 import type { RefBahan } from "@/lib/bahan/validasi";
-import type { Satuan, SatuanDasar } from "@/lib/units";
+import type { SatuanDasar } from "@/lib/units";
+import { matchReceiptItem } from "@/lib/ai/match";
+import { ringkasHargaNota, satuanNota, tebakSatuanDasarNota } from "@/lib/ai/receipt-units";
 
 interface PilihanBahan {
   bahan: RefBahan;
@@ -29,10 +31,23 @@ interface UserPriceHistory {
   source: string;
 }
 
+function temukanPilihanOtomatis(
+  item: ParsedItem,
+  daftar: BahanTersedia[],
+): PilihanBahan | null {
+  const found = daftar.find((candidate) =>
+    candidate.id === item.match.matchedName ||
+    (candidate.jenis === "warung" && normalisasiNama(candidate.namaTampil) === normalisasiNama(item.match.matchedName)),
+  );
+  return found
+    ? { bahan: { jenis: found.jenis, id: found.id }, nama: found.namaTampil, satuanDasar: found.satuanDasar }
+    : null;
+}
+
 export default function BelanjaPage() {
   const [bahan, setBahan] = useState<BahanTersedia[]>([]);
   const [saranUmum, setSaranUmum] = useState<SaranUmum[]>([]);
-  const [pilihan, setPilihan] = useState<Record<string, PilihanBahan>>({});
+  const [pilihanManual, setPilihan] = useState<Record<string, PilihanBahan>>({});
   const [loading, setLoading] = useState(false);
   const [statusStep, setStatusStep] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -45,6 +60,18 @@ export default function BelanjaPage() {
   const [historyLoading, setHistoryLoading] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Bila OCR selesai sebelum daftar bahan, kecocokan otomatis muncul segera
+  // saat daftar tersedia. Pilihan manual selalu menang dan tidak ditimpa.
+  const pilihan = useMemo(() => {
+    const hasil = { ...pilihanManual };
+    for (const item of items) {
+      if (hasil[item.id]) continue;
+      const found = temukanPilihanOtomatis(item, bahan);
+      if (found) hasil[item.id] = found;
+    }
+    return hasil;
+  }, [pilihanManual, items, bahan]);
 
   // 1. Ambil bahan & riwayat harga nota warung
   useEffect(() => {
@@ -113,11 +140,8 @@ export default function BelanjaPage() {
       setItems(data.items);
       const cocok: Record<string, PilihanBahan> = {};
       for (const item of data.items) {
-        const found = bahan.find((candidate) =>
-          candidate.id === item.match.matchedName ||
-          (candidate.jenis === "warung" && normalisasiNama(candidate.namaTampil) === normalisasiNama(item.match.matchedName)),
-        );
-        if (found) cocok[item.id] = { bahan: { jenis: found.jenis, id: found.id }, nama: found.namaTampil, satuanDasar: found.satuanDasar };
+        const found = temukanPilihanOtomatis(item, bahan);
+        if (found) cocok[item.id] = found;
       }
       setPilihan(cocok);
     } catch (err: unknown) {
@@ -184,14 +208,15 @@ export default function BelanjaPage() {
         const updated: ParsedItem = {
           ...it,
           [field]: normalizedValue,
-          match: { ...it.match },
         };
-        // Hitung ulang harga per satuan
-        if (field === "totalPrice" || field === "qty") {
-          const q = field === "qty" ? Number(normalizedValue) : it.qty || 1;
-          const p = field === "totalPrice" ? Number(normalizedValue) : it.totalPrice || 0;
-          updated.match.pricePerUnit = q > 0 ? Math.round(p / q) : p;
-        }
+        // Nama, jumlah, satuan, dan total selalu dihitung ulang bersama. Dengan
+        // begitu layar kg -> ons sama persis dengan payload yang diterima server.
+        updated.match = matchReceiptItem(
+          updated.nameRaw,
+          updated.qty,
+          updated.unit,
+          updated.totalPrice,
+        );
         return updated;
       }),
     );
@@ -204,7 +229,10 @@ export default function BelanjaPage() {
       return;
     }
     const nama = hasil.tipe === "saran" ? hasil.saran.nama : hasil.nama;
-    const satuanDasar = hasil.tipe === "saran" ? hasil.saran.satuanDasar : "kg";
+    const itemNota = items.find((item) => item.id === id);
+    const satuanDasar = hasil.tipe === "saran"
+      ? hasil.saran.satuanDasar
+      : tebakSatuanDasarNota(itemNota?.unit) ?? "kg";
     setPilihan((current) => ({ ...current, [id]: { bahan: { jenis: "baru", nama, satuanDasar }, nama, satuanDasar } }));
   }
 
@@ -224,7 +252,7 @@ export default function BelanjaPage() {
       id: `item-${Date.now()}`,
       nameRaw: "",
       qty: null,
-      unit: "kg",
+      unit: null,
       totalPrice: null,
       match: {
         matchedName: "",
@@ -250,12 +278,18 @@ export default function BelanjaPage() {
       if (belumDipilih) throw new Error(`Hubungkan “${belumDipilih.nameRaw || "barang tanpa nama"}” ke bahan terlebih dahulu.`);
       const payloadItems = items.map((item) => {
         const selected = pilihan[item.id];
+        const ringkasan = ringkasHargaNota(item.qty, item.unit, item.totalPrice, selected.satuanDasar);
+        if (!ringkasan.valid) {
+          throw new Error(`${ringkasan.pesan} Periksa baris “${item.nameRaw || "barang tanpa nama"}”.`);
+        }
+        const satuan = satuanNota(item.unit, selected.satuanDasar);
+        if (!satuan) throw new Error(`Periksa satuan “${item.nameRaw || "barang tanpa nama"}”.`);
         return {
           bahan: selected.bahan,
           harga: {
             hargaKemasan: Number(item.totalPrice),
             isi: Number(item.qty),
-            satuan: satuanNota(item.unit, selected.satuanDasar),
+            satuan,
           },
           sumber: "nota_ocr",
         };
@@ -496,7 +530,11 @@ export default function BelanjaPage() {
               /* TABEL / KARTU KONFIRMASI HASIL OCR */
               <div className="mt-6 space-y-4">
                 <div className="space-y-3">
-                  {items.map((item, index) => (
+                  {items.map((item, index) => {
+                    const selected = pilihan[item.id];
+                    const dasar = selected?.satuanDasar ?? tebakSatuanDasarNota(item.unit) ?? "kg";
+                    const ringkasan = ringkasHargaNota(item.qty, item.unit, item.totalPrice, dasar);
+                    return (
                     <div
                       key={item.id}
                       className="bg-white p-4 brutal-border-2 transition-shadow hover:shadow-[3px_3px_0_#111]"
@@ -561,8 +599,9 @@ export default function BelanjaPage() {
                             />
                             <input
                               type="text"
-                              value={item.unit || "kg"}
+                              value={item.unit ?? ""}
                               onChange={(e) => updateItem(item.id, "unit", e.target.value)}
+                              placeholder="kg / ons"
                               className="w-16 p-1 text-xs font-mono border border-ink/40 bg-transparent text-center"
                             />
                           </div>
@@ -591,15 +630,23 @@ export default function BelanjaPage() {
                             Harga Satuan
                           </span>
                           <span className="font-mono text-xs font-bold text-critical-red">
-                            {formatRupiah(item.match.pricePerUnit)}
-                            <span className="text-[10px] text-ink/60 font-normal">
-                              /{item.match.standardUnit}
-                            </span>
+                            {ringkasan.valid ? formatRupiah(ringkasan.hargaPerDasar) : "Periksa"}
+                            {ringkasan.valid && (
+                              <span className="text-[10px] text-ink/60 font-normal">
+                                /{ringkasan.label}
+                              </span>
+                            )}
                           </span>
                         </div>
                       </div>
+                      {!ringkasan.valid && selected && (
+                        <p className="mt-2 font-mono text-[10px] font-bold text-critical-red">
+                          {ringkasan.pesan}
+                        </p>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Tombol Tambah Baris Manual */}
@@ -678,7 +725,7 @@ export default function BelanjaPage() {
                 <div>
                   <strong className="font-heading text-sm block">{rec.name}</strong>
                   <span className="font-mono text-[11px] text-ink/70">
-                    {keIsoTanggal(rec.date)}
+                    {tanggalIndonesia(rec.date)}
                   </span>
                 </div>
                 <div className="text-right">
@@ -698,17 +745,4 @@ export default function BelanjaPage() {
       </section>
     </div>
   );
-}
-
-function satuanNota(unit: string | null, dasar: SatuanDasar): Satuan {
-  const bersih = (unit || "").toLowerCase().trim();
-  if (bersih === "g" || bersih === "gr" || bersih.includes("gram")) return "gram";
-  if (bersih === "ons" || bersih === "hg") return "ons";
-  if (bersih === "kg" || bersih.includes("kilo")) return "kg";
-  if (bersih === "ml" || bersih === "cc") return "ml";
-  if (bersih === "l" || bersih.includes("liter")) return "liter";
-  if (bersih === "butir") return "butir";
-  if (bersih === "ekor") return "ekor";
-  if (bersih === "pcs" || bersih === "buah" || bersih === "lembar") return "pcs";
-  return dasar;
 }

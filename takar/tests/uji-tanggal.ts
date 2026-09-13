@@ -1,4 +1,4 @@
-import { labelWaktuRelatif, hariIniJakarta, keIsoTanggal, jamJakarta } from "../lib/tanggal.ts";
+import { hargaPasarPerluDiperbarui, labelWaktuRelatif, hariIniJakarta, keIsoTanggal, jamJakarta, tanggalPublikasiBiDiharapkan } from "../lib/tanggal.ts";
 
 let lolos = 0, gagal = 0;
 const cek = <T>(n: string, d: T, h: T) => {
@@ -50,6 +50,16 @@ cek(
   hargaBasi(hariJakarta),
   false,
 );
+
+const jumat = "2026-09-11";
+cek("Sabtu tetap mengacu harga Jumat", tanggalPublikasiBiDiharapkan(new Date("2026-09-12T10:00:00+07:00")), jumat);
+cek("Minggu tetap mengacu harga Jumat", tanggalPublikasiBiDiharapkan(new Date("2026-09-13T18:00:00+07:00")), jumat);
+cek("Senin sebelum 13:30 tetap mengacu harga Jumat", tanggalPublikasiBiDiharapkan(new Date("2026-09-14T09:00:00+07:00")), jumat);
+cek("Senin setelah 13:30 mengharapkan harga Senin", tanggalPublikasiBiDiharapkan(new Date("2026-09-14T14:00:00+07:00")), "2026-09-14");
+cek("Harga Jumat tidak memicu alarm pada Senin pagi", hargaPasarPerluDiperbarui(jumat, null, new Date("2026-09-14T09:00:00+07:00")), false);
+cek("Harga Jumat memicu alarm setelah jadwal Senin terlewat", hargaPasarPerluDiperbarui(jumat, null, new Date("2026-09-14T14:00:00+07:00")), true);
+cek("Sinkron sukses hari ini mencegah alarm palsu hari libur", hargaPasarPerluDiperbarui(jumat, "2026-09-14T13:40:00+07:00", new Date("2026-09-14T14:00:00+07:00")), false);
+cek("Sinkron manual pagi tidak menyamarkan cron yang terlewat", hargaPasarPerluDiperbarui(jumat, "2026-09-14T09:00:00+07:00", new Date("2026-09-14T14:00:00+07:00")), true);
 
 console.log(`\n  ${lolos} lolos, ${gagal} gagal`);
 process.exit(gagal ? 1 : 0);
