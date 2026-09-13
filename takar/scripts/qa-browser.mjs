@@ -134,13 +134,13 @@ if (!detailText.includes("Rp 500")) throw new Error("Detail tidak menampilkan mo
 await screenshot("03-detail-harga-kamu");
 
 await command("Page.navigate", { url: `${baseUrl}/dashboard/menu/${menuId}/edit` });
-await waitFor("document.querySelector('article') !== null", "edit resep", 20000);
+await waitFor(`location.pathname === '/dashboard/menu/${menuId}/edit' && document.querySelectorAll('article input[type=number]').length >= 4`, "edit resep lengkap", 20000);
 const editValues = await evaluate("[...document.querySelectorAll('article input[type=number]')].map(el => el.value)");
 if (editValues[0] !== "340" || editValues[1] !== "25") throw new Error(`Takaran asli tidak kembali: ${editValues.join(',')}`);
 await screenshot("04-edit-takaran-asli");
 
 await command("Page.navigate", { url: `${baseUrl}/dashboard/belanja` });
-await waitFor("document.body?.textContent.includes('Foto nota') === true", "halaman catat belanja", 20000);
+await waitFor("location.pathname === '/dashboard/belanja' && [...document.querySelectorAll('span')].some(el => /[1-9][0-9]* bahan siap dipakai/.test(el.textContent || '')) && !document.body?.textContent.includes('Menyiapkan riwayat belanja')", "halaman catat belanja lengkap", 25000);
 await screenshot("05-catat-belanja");
 const uiConsole = consoleEntries.filter((entry) => entry.type === "error" || entry.type === "warning");
 const uiNetwork = networkErrors.filter((entry) => entry.error !== "net::ERR_ABORTED");

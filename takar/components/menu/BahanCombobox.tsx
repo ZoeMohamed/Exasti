@@ -13,10 +13,12 @@ interface Props {
   placeholder?: string;
 }
 
+const TANPA_BAHAN = new Set<string>();
+
 export function BahanCombobox({
   daftar,
   saranUmum,
-  sudahDipakai = new Set(),
+  sudahDipakai = TANPA_BAHAN,
   onPilih,
   label = "Cari atau tulis nama bahan",
   placeholder = "Contoh: ayam, cabe, atau saus sambal",

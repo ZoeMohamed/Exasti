@@ -223,14 +223,14 @@ export default async function MenuDetailPage({
           {typeof menu.cakupan === "number" && menu.cakupan < 70 && (
             <div className="mb-4 bg-warning-yellow p-3 brutal-border-2">
               <p className="font-heading text-sm font-bold">
-                Lengkapi harga belanja agar modal makin tepat
+                Perbarui harga belanja saat ada perubahan
               </p>
               <p className="mt-1 text-xs">
-                Harga yang sudah tercatat baru mencakup {menu.cakupan}% dari modal menu ini
+                Baru {menu.cakupan}% modal yang mengikuti perubahan harga pasar setiap hari
                 {menu.bahanTanpaHarga && menu.bahanTanpaHarga > 0
                   ? `, dan ${menu.bahanTanpaHarga} bahan belum ada harganya`
                   : ""}
-                . Catat harga dari nota belanja supaya hitungannya lebih lengkap.
+                . Harga belanjamu tetap dipakai sesuai catatan terakhir. Catat nota baru saat harganya berubah.
               </p>
             </div>
           )}
@@ -307,7 +307,7 @@ export default async function MenuDetailPage({
             </h3>
             <div className="my-5 border-2 border-white bg-white/10 p-4">
               <span className="font-mono text-xs text-cream/70">
-                SARAN HARGA JUAL BARU:
+                {priceAdjustment > 0 ? "SARAN HARGA JUAL BARU:" : "HARGA JUAL SEKARANG:"}
               </span>
               <strong className="my-1 block font-mono text-4xl text-bright-green sm:text-5xl">
                 {formatRupiah(menu.suggestedPrice)}
