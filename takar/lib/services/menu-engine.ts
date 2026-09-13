@@ -120,18 +120,20 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
                  and not is_filled) as latest_price_date,
               coalesce(bpm.daftar, '[]'::jsonb) as bahan,
               coalesce(cpm.total, 0) as biaya_tetap
-       from menu_items m
-       join businesses b on b.id = m.business_id
+       from businesses b
+       left join menu_items m on m.business_id = b.id
        left join bahan_per_menu bpm on bpm.menu_item_id = m.id
        left join biaya_per_menu cpm on cpm.menu_item_id = m.id
-       where m.business_id = $1`,
+       where b.id = $1`,
       [businessId],
     );
     if (!res || res.rows.length === 0) return { menus: [], latestDate: "" };
 
     const latestDate = keIsoTanggal(res.rows[0].latest_price_date) ?? "";
 
-    const menus: Menu[] = res.rows.map((row) => {
+    // LEFT JOIN sengaja mempertahankan satu baris bisnis meski akun baru belum
+    // punya menu, supaya tanggal harga tetap tampil tanpa kueri tambahan.
+    const menus: Menu[] = res.rows.filter((row) => row.id).map((row) => {
       const bahan: BahanResep[] = (Array.isArray(row.bahan) ? row.bahan : []).map((item) => ({
         komoditasId: String(item.komoditasId),
         nama: String(item.nama),
