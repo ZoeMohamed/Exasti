@@ -23,6 +23,59 @@ interface CommodityOption {
   sumber_harga?: string;
 }
 
+const QUICK_TEMPLATES = [
+  {
+    name: "Ayam Geprek Sambal Korek",
+    sellPrice: 18000,
+    batchYield: 8,
+    weeklyVolume: 150,
+    smallCosts: { kemasan: true, gas: true, bumbu: true, plastik: false },
+    ingredients: [
+      { commodityId: "Daging Ayam Ras Segar", batchQty: 2, defaultPrice: 40500 },
+      { commodityId: "Cabai Rawit Hijau", batchQty: 0.12, defaultPrice: 63750 },
+      { commodityId: "Bawang Merah Ukuran Sedang", batchQty: 0.08, defaultPrice: 38000 },
+      { commodityId: "Beras Kualitas Medium I", batchQty: 1, defaultPrice: 15500 },
+      { commodityId: "Minyak Goreng Curah", batchQty: 0.24, defaultPrice: 17500 },
+    ],
+  },
+  {
+    name: "Nasi Goreng Spesial",
+    sellPrice: 15000,
+    batchYield: 8,
+    weeklyVolume: 110,
+    smallCosts: { kemasan: true, gas: true, bumbu: true, plastik: true },
+    ingredients: [
+      { commodityId: "Beras Kualitas Medium I", batchQty: 1.2, defaultPrice: 15500 },
+      { commodityId: "Telur Ayam Ras Segar", batchQty: 0.5, defaultPrice: 29500 },
+      { commodityId: "Bawang Merah Ukuran Sedang", batchQty: 0.08, defaultPrice: 38000 },
+      { commodityId: "Minyak Goreng Curah", batchQty: 0.2, defaultPrice: 17500 },
+    ],
+  },
+  {
+    name: "Pecel Lele Goreng Crispy",
+    sellPrice: 16000,
+    batchYield: 8,
+    weeklyVolume: 95,
+    smallCosts: { kemasan: true, gas: true, bumbu: true, plastik: false },
+    ingredients: [
+      { commodityId: "Minyak Goreng Curah", batchQty: 0.3, defaultPrice: 17500 },
+      { commodityId: "Cabai Rawit Hijau", batchQty: 0.1, defaultPrice: 63750 },
+      { commodityId: "Beras Kualitas Medium I", batchQty: 1, defaultPrice: 15500 },
+      { commodityId: "Bawang Putih Ukuran Sedang", batchQty: 0.06, defaultPrice: 41000 },
+    ],
+  },
+  {
+    name: "Es Teh Manis Jumbo",
+    sellPrice: 5000,
+    batchYield: 10,
+    weeklyVolume: 260,
+    smallCosts: { kemasan: true, gas: false, bumbu: false, plastik: true },
+    ingredients: [
+      { commodityId: "Gula Pasir Kualitas Premium", batchQty: 0.35, defaultPrice: 18500 },
+    ],
+  },
+];
+
 interface MenuFormProps {
   edit?: boolean;
   menuId?: string;
@@ -31,6 +84,7 @@ interface MenuFormProps {
   initialYield?: number;
   initialVolume?: number;
   initialRows?: IngredientRow[];
+  initialFixedCosts?: Array<{ label: string; amount: number; isEstimated?: boolean }>;
 }
 
 export function MenuForm({
@@ -41,6 +95,7 @@ export function MenuForm({
   initialYield = 8,
   initialVolume = 100,
   initialRows,
+  initialFixedCosts,
 }: MenuFormProps) {
   const router = useRouter();
 
@@ -69,15 +124,48 @@ export function MenuForm({
     ]
   );
 
-  const [smallCosts, setSmallCosts] = useState({
-    kemasan: true,
-    gas: true,
-    bumbu: true,
-    plastik: false,
+  const [smallCosts, setSmallCosts] = useState(() => {
+    if (initialFixedCosts && initialFixedCosts.length > 0) {
+      return {
+        kemasan: initialFixedCosts.some((fc) => fc.label.toLowerCase().includes("kemasan")),
+        gas: initialFixedCosts.some((fc) => fc.label.toLowerCase().includes("gas")),
+        bumbu: initialFixedCosts.some((fc) => fc.label.toLowerCase().includes("bumbu")),
+        plastik: initialFixedCosts.some((fc) => fc.label.toLowerCase().includes("plastik")),
+      };
+    }
+    return {
+      kemasan: true,
+      gas: true,
+      bumbu: true,
+      plastik: false,
+    };
   });
 
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  function applyTemplate(tmpl: (typeof QUICK_TEMPLATES)[number]) {
+    setName(tmpl.name);
+    setSellPrice(tmpl.sellPrice);
+    setBatchYield(tmpl.batchYield);
+    setWeeklyVolume(tmpl.weeklyVolume);
+    setSmallCosts(tmpl.smallCosts);
+    const mappedRows: IngredientRow[] = tmpl.ingredients.map((ing) => {
+      const found = availableCommodities.find(
+        (c) => c.id === ing.commodityId || c.name === ing.commodityId
+      );
+      return {
+        commodityId: ing.commodityId,
+        name: found?.name || ing.commodityId,
+        price: found?.current_price !== null && found?.current_price !== undefined
+          ? Number(found.current_price)
+          : ing.defaultPrice,
+        batchQty: ing.batchQty,
+        unit: found?.unit || "kg",
+      };
+    });
+    setRows(mappedRows);
+  }
 
   // Ambil komoditas langsung dari database Supabase
   useEffect(() => {
@@ -229,6 +317,26 @@ export function MenuForm({
         <span className="absolute -top-3 left-6 bg-ink px-3 py-1 font-mono text-xs font-bold text-cream">
           CATATAN MASAK WARUNG
         </span>
+
+        {!edit && (
+          <div className="bg-warning-yellow/30 p-4 brutal-border-2">
+            <span className="font-mono text-xs font-bold uppercase text-ink/70 block mb-2">
+              ⚡ PILIH TEMPLATE CEPAT (FR-14) — 1 KLIK OTOMATIS TERISI:
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {QUICK_TEMPLATES.map((tmpl) => (
+                <button
+                  key={tmpl.name}
+                  type="button"
+                  onClick={() => applyTemplate(tmpl)}
+                  className="brutal-btn bg-white hover:bg-warning-yellow px-3 py-1.5 font-heading text-xs font-bold transition"
+                >
+                  🍽️ {tmpl.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-4 pt-2 sm:grid-cols-2">
           <label className="font-heading text-sm font-bold">

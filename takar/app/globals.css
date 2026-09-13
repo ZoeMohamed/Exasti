@@ -58,17 +58,21 @@ body {
   border: 3px solid var(--ink);
   box-shadow: 4px 4px 0 var(--ink);
   transition:
-    transform 0.1s ease,
-    box-shadow 0.1s ease;
+    transform 80ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 80ms cubic-bezier(0.23, 1, 0.32, 1);
   cursor: pointer;
+  user-select: none;
 }
 .brutal-btn:hover {
   transform: translate(-2px, -2px);
   box-shadow: 6px 6px 0 var(--ink);
 }
 .brutal-btn:active {
-  transform: translate(2px, 2px);
+  transform: translate(2px, 2px) scale(0.98);
   box-shadow: 2px 2px 0 var(--ink);
+  transition:
+    transform 60ms ease-out,
+    box-shadow 60ms ease-out;
 }
 input[type="range"] {
   appearance: none;
@@ -86,4 +90,10 @@ input[type="range"]::-webkit-slider-thumb {
   background: var(--critical-red);
   border: 3px solid var(--ink);
   box-shadow: 2px 2px 0 var(--ink);
+  cursor: grab;
+  transition: transform 100ms ease-out;
+}
+input[type="range"]::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.12);
 }

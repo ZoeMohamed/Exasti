@@ -1,7 +1,6 @@
 import { cache } from "react";
 import { queryDb } from "../db/client";
 import { keIsoTanggal } from "../tanggal";
-import { formatRupiah } from "../formatRupiah";
 import type { Menu, Ingredient } from "@/types/menu";
 import {
   hitungHpp, hitungMargin, kesehatan, cariPendorong, cariPembanding,
@@ -86,20 +85,14 @@ export interface DbMenuDetail {
     unit: string;
     note?: string;
   }>;
+  fixedCosts?: Array<{
+    label: string;
+    amount: number;
+    isEstimated?: boolean;
+  }>;
   /** BR-10 / FR-28 — persen modal yang berasal dari data harga otomatis. */
   cakupan?: number;
   bahanTanpaHarga?: number;
-}
-
-function nameToSlug(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("geprek")) return "ayam-geprek";
-  if (n.includes("bakar")) return "ayam-bakar-madu";
-  if (n.includes("goreng") && n.includes("nasi")) return "nasi-goreng";
-  if (n.includes("lele")) return "pecel-lele";
-  if (n.includes("mie") || n.includes("dok")) return "mie-dok-dok";
-  if (n.includes("teh")) return "es-teh-jumbo";
-  return n.replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
 function getMenuIcon(name: string): string {
@@ -163,8 +156,14 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
       };
     });
 
-    // FR-21 — terurut dari untung paling tipis
-    menus.sort((a, b) => a.profit - b.profit);
+    // FR-21 / BR-14 — urut dari dampak rupiah terkecil bila volume terisi (dampak = untung * volume), atau untung paling tipis
+    menus.sort((a, b) => {
+      const volumeA = a.servingsPerWeek > 0 ? a.servingsPerWeek : 1;
+      const volumeB = b.servingsPerWeek > 0 ? b.servingsPerWeek : 1;
+      const dampakA = a.profit * volumeA;
+      const dampakB = b.profit * volumeB;
+      return dampakA - dampakB;
+    });
 
     return { menus, latestDate };
   } catch (err) {
@@ -269,9 +268,15 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     // ── biaya tetap ──
     const fcRes = await fcPromise;
     let biayaTetap = 0;
+    const fixedCosts: Array<{ label: string; amount: number; isEstimated?: boolean }> = [];
     for (const fc of fcRes?.rows ?? []) {
       const amt = Math.round(Number(fc.amount));
       biayaTetap += amt;
+      fixedCosts.push({
+        label: String(fc.label),
+        amount: amt,
+        isEstimated: Boolean(fc.is_estimated),
+      });
       ingredients.push({
         name: String(fc.label).toUpperCase(),
         quantity: fc.is_estimated ? "perkiraan kami · bisa diubah" : "kamu yang isi",
@@ -337,6 +342,7 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
       suggestedPrice: saranHarga(hpp, margin30 === null ? null : Number(margin30)),
       history,
       recipeRows,
+      fixedCosts,
       // FR-28 / BR-10 — peringatan cakupan data
       cakupan: Math.round(cakupan * 100),
       bahanTanpaHarga: jumlahHilang,

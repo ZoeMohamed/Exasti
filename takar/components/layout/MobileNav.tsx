@@ -2,6 +2,7 @@ import Link from "next/link";
 const links = [
   ["🏠", "Beranda", "/dashboard"],
   ["📋", "Menu", "/dashboard/menu"],
+  ["📸", "Nota", "/dashboard/belanja"],
   ["🎚️", "Simulasi", "/dashboard/simulator"],
   ["⚙️", "Setelan", "/dashboard/pengaturan"],
 ] as const;

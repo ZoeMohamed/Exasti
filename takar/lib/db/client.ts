@@ -24,7 +24,7 @@ export function getDbPool(): Pool | null {
   return pool;
 }
 
-export async function queryDb(text: string, params?: any[]) {
+export async function queryDb(text: string, params?: unknown[]) {
   const p = getDbPool();
   if (!p) return null;
   try {

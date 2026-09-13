@@ -65,7 +65,7 @@ export function MenuPriceActions({
           {loading ? "Menyimpan ke Sistem..." : updated ? `Sudah Pakai ${formatRupiah(suggestedPrice)}` : "Gunakan Harga Ini"}
         </button>
         <Link
-          href={`/dashboard/simulator?price=${suggestedPrice}`}
+          href={`/dashboard/simulator?menu=${menuId}&price=${suggestedPrice}`}
           className="brutal-btn flex items-center justify-center bg-warning-yellow px-4 py-3 text-xs font-heading font-bold text-ink text-center"
         >
           🎚️ Uji di Simulator

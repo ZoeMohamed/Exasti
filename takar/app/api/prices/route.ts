@@ -1,16 +1,33 @@
 import { NextResponse } from "next/server";
-import { keIsoTanggal, hariIniJakarta } from "@/lib/tanggal";
+import { hariIniJakarta } from "@/lib/tanggal";
 import { queryDb } from "@/lib/db/client";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_BUSINESS_ID = "00000000-0000-0000-0000-000000000001";
+async function getActiveBusiness() {
+  try {
+    const res = await queryDb("SELECT id, region_id FROM businesses ORDER BY created_at LIMIT 1;");
+    if (res && res.rows && res.rows.length > 0) {
+      return {
+        businessId: res.rows[0].id,
+        regionId: res.rows[0].region_id || 1,
+      };
+    }
+  } catch {
+    // fallback default
+  }
+  return {
+    businessId: "00000000-0000-0000-0000-000000000001",
+    regionId: 1,
+  };
+}
 
 /**
  * [GET] Mengambil riwayat harga nota belanja warung sendiri
  */
 export async function GET() {
   try {
+    const { businessId } = await getActiveBusiness();
     const res = await queryDb(
       `SELECT p.commodity_id,
               coalesce(c.name, p.commodity_id) as name,
@@ -24,7 +41,7 @@ export async function GET() {
        WHERE p.business_id = $1
        ORDER BY p.date DESC, p.fetched_at DESC
        LIMIT 20;`,
-      [DEFAULT_BUSINESS_ID]
+      [businessId]
     );
 
     return NextResponse.json({
@@ -53,13 +70,7 @@ export async function POST(req: Request) {
     }
 
     const targetDate = date || hariIniJakarta();
-
-    // Ambil region_id warung
-    const bRes = await queryDb(
-      "SELECT region_id FROM businesses WHERE id = $1 LIMIT 1;",
-      [DEFAULT_BUSINESS_ID]
-    );
-    const regionId = bRes?.rows[0]?.region_id || 1;
+    const { businessId, regionId } = await getActiveBusiness();
 
     let savedCount = 0;
     for (const item of items) {
@@ -71,7 +82,7 @@ export async function POST(req: Request) {
          VALUES ($1, $2, $3, $4, $5, 'nota_ocr')
          ON CONFLICT (commodity_id, region_id, date, business_id) WHERE business_id IS NOT NULL
          DO UPDATE SET price = EXCLUDED.price, fetched_at = now();`,
-        [item.commodity_id, regionId, DEFAULT_BUSINESS_ID, targetDate, item.price]
+        [item.commodity_id, regionId, businessId, targetDate, item.price]
       );
       savedCount++;
     }

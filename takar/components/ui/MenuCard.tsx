@@ -25,7 +25,7 @@ export function MenuCard({ menu }: { menu: Menu }) {
           Hilangkan seluruh warna dari layar, keadaan menu harus tetap terbaca
           dari label teks, panjang bar, dan angka rupiah. */}
       <div
-        className="mt-2 h-2 w-full overflow-hidden bg-ink/10 brutal-border"
+        className="mt-2 h-3 w-full overflow-hidden bg-ink/10 brutal-border-2"
         role="img"
         aria-label={`Untung ${menu.margin} dari tiap seratus rupiah penjualan`}
       >

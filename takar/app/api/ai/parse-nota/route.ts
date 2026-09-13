@@ -48,12 +48,13 @@ export async function POST(req: NextRequest) {
 
     const result = await parseReceipt({ imageBase64, mimeType, sampleId });
     return NextResponse.json(result);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("API /api/ai/parse-nota error:", err);
+    const message = err instanceof Error ? err.message : "Gagal memproses pembacaan nota belanja.";
     return NextResponse.json(
       {
         success: false,
-        error: err.message || "Gagal memproses pembacaan nota belanja.",
+        error: message,
       },
       { status: 500 },
     );

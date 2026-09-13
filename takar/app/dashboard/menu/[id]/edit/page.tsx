@@ -25,6 +25,7 @@ export default async function EditMenuPage({
       initialYield={menu.batchYield}
       initialVolume={menu.weeklyVolume}
       initialRows={menu.recipeRows}
+      initialFixedCosts={menu.fixedCosts}
     />
   );
 }

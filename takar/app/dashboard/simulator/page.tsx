@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatRupiah } from "@/lib/formatRupiah";
+import { hitungMargin, kesehatan } from "@/lib/margin";
 
 interface MenuItemOption {
   id: string;
@@ -17,10 +18,11 @@ interface MenuItemOption {
 
 function SimulatorContent() {
   const searchParams = useSearchParams();
-  const initialPrice = Number(searchParams.get("price")) || 18000;
+  const paramPrice = searchParams.get("price") ? Number(searchParams.get("price")) : null;
+  const initialMenu = searchParams.get("menu") || "ayam-geprek";
 
   const [menus, setMenus] = useState<MenuItemOption[]>([]);
-  const [selectedMenuId, setSelectedMenuId] = useState("ayam-geprek");
+  const [selectedMenuId, setSelectedMenuId] = useState(initialMenu);
   const [loadingMenu, setLoadingMenu] = useState(true);
 
   // Ingredient 1 & 2 definitions for the selected menu
@@ -30,7 +32,7 @@ function SimulatorContent() {
 
   const [slider1Pct, setSlider1Pct] = useState(20);
   const [slider2Pct, setSlider2Pct] = useState(30);
-  const [jual, setJual] = useState(initialPrice);
+  const [jual, setJual] = useState(paramPrice || 18000);
 
   // 1. Ambil daftar menu dari database
   useEffect(() => {
@@ -46,45 +48,68 @@ function SimulatorContent() {
 
   // 2. Ambil komposisi resep menu yang dipilih dari database
   useEffect(() => {
-    setLoadingMenu(true);
+    let active = true;
     fetch(`/api/menus/${selectedMenuId}`)
       .then((r) => r.json())
       .then((data) => {
+        if (!active) return;
         if (data.status === "ok" && data.ingredients) {
-          const mainIngs = data.ingredients.filter((i: any) => i.source === "DATA PASAR");
+          interface RawIngredient {
+            name: string;
+            quantity: string;
+            unitPrice?: number;
+            cost?: number;
+            source?: string;
+          }
+          const mainIngs = data.ingredients.filter((i: RawIngredient) => i.source === "DATA PASAR");
           if (mainIngs.length > 0) {
             const first = mainIngs[0];
-            const q1 = parseFloat(first.quantity.split(" ")[0]) || 0.25;
+            const uPrice1 = Number(first.unitPrice) || 40500;
+            const pQty1 = uPrice1 > 0 ? (Number(first.cost) / uPrice1) : 0.25;
             setIng1({
               name: first.name,
-              basePrice: first.unitPrice || 40500,
-              portionQty: q1,
+              basePrice: uPrice1,
+              portionQty: Math.round(pQty1 * 1000) / 1000,
               unit: "kg",
             });
           }
           if (mainIngs.length > 1) {
             const second = mainIngs[1];
-            const q2 = parseFloat(second.quantity.split(" ")[0]) || 0.015;
+            const uPrice2 = Number(second.unitPrice) || 63750;
+            const pQty2 = uPrice2 > 0 ? (Number(second.cost) / uPrice2) : 0.015;
             setIng2({
               name: second.name,
-              basePrice: second.unitPrice || 63750,
-              portionQty: q2,
+              basePrice: uPrice2,
+              portionQty: Math.round(pQty2 * 1000) / 1000,
               unit: "kg",
             });
           }
 
           const fixedTotal = data.ingredients
-            .filter((i: any) => i.source === "PERKIRAAN")
-            .reduce((acc: number, curr: any) => acc + curr.cost, 0);
+            .filter((i: RawIngredient) => i.source === "PERKIRAAN")
+            .reduce((acc: number, curr: RawIngredient) => acc + (Number(curr.cost) || 0), 0);
           setOtherCost(fixedTotal || 1500);
 
           if (data.menu?.sellPrice) {
-            setJual(data.menu.sellPrice);
+            if (selectedMenuId === initialMenu && paramPrice && paramPrice > 0) {
+              setJual(paramPrice);
+            } else {
+              setJual(data.menu.sellPrice);
+            }
           }
         }
+        setLoadingMenu(false);
       })
-      .catch(console.error)
-      .finally(() => setLoadingMenu(false));
+      .catch((err) => {
+        if (active) {
+          console.error(err);
+          setLoadingMenu(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, [selectedMenuId]);
 
   // Kalkulasi Simulasi
@@ -96,11 +121,10 @@ function SimulatorContent() {
 
   const totalModal = cost1 + cost2 + otherCost;
   const profit = jual - totalModal;
-  const margin = jual > 0 ? (profit / jual) * 100 : 0;
-
-  const healthy = margin >= 15;
-  const loss = profit < 0;
-  const status = loss ? "rugi" : healthy ? "sehat" : "tipis";
+  const margin = hitungMargin(jual, totalModal);
+  const status = kesehatan(margin);
+  const healthy = status === "sehat";
+  const loss = status === "rugi";
 
   return (
     <div className="space-y-8">
@@ -132,7 +156,10 @@ function SimulatorContent() {
           <span className="font-heading font-bold text-sm">PILIH MENU DARI DATABASE:</span>
           <select
             value={selectedMenuId}
-            onChange={(e) => setSelectedMenuId(e.target.value)}
+            onChange={(e) => {
+              setLoadingMenu(true);
+              setSelectedMenuId(e.target.value);
+            }}
             className="bg-cream font-heading font-extrabold text-sm p-2.5 brutal-border-2 max-w-md"
           >
             {menus.map((m) => (

@@ -161,16 +161,23 @@ export async function parseReceipt(options: {
   if (options.imageBase64) {
     const inputHash = hashInput(`${OCR_RECEIPT_PROMPT}:${options.imageBase64}`);
 
+    interface RawParsedReceiptItem {
+      nameRaw?: string;
+      qty?: number | null;
+      unit?: string | null;
+      totalPrice?: number | null;
+    }
+
     // Cek cache terlebih dahulu
     const cached = await getCachedAiResult("nota_ocr", inputHash);
     if (cached && cached.items) {
-      const items: ParsedItem[] = cached.items.map((it: any, idx: number) => ({
+      const items: ParsedItem[] = (cached.items as RawParsedReceiptItem[]).map((it, idx: number) => ({
         id: `item-${idx + 1}`,
         nameRaw: it.nameRaw || "Barang",
         qty: it.qty ?? null,
         unit: it.unit ?? null,
         totalPrice: it.totalPrice ?? null,
-        match: matchReceiptItem(it.nameRaw, it.qty, it.unit, it.totalPrice),
+        match: matchReceiptItem(it.nameRaw || "Barang", it.qty ?? null, it.unit ?? null, it.totalPrice ?? null),
         isConfirmed: false,
       }));
 
@@ -193,16 +200,22 @@ export async function parseReceipt(options: {
       responseSchema: OCR_RESPONSE_SCHEMA,
     });
 
-    if (result.success && result.data && Array.isArray(result.data.items)) {
-      const items: ParsedItem[] = result.data.items.map((it: any, idx: number) => ({
-        id: `item-${idx + 1}`,
-        nameRaw: it.nameRaw || "Barang",
-        qty: typeof it.qty === "number" ? it.qty : null,
-        unit: typeof it.unit === "string" ? it.unit : null,
-        totalPrice: typeof it.totalPrice === "number" ? it.totalPrice : null,
-        match: matchReceiptItem(it.nameRaw, it.qty, it.unit, it.totalPrice),
-        isConfirmed: false,
-      }));
+    if (result.success && result.data && Array.isArray((result.data as { items?: unknown[] }).items)) {
+      const rawList = (result.data as { items: RawParsedReceiptItem[] }).items;
+      const items: ParsedItem[] = rawList.map((it, idx) => {
+        const q = typeof it.qty === "number" ? it.qty : null;
+        const u = typeof it.unit === "string" ? it.unit : null;
+        const p = typeof it.totalPrice === "number" ? it.totalPrice : null;
+        return {
+          id: `item-${idx + 1}`,
+          nameRaw: it.nameRaw || "Barang",
+          qty: q,
+          unit: u,
+          totalPrice: p,
+          match: matchReceiptItem(it.nameRaw || "Barang", q, u, p),
+          isConfirmed: false,
+        };
+      });
 
       return {
         success: true,

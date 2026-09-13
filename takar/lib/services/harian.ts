@@ -3,9 +3,9 @@
 // seluruh keputusan angkanya diambil oleh lib/margin.ts yang murni.
 
 import { queryDb } from "../db/client";
-import { keIsoTanggal, hariIniJakarta } from "../tanggal";
+import { hariIniJakarta } from "../tanggal";
 import {
-  hitungHpp, hitungMargin, cariPendorong, cariPembanding,
+  hitungHpp, hitungMargin, cariPendorong,
   nilaiKeparahan, batasiAlert, saranHarga, susunKalimat, penyumbangTerbesar,
   type BahanResep, type CalonAlert,
 } from "../margin";
@@ -187,13 +187,15 @@ export async function buatAlert(tanggal: string): Promise<number> {
       const { headline, detail } = susunKalimat(a);
 
       // BR-07 — saran harga hanya untuk warning dan critical (FR-32)
+      const menuRow = menus.rows.find((r: { id: string; margin_30hari?: number | null }) => r.id === a.menuItemId);
+      const margin30 = menuRow?.margin_30hari ?? null;
       const saran =
         a.keparahan === "info"
           ? null
           : {
               tipe: "reprice",
               harga_sekarang: a.hargaJual,
-              harga_saran: saranHarga(a.hpp, (menus.rows.find((r) => r.id === a.menuItemId) as any)?.margin_30hari),
+              harga_saran: saranHarga(a.hpp, margin30 !== null ? Number(margin30) : null),
             };
 
       const res = await queryDb(

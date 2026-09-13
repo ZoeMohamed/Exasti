@@ -1,12 +1,11 @@
 import { createHash } from "crypto";
 import { queryDb } from "../db/client";
 
-// Rantai fallback model sesuai docs/02-ARCHITECTURE.md & docs/10-AI-VALIDATION.md
-// Jika model sibuk (503), kuota habis (429), atau pensiun (404), lanjut ke model berikutnya.
+// Rantai model Gemini teruji di Google AI Studio (Docs/08-AI-USECASE.md)
 export const GEMINI_MODELS = [
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
   "gemini-flash-latest",
 ] as const;
 
@@ -41,7 +40,7 @@ export async function getCachedAiResult<T = any>(
       memoryAiCache.set(memoryKey, { output, timestamp: Date.now() });
       return output as T;
     }
-  } catch (err) {
+  } catch {
     // Graceful fallback jika DB belum di-setup
   }
 
@@ -51,7 +50,7 @@ export async function getCachedAiResult<T = any>(
 export async function setCachedAiResult(
   kind: string,
   inputHash: string,
-  output: any,
+  output: unknown,
 ): Promise<void> {
   const memoryKey = `${kind}:${inputHash}`;
   memoryAiCache.set(memoryKey, { output, timestamp: Date.now() });
@@ -63,7 +62,7 @@ export async function setCachedAiResult(
        ON CONFLICT (kind, input_hash) DO UPDATE SET output = $3`,
       [kind, inputHash, JSON.stringify(output)],
     );
-  } catch (err) {
+  } catch {
     // Database belum tersambung, simpan di memory cache
   }
 }

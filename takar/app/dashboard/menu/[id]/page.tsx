@@ -187,7 +187,7 @@ export default async function MenuDetailPage({
             </p>
           </div>
           <Link
-            href={`/dashboard/simulator?price=${sellPrice}`}
+            href={`/dashboard/simulator?menu=${id}&price=${sellPrice}`}
             className="brutal-btn whitespace-nowrap bg-bright-green px-4 py-2 text-xs font-heading font-extrabold text-ink"
           >
             Coba di Simulator ➔
