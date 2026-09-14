@@ -137,10 +137,19 @@ Keputusannya tetap di tanganmu. Kamu boleh:
 
 ---
 
-## Kalau ada bahan yang tidak ada di daftar
+## Kalau bahanmu belum tersedia
 
-Saus sambal botolan, tepung, gas, kemasan — harga barang-barang ini tidak
-diumumkan di mana-mana.
+Di halaman Tambah Menu, ketik nama bahan seperti “saus sambal”. Pilih saran yang
+muncul, atau tekan **Tambah sebagai bahan baru**. Lalu pilih cara pakainya:
+
+- **Habis sekali masak**, misalnya 2 kg ayam untuk satu panci.
+- **Satu kemasan untuk beberapa porsi**, misalnya botol 340 gram cukup 25 porsi.
+
+Isi harga yang benar-benar kamu bayar dan ukuran kemasannya. Takar membagi harga
+itu secara otomatis. Bahan tersebut hanya terlihat oleh warungmu.
+
+Kalau punya nota, kamu juga dapat mencatat beberapa harga sekaligus lewat halaman
+Catat Nota Belanja.
 
 Gampang: **foto saja nota belanjamu.**
 

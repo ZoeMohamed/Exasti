@@ -72,7 +72,7 @@ muat semuanya.
 
 | Siapa | Kerjaan |
 |---|---|
-| Semua | Setup repo, Next.js, Supabase, jalankan `db/schema.sql` |
+| Semua | Setup repo, Next.js, Supabase, jalankan migrasi dan verifikasi di `db/supabase/` |
 | O1 | **Mapping wilayah BI** — blocker semua orang. Kerjakan pertama. |
 | O2 | Layout dasar + komponen `ui/` dengan data palsu |
 | O3 | **Ambil API key Gemini** di aistudio.google.com (gratis, 2 menit) + rangka `lib/ai/client.ts` dengan cache |

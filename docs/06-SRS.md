@@ -251,7 +251,8 @@ Nota menulis nama berbeda tiap toko untuk barang yang sama:
 ```
 
 Ketiganya harus menunjuk **satu item katalog**. AI menyarankan pencocokan,
-**pemilik mengonfirmasi**, dan sejak itu identitasnya terkunci.
+**pemilik mengonfirmasi untuk warungnya sendiri**, dan sejak itu identitasnya
+terkunci. Bahan buatan Warung A tidak boleh terbaca atau terpakai oleh Warung B.
 
 Tanpa ini, tiga nota menjadi tiga barang berbeda dan tren mustahil dihitung.
 
@@ -354,12 +355,15 @@ penjualan yang tidak dimiliki (C-4). Yang boleh: peringkat kesehatan.
 |---|---|---|
 | **FR-07** | Pengguna dapat mendaftarkan warung dengan nama dan kabupaten | Baris `businesses` tercipta dengan `region_id` valid |
 | **FR-08** | Pengguna dapat menambah, mengubah, menghapus menu beserta harga jual | CRUD lengkap melalui UI |
-| **FR-09** | **Resep dimasukkan sebagai jumlah sekali masak + hasil porsi, TIDAK PERNAH sebagai takaran per porsi** | Tidak ada satu pun label input bertuliskan "per porsi"; konversi BR-08 benar |
-| **FR-10** | Saat mengedit resep, sistem menampilkan kembali angka batch asli | Buka resep tersimpan → tampil "2 kg, 8 porsi", bukan 0,25 |
+| **FR-09** | Resep dimasukkan sebagai jumlah sekali masak **atau** isi kemasan + jumlah porsi yang dilayani; pengguna tidak menghitung takaran per porsi sendiri | 2 kg/8 porsi → 0,25 kg; saus 340 g/25 porsi → 13,6 g |
+| **FR-10** | Saat mengedit resep, sistem menampilkan kembali angka asli yang dimasukkan | Tampil "2 kg" atau "340 gram, cukup 25 porsi", bukan 0,25 atau 0,0136 |
 | **FR-11** | Pengguna dapat menambahkan biaya tetap berlabel bebas, dengan kalkulator kemasan opsional | Isi harga kemasan + isi + pakai → `amount` terhitung benar |
 | **FR-12** | Satu komoditas hanya boleh muncul sekali per menu | Percobaan duplikat ditolak |
 | **FR-13** | Biaya gas/kemasan tidak ditanyakan pada menu pertama; sistem memberi perkiraan bertanda | `is_estimated = true`, dan tandanya tampil di UI |
 | **FR-14** | Onboarding menyediakan template jenis warung dengan takaran terisi | Pilih "Ayam Geprek" → 5 bahan dan hasil porsi sudah terisi |
+| **FR-58** | Pemilik dapat mengetik nama bahan tanpa memilih dari dropdown dan membuat bahan baru milik warung | Ketik "saus sambal" → tambah → bahan tersimpan untuk warung aktif |
+| **FR-59** | Harga bahan warung dibandingkan dengan riwayat belanja warung itu sendiri | Dua harga berjarak ≥7 hari menghasilkan perubahan harga bahan |
+| **FR-60** | Katalog bahan buatan pemilik terisolasi per warung | Uji RLS lintas-warung menolak baca dan tulis |
 
 ### 3.3 Perhitungan
 
@@ -370,7 +374,7 @@ penjualan yang tidak dimiliki (C-4). Yang boleh: peringkat kesehatan.
 | **FR-17** | Sistem menyimpan snapshot harian per menu aktif | Satu baris `margin_snapshots` per menu per hari |
 | **FR-18** | Sistem menentukan pendorong sesuai BR-04 | **Uji contoh ayam vs cabai pada BR-04 wajib lolos** |
 | **FR-19** | Perhitungan margin bersifat fungsi murni tanpa I/O | `lib/margin.ts` tidak mengimpor klien database |
-| **FR-20** | Lookup harga mengikuti prioritas BR-09 | Harga milik warung mengalahkan harga publik pada komoditas sama |
+| **FR-20** | Lookup harga mengikuti BR-09 | Harga warung menjadi level dasar dan bergerak mengikuti rasio BI; fallback berlaku untuk data hilang/rasio tidak wajar |
 
 ### 3.4 Penyajian
 
@@ -524,7 +528,11 @@ Alternatif berbayar bila nanti butuh kualitas vision lebih tinggi: Claude Haiku 
 
 ### 5.3 Basis data
 
-Skema lengkap pada [`db/schema.sql`](../db/schema.sql), telah divalidasi pada PostgreSQL 15.
+Skema deployment pada
+[`db/supabase/01_migration.sql`](../db/supabase/01_migration.sql), dengan
+hardening dan suite verifikasi di folder yang sama, telah divalidasi pada
+PostgreSQL 17 di Supabase. `db/schema.sql` dipertahankan hanya sebagai rancangan
+PostgreSQL awal tanpa Auth/RLS.
 
 ---
 

@@ -41,3 +41,4 @@ yarn-error.log*
 
 # Eksperimen — dibuat ulang oleh scripts/test_ocr.py
 ai-lab/
+.vercel

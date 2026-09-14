@@ -1,0 +1,46 @@
+{
+  "name": "takar",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "db:check": "tsx scripts/db-check.ts",
+    "demo:bahan": "tsx scripts/pindah-biaya-ke-bahan.ts",
+    "test:margin": "tsx tests/uji-margin.ts",
+    "test:time": "tsx tests/uji-tanggal.ts",
+    "test:bahan": "tsx tests/uji-bahan.ts",
+    "test:biaya": "tsx tests/uji-biaya.ts",
+    "test:prioritas": "tsx tests/uji-prioritas.ts",
+    "test:ocr": "tsx tests/uji-ocr.ts",
+    "test:bi": "tsx tests/uji-bi.ts",
+    "test:rupiah": "tsx tests/uji-rupiah.ts",
+    "test:onboarding": "tsx tests/uji-onboarding.ts",
+    "test": "npm run test:margin && npm run test:time && npm run test:bahan && npm run test:biaya && npm run test:prioritas && npm run test:ocr && npm run test:bi && npm run test:rupiah && npm run test:onboarding"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
+    "next": "16.3.5",
+    "pg": "^8.23.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4",
+    "tsx": "4.23.13",
+    "typescript": "^5"
+  }
+}
