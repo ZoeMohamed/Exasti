@@ -22,10 +22,12 @@ export function MenuPriceActions({
   const [loading, setLoading] = useState(false);
   const [updated, setUpdated] = useState(false);
   const [activePrice, setActivePrice] = useState(currentPrice);
+  const [error, setError] = useState("");
 
   const handleApplyPrice = async () => {
     try {
       setLoading(true);
+      setError("");
       const res = await fetch(`/api/menus/${menuId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -38,11 +40,11 @@ export function MenuPriceActions({
         router.refresh();
       } else {
         const data = await res.json();
-        alert(data.error || "Gagal memperbarui harga");
+        setError(data.error || "Harga belum berhasil diperbarui. Coba lagi.");
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan jaringan.");
+      setError("Sambungan terputus. Periksa internet lalu coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -51,8 +53,13 @@ export function MenuPriceActions({
   return (
     <div className="space-y-3">
       {updated && (
-        <div className="bg-bright-green p-2.5 font-mono text-xs font-bold text-ink brutal-border-2 animate-bounce">
-          ✅ Berhasil! Harga {menuName} telah diperbarui menjadi {formatRupiah(activePrice)} di database.
+        <div className="bg-bright-green p-2.5 font-mono text-xs font-bold text-ink brutal-border-2">
+          Harga {menuName} sudah diperbarui menjadi {formatRupiah(activePrice)}.
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="bg-critical-red p-2.5 text-xs font-bold text-white brutal-border-2">
+          {error}
         </div>
       )}
       <div className="flex flex-col sm:flex-row gap-2">
@@ -62,13 +69,13 @@ export function MenuPriceActions({
           onClick={handleApplyPrice}
           className="brutal-btn flex-1 bg-bright-green px-4 py-3 text-sm font-heading font-extrabold text-ink disabled:opacity-50"
         >
-          {loading ? "Menyimpan ke Sistem..." : updated ? `Sudah Pakai ${formatRupiah(suggestedPrice)}` : "Gunakan Harga Ini"}
+          {loading ? "Menyimpan..." : updated ? `Sudah Pakai ${formatRupiah(suggestedPrice)}` : "Gunakan Harga Ini"}
         </button>
         <Link
           href={`/dashboard/simulator?menu=${menuId}&price=${suggestedPrice}`}
           className="brutal-btn flex items-center justify-center bg-warning-yellow px-4 py-3 text-xs font-heading font-bold text-ink text-center"
         >
-          🎚️ Uji di Simulator
+          Coba Perubahan Harga
         </Link>
       </div>
     </div>

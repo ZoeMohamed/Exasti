@@ -61,7 +61,8 @@ resep masing-masing warung. Itulah yang Takar hitung.
 | [docs/08-AI-USECASE.md](docs/08-AI-USECASE.md) | Peran AI per fitur, apa yang bukan AI, ketahanan, jawaban Q&A |
 | [docs/09-CARA-PAKAI.md](docs/09-CARA-PAKAI.md) | **Penjelasan untuk pemilik warung — tanpa istilah teknis** |
 | [docs/10-AI-VALIDATION.md](docs/10-AI-VALIDATION.md) | Brief validasi AI — 4 tes, kriteria lolos, rencana mundur |
-| [db/schema.sql](db/schema.sql) | DDL — tervalidasi di PostgreSQL 15 |
+| [db/supabase/01_migration.sql](db/supabase/01_migration.sql) | DDL Supabase — Auth, RLS, view, dan privilege; tervalidasi di PostgreSQL 17 |
+| [db/supabase/06_timezone_jakarta.sql](db/supabase/06_timezone_jakarta.sql) | Default timezone database — Asia/Jakarta (WIB / UTC+7) |
 
 > **Merancang antarmuka?** Mulai dari [07-UX.md](docs/07-UX.md) — persona,
 > kosakata yang boleh dipakai, dan alasan di balik tiap keputusan layar.
@@ -115,7 +116,7 @@ Detail: [04-EXECUTION.md](docs/04-EXECUTION.md#cincin)
 
 | Lapisan | Pilihan | Alasan |
 |---|---|---|
-| Frontend + API | Next.js 15 (App Router) + TypeScript | Satu repo, satu bahasa, satu deploy |
+| Frontend + API | Next.js 16 (App Router) + TypeScript | Satu repo, satu bahasa, satu deploy |
 | Styling | Tailwind | Cepat, konsisten |
 | Database | Postgres (Supabase) | Relasional, cocok untuk time-series harga |
 | Cron | Vercel Cron | Tidak perlu server terpisah |
@@ -128,12 +129,40 @@ harus bisa dimodifikasi siapa pun di tim dalam hitungan detik.
 ## Menjalankan
 
 ```bash
-npm install
-cp .env.example .env.local     # isi DATABASE_URL dan GEMINI_API_KEY
-npm run db:migrate
-npm run seed -- --days 90      # tarik 90 hari harga Kota Semarang
+cp takar/.env.example takar/.env.local
+npm ci --prefix takar
 npm run dev
 ```
+
+Buka <http://localhost:3000>. Detail setup, daftar perintah, dan troubleshooting
+ada di [takar/README.md](takar/README.md).
+
+### Database
+
+Gunakan connection string admin yang aman untuk migrasi berikut, bukan kredensial
+browser. Untuk aplikasi/serverless, gunakan transaction pooler port `6543`.
+
+```bash
+db_url="postgresql://..."
+
+# Terapkan schema Supabase dan hardening-nya.
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/01_migration.sql
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/03_security_alignment.sql
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/04_integrity_alignment.sql
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/05_resep_efektif.sql
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/06_security_and_price_provenance.sql
+psql "$db_url" -X -v ON_ERROR_STOP=1 -1 -f db/supabase/06_timezone_jakarta.sql
+
+# Uji schema, timezone, constraint, privilege, view, dan isolasi dua tenant.
+psql "$db_url" -X -v ON_ERROR_STOP=1 -f db/supabase/05_verify.sql
+```
+
+### Vercel
+
+Hubungkan repository ini ke Vercel dengan Production Branch `main` dan Root
+Directory `takar`. Tambahkan environment dari `takar/.env.example`; nilai rahasia
+tetap dibagikan lewat password manager, bukan Git. Panduan lengkap ada di
+[bagian Deployment Vercel](takar/README.md#deployment-vercel).
 
 ---
 

@@ -1,42 +1,48 @@
 import { NextResponse } from "next/server";
-import { hapusDbMenu, getDbMenuDetail, updateDbMenuPrice, updateDbMenuComplete } from "@/lib/services/menu-engine";
+import { hapusDbMenu, getDbMenuDetail, MenuInputError, updateDbMenuActive, updateDbMenuPrice, updateDbMenuComplete } from "@/lib/services/menu-engine";
+import { apiError, requireApiBusinessId } from "@/lib/auth/api";
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const data = await getDbMenuDetail(id);
+  try {
+    await requireApiBusinessId();
+    const { id } = await params;
+    const data = await getDbMenuDetail(id);
 
-  if (!data) {
-    return NextResponse.json({ error: "Menu tidak ditemukan di database" }, { status: 404 });
+    if (!data) {
+      return NextResponse.json({ error: "Menu tidak ditemukan" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      status: "ok",
+      menu: {
+        id: data.id,
+        name: data.name,
+        shortName: data.shortName,
+        icon: data.icon,
+        category: data.category,
+        sellPrice: data.sellPrice,
+        batchYield: data.batchYield,
+        servingsPerWeek: data.weeklyVolume,
+        modal: data.modal,
+        profit: data.profit,
+        profitRate: data.profitRate,
+        status: data.status,
+      },
+      ingredients: data.ingredients,
+      driverNote: data.driverNote,
+      suggestedPrice: data.suggestedPrice,
+      history: data.history,
+      cakupan: data.cakupan,
+      bahanTanpaHarga: data.bahanTanpaHarga,
+      recipeRows: data.recipeRows,
+      fixedCosts: data.fixedCosts,
+    });
+  } catch (error) {
+    return apiError(error, "Gagal mengambil rincian menu");
   }
-
-  return NextResponse.json({
-    status: "ok",
-    menu: {
-      id: data.id,
-      name: data.name,
-      shortName: data.shortName,
-      icon: data.icon,
-      category: data.category,
-      sellPrice: data.sellPrice,
-      batchYield: data.batchYield,
-      servingsPerWeek: data.weeklyVolume,
-      modal: data.modal,
-      profit: data.profit,
-      margin: data.margin,
-      status: data.status,
-    },
-    ingredients: data.ingredients,
-    driverNote: data.driverNote,
-    suggestedPrice: data.suggestedPrice,
-    history: data.history,
-    // FR-28 / BR-10 — seberapa besar modal ini berdiri di atas data harga nyata
-    cakupan: data.cakupan,
-    bahanTanpaHarga: data.bahanTanpaHarga,
-    recipeRows: data.recipeRows,
-  });
 }
 
 export async function PUT(
@@ -46,7 +52,18 @@ export async function PUT(
   const { id } = await params;
 
   try {
+    await requireApiBusinessId();
     const body = await req.json();
+
+    if (typeof body.active === "boolean") {
+      const ok = await updateDbMenuActive(id, body.active);
+      return NextResponse.json(
+        ok
+          ? { status: "ok", active: body.active }
+          : { error: "Menu tidak ditemukan." },
+        { status: ok ? 200 : 404 },
+      );
+    }
 
     // 1. Jika hanya update harga jual cepat (quick action)
     if (body.price && typeof body.price === "number" && !body.name && !body.recipe) {
@@ -54,13 +71,19 @@ export async function PUT(
       if (ok) {
         return NextResponse.json({
           status: "ok",
-          message: `Harga jual berhasil diperbarui ke ${body.price} di database`,
+          message: `Harga jual berhasil diperbarui menjadi ${body.price}`,
         });
       }
-      return NextResponse.json({ error: "Gagal memperbarui harga di database" }, { status: 500 });
+      return NextResponse.json({ error: "Harga belum berhasil diperbarui" }, { status: 500 });
     }
 
     // 2. Jika update lengkap menu dari formulir edit
+    if (!body.name || !body.sellPrice || !body.batchYield || !Array.isArray(body.recipe)) {
+      return NextResponse.json(
+        { error: "Nama menu, harga jual, takaran porsi, dan bahan wajib diisi." },
+        { status: 400 },
+      );
+    }
     const ok = await updateDbMenuComplete(id, {
       name: body.name,
       sellPrice: body.sellPrice,
@@ -73,14 +96,19 @@ export async function PUT(
     if (ok) {
       return NextResponse.json({
         status: "ok",
-        message: "Data menu dan resep berhasil diperbarui di database Supabase!",
+        message: "Menu dan resep berhasil diperbarui.",
       });
     }
 
-    return NextResponse.json({ error: "Gagal memperbarui menu di database" }, { status: 500 });
+    return NextResponse.json({ error: "Menu belum berhasil diperbarui" }, { status: 500 });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Gagal memperbarui menu";
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (err instanceof MenuInputError) {
+      return NextResponse.json(
+        { error: err.message, pesan: err.keberatan[0]?.pesan ?? err.message, keberatan: err.keberatan },
+        { status: err.status },
+      );
+    }
+    return apiError(err, "Gagal memperbarui menu");
   }
 }
 
@@ -88,10 +116,15 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const ok = await hapusDbMenu(id);
-  return NextResponse.json(
-    ok ? { status: "ok", pesan: "Menu dihapus." } : { error: "Menu tidak ditemukan." },
-    { status: ok ? 200 : 404 },
-  );
+  try {
+    await requireApiBusinessId();
+    const { id } = await params;
+    const ok = await hapusDbMenu(id);
+    return NextResponse.json(
+      ok ? { status: "ok", pesan: "Menu dihapus." } : { error: "Menu tidak ditemukan." },
+      { status: ok ? 200 : 404 },
+    );
+  } catch (error) {
+    return apiError(error, "Gagal menghapus menu");
+  }
 }

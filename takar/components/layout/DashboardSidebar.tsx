@@ -7,8 +7,8 @@ const links = [
   ["Beranda", "/dashboard"],
   ["Daftar Menu", "/dashboard/menu"],
   ["Tambah Menu", "/dashboard/menu/tambah"],
-  ["Scan Nota Belanja", "/dashboard/belanja"],
-  ["Simulator Harga", "/dashboard/simulator"],
+  ["Catat Nota Belanja", "/dashboard/belanja"],
+  ["Coba Perubahan Harga", "/dashboard/simulator"],
   ["Pengaturan Warung", "/dashboard/pengaturan"],
 ] as const;
 
@@ -28,6 +28,8 @@ interface DashboardSidebarProps {
   criticalCount?: number;
   menuCount?: number;
   lastSyncText?: string;
+  priceDateText?: string | null;
+  priceStale?: boolean;
 }
 
 export function DashboardSidebar({
@@ -36,6 +38,8 @@ export function DashboardSidebar({
   criticalCount = 1,
   menuCount = 6,
   lastSyncText = "Hari ini",
+  priceDateText,
+  priceStale = false,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
 
@@ -47,7 +51,7 @@ export function DashboardSidebar({
           className="relative mb-6 block rotate-[-1deg] bg-warning-yellow p-4 brutal-border shadow-[4px_4px_0_#111]"
         >
           <span className="absolute right-[-8px] top-[-12px] rotate-6 bg-critical-red px-2 py-0.5 font-mono text-[10px] font-bold text-white brutal-border-2">
-            LIVE BI
+            HARGA TERBARU
           </span>
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center bg-ink text-xl font-heading font-extrabold text-warning-yellow brutal-border-2">
@@ -60,12 +64,14 @@ export function DashboardSidebar({
           </p>
         </Link>
 
-        <div className="mb-6 flex items-center gap-2 bg-white p-2.5 font-mono text-xs font-bold brutal-border-2 shadow-[2px_2px_0_#111]">
-          <span className="h-3 w-3 animate-pulse rounded-full border-2 border-ink bg-bright-green" />
+        <div className="mb-6 bg-white p-2.5 font-mono text-xs font-bold brutal-border-2 shadow-[2px_2px_0_#111]">
           <div>
             {regionName}, Jawa Tengah
             <div className="font-normal text-ink/60">
-              Harga pasar: {lastSyncText}
+              Harga pasar: {priceDateText ?? "belum tersedia"}{priceStale ? " — perlu diperbarui" : ""}
+            </div>
+            <div className="font-normal text-ink/60">
+              Diperbarui: {lastSyncText}
             </div>
           </div>
         </div>
@@ -77,6 +83,8 @@ export function DashboardSidebar({
               <Link
                 key={href}
                 href={href}
+                data-tour={href === "/dashboard/pengaturan" ? "nav-settings" : undefined}
+                prefetch={false}
                 aria-current={active ? "page" : undefined}
                 className={`flex w-full items-center gap-3 px-4 py-3 font-heading font-bold brutal-border-2 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[4px_4px_0_#111] ${active ? "bg-white shadow-[4px_4px_0_#111]" : ""}`}
               >
@@ -100,7 +108,7 @@ export function DashboardSidebar({
       <div className="mt-6 border-t-2 border-ink pt-4">
         <div className="relative bg-cream-surface p-3 brutal-border-2 shadow-[2px_2px_0_#111]">
           <span className="absolute right-2 top-[-12px] bg-accent-green px-1.5 py-0.5 font-mono text-[10px] font-bold text-white border border-ink">
-            WARUNG AKTIF
+            WARUNGMU
           </span>
           <p className="font-heading text-sm font-bold">{businessName}</p>
           <p className="font-mono text-xs text-ink/70">{regionName}</p>

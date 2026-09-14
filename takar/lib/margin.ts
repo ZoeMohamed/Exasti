@@ -197,6 +197,7 @@ export interface CalonAlert {
   pendorong: Kontribusi | null;
   hpp: number;
   hargaJual: number;
+  jenis?: "masalah" | "pulih";
 }
 
 /**
@@ -263,6 +264,13 @@ export function batasiAlert(calon: CalonAlert[]): CalonAlert[] {
 export function susunKalimat(a: CalonAlert): { headline: string; detail: string } {
   const untung = a.hargaJual - a.hpp;
   const rp = (n: number) => "Rp " + Math.abs(Math.round(n)).toLocaleString("id-ID");
+
+  if (a.jenis === "pulih") {
+    return {
+      headline: `${a.namaMenu} sudah sehat untuk dijual lagi`,
+      detail: `Sisa setelah modalnya kini ${rp(untung)} per porsi. Cek resep lalu aktifkan kembali bila siap.`,
+    };
+  }
 
   if (untung < 0) {
     return {

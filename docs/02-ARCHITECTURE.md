@@ -74,7 +74,10 @@
 
 ## Skema database
 
-DDL lengkap dan tervalidasi: [`db/schema.sql`](../db/schema.sql)
+DDL Supabase lengkap dan tervalidasi:
+[`db/supabase/01_migration.sql`](../db/supabase/01_migration.sql).
+`db/schema.sql` adalah rancangan PostgreSQL awal tanpa Auth/RLS dan bukan sumber
+kebenaran untuk deployment Supabase.
 
 ```mermaid
 erDiagram
@@ -95,22 +98,32 @@ erDiagram
         text unit "kg"
     }
     catalog_items {
-        text id PK "CINCIN 2"
+        text id PK "w_uuid"
+        uuid business_id FK "NULL = katalog umum"
         text name "Tepung Terigu"
-        text unit
+        text nama_normal
+        text unit "kg|liter|pcs"
         bool approved
     }
     regions {
         int  id PK
-        int  bi_province_id "13"
-        int  bi_regency_id "1 = Kota Semarang"
+        int  bi_province_id "14 = Jawa Tengah"
+        int  bi_regency_id "35 = Kota Semarang"
         text name
     }
+    businesses {
+        uuid id PK
+        uuid owner_id FK "auth.users.id"
+        int region_id FK
+        text name
+        text packaging_mode
+    }
     prices {
-        text    commodity_id PK,FK
-        int     region_id PK,FK
-        uuid    business_id PK "NULL = publik BI"
-        date    date PK
+        uuid    id PK
+        text    commodity_id "referensi logis katalog"
+        int     region_id FK
+        uuid    business_id FK "NULL = publik BI"
+        date    date
         numeric price
         text    source "bi_hargapangan|manual|nota_ocr"
         bool    is_filled "hasil forward-fill"
@@ -125,9 +138,15 @@ erDiagram
     }
     recipe_items {
         uuid    id PK
-        text    commodity_id FK
+        text    commodity_id "referensi logis katalog"
         numeric batch_qty "2 (kg sekali masak)"
         numeric qty "0,25 (turunan per porsi)"
+        text    cara_pakai "per_masak|per_kemasan"
+        numeric jumlah_input "angka asli pemilik"
+        text    satuan_input
+        numeric isi_kemasan
+        text    satuan_kemasan
+        numeric porsi_per_kemasan
     }
     fixed_costs {
         uuid    id PK
@@ -149,10 +168,27 @@ erDiagram
         uuid  id PK
         text  severity
         text  headline
-        text  driver_commodity_id FK
+        text  driver_commodity_id "referensi logis katalog"
         jsonb suggestion
     }
 ```
+
+`catalog_items.business_id` memisahkan bahan buatan tiap warung; RLS mengizinkan
+pemilik membaca dan mengubah bahan warungnya sendiri saja. Kolom input asli pada
+`recipe_items` menjaga halaman edit tetap menampilkan “340 gram, cukup 25 porsi”,
+bukan hanya angka hasil pembagian.
+
+`prices` memakai UUID sebagai primary key untuk Data API. Keunikan bisnisnya
+tetap dijaga oleh dua partial unique index: satu untuk harga BI
+(`business_id IS NULL`) dan satu untuk harga warung. `commodity_id` adalah
+referensi logis ke `commodities` atau `catalog_items`; PostgreSQL tidak dapat
+menyatakan satu foreign key ke dua tabel berbeda.
+
+Semua 12 tabel `public` memakai RLS. View memakai `security_invoker=true`, dan
+grant `anon`/`authenticated` diberikan dengan pola revoke-then-grant agar default
+privilege project tidak memperluas akses. Suite
+[`db/supabase/05_verify.sql`](../db/supabase/05_verify.sql) menguji struktur,
+constraint, least privilege, formula harga efektif, serta isolasi dua warung.
 
 ### Kenapa `batch_qty` dan `qty` dua-duanya disimpan
 
@@ -198,8 +234,8 @@ Demo tidak boleh bergantung panggilan live. Lihat §Ketahanan.
 | Param | Nilai | Catatan |
 |---|---|---|
 | `price_type_id` | `1` | Pasar tradisional |
-| `province_id` | `13` | Jawa Tengah |
-| `regency_id` | int | Kosongkan untuk level provinsi |
+| `province_id` | `14` | Jawa Tengah |
+| `regency_id` | `35` | Kota Semarang |
 | `start_date` / `end_date` | `MM/DD/YYYY` | **lihat jebakan** |
 | `comcat_id` | kosong | Semua komoditas |
 | `tipe_laporan` | `1` | |
@@ -215,12 +251,12 @@ Demo tidak boleh bergantung panggilan live. Lihat §Ketahanan.
 4. **Angka memakai pemisah ribuan koma:** `"16,350"` → `16350`.
 5. **BI publikasi 13:00 WIB, hari kerja saja.** Jalankan cron 13:30.
 6. **Mapping `province_id`/`regency_id` ke nama wilayah tidak terdokumentasi.**
-   Harus dipetakan manual sekali. `province_id=13`, `regency_id=1` = Kota Semarang
-   (terverifikasi).
+   Harus divalidasi ke endpoint referensi BI. Saat ini `province_id=14`,
+   `regency_id=35` = Kota Semarang.
 7. **Nama komoditas punya spasi di belakang** — mis. `"Cabai Merah Keriting "`.
    Selalu `.strip()`. Nama aslinya juga berbeda dari dugaan: `Daging Ayam Ras Segar`,
    `Cabai Rawit Hijau`, `Beras Kualitas Medium I`.
-8. **Respons memuat 28 baris, bukan 21** — baris kategori induk ikut terkirim
+8. **Respons Semarang memuat 31 baris, bukan 21** — baris kategori induk ikut terkirim
    bersama variannya. Jangan dihitung dua kali.
 9. **Rentang > 120 hari sering timeout.** Pecah per 90 hari lalu gabungkan
    (lihat `scripts/cari_demo_window.py`).
@@ -228,7 +264,7 @@ Demo tidak boleh bergantung panggilan live. Lihat §Ketahanan.
 ### Contoh panggilan terverifikasi
 
 ```bash
-curl -s 'https://www.bi.go.id/hargapangan/WebSite/TabelHarga/GetGridDataDaerah?price_type_id=1&comcat_id=&province_id=13&regency_id=&market_id=&tipe_laporan=1&start_date=09/08/2026&end_date=09/11/2026' \
+curl -s 'https://www.bi.go.id/hargapangan/WebSite/TabelHarga/GetGridDataDaerah?price_type_id=1&comcat_id=&province_id=14&regency_id=35&market_id=&tipe_laporan=1&start_date=09/08/2026&end_date=09/11/2026' \
   -H 'X-Requested-With: XMLHttpRequest'
 ```
 

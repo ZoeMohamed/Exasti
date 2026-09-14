@@ -12,7 +12,8 @@
 -- persis yang diminta BR-04. Bila rasio BI tidak wajar (<0,3 atau >3,0) kita
 -- tidak mempercayainya dan jatuh ke harga BI apa adanya.
 
-create or replace view resep_efektif as
+create or replace view resep_efektif
+with (security_invoker = true) as
 with sumber as (
   select
     r.menu_item_id,
@@ -27,7 +28,7 @@ with sumber as (
     nota.price      as harga_nota,
     nota.date       as tanggal_beli,
     bi_kini.price   as bi_kini,
-    bi_kini.date    as bi_tanggal,
+    coalesce(bi_kini.filled_from_date, bi_kini.date) as bi_tanggal,
     bi_kini.is_filled as bi_diisi_mundur,
     bi_beli.price   as bi_saat_beli,
     bi_lalu.price   as bi_lalu
@@ -47,7 +48,7 @@ with sumber as (
 
   -- harga BI hari ini
   left join lateral (
-    select p.price, p.date, p.is_filled from prices p
+    select p.price, p.date, p.is_filled, p.filled_from_date from prices p
     where p.business_id is null and p.commodity_id = r.commodity_id
       and p.region_id = b.region_id
     order by p.date desc limit 1
@@ -114,3 +115,6 @@ from berfaktor;
 
 comment on view resep_efektif is
   'BR-09 harga efektif + BR-04 harga pembanding 7 hari. Dipakai margin engine dan snapshot harian.';
+
+revoke all on resep_efektif from anon, authenticated;
+grant select on resep_efektif to authenticated;

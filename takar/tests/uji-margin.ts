@@ -2,10 +2,11 @@ import { hitungHpp, hitungMargin, kesehatan, cariPendorong, cariPembanding,
          nilaiKeparahan, batasiAlert, saranHarga, type BahanResep } from "../lib/margin.ts";
 
 let lolos = 0, gagal = 0;
-const cek = (nama: string, dapat: any, harap: any) => {
+const cek = <T>(nama: string, dapat: T, harap: T) => {
   const ok = JSON.stringify(dapat) === JSON.stringify(harap);
   console.log(`  ${ok ? "✓" : "✗"} ${nama}${ok ? "" : `\n      dapat ${JSON.stringify(dapat)}  harap ${JSON.stringify(harap)}`}`);
-  ok ? lolos++ : gagal++;
+  if (ok) lolos++;
+  else gagal++;
 };
 
 // ═══ FR-18 / BR-04 — UJI WAJIB: ayam geprek, cabai naik 58% tapi ayam yang pendorong
@@ -58,7 +59,7 @@ cek("BR-07 pakai margin 30 hari lalu bila > 15%", saranHarga(15534, 30), 22500);
 
 
 // ═══ Celah BR-06 yang ditemukan dari data nyata
-const cek2 = (n: string, d: any, h: any) => cek(n, d, h);
+const cek2 = <T>(n: string, d: T, h: T) => cek(n, d, h);
 cek2("BR-06 menu RUGI stabil tetap bersuara", nilaiKeparahan(-66.9, -66.9)?.keparahan, "critical");
 cek2("BR-06 rugi tanpa riwayat tetap bersuara", nilaiKeparahan(-66.9, null)?.keparahan, "critical");
 cek2("BR-06 margin tipis tanpa riwayat = bersuara (tidak menebak stabil)", nilaiKeparahan(13.8, null)?.keparahan, "warning");

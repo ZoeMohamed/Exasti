@@ -43,7 +43,8 @@ Jantung sistem. Mulai paling awal karena O2–O4 menunggu datanya.
    Jangan ditunda.
 4. **Margin engine** (`lib/margin.ts`) — fungsi murni, BR-01 & BR-02, tanpa I/O.
 5. **BR-04 pendorong** (`lib/trend.ts`) — **kontribusi rupiah, bukan persentase.**
-6. **Prioritas harga** (`lib/price.ts`) — harga milik warung → harga publik BI.
+6. **Harga efektif** (`lib/price.ts`) — level harga warung × gerakan BI, dengan
+   fallback BR-09 untuk data yang tidak lengkap atau rasio tidak wajar.
 7. **Recompute job** — isi `margin_snapshots` + pilih alert (aturan, bukan AI).
 
 ### Cincin 1
@@ -64,7 +65,7 @@ Format tanggal salah **tidak menghasilkan error** — hanya baris `"-"`. Kalau
 semua kosong, periksa format tanggal sebelum apa pun.
 
 **File milikmu:** `lib/margin.ts` · `lib/trend.ts` · `lib/price.ts` ·
-`app/api/cron/**` · `app/api/simulate` · `db/schema.sql`
+`app/api/cron/**` · `app/api/simulate` · `db/supabase/*.sql`
 
 ---
 
@@ -115,6 +116,10 @@ persona, prinsip teks, dan rancangan layar beserta alasannya.
 
 **File milikmu:** `app/(dashboard)/**` · `components/charts/**` ·
 `components/alerts/**` · `components/ui/**`
+
+**Berkas bahan bersama:** `lib/units.ts` · `lib/bahan/**` ·
+`components/menu/BahanCombobox.tsx` · `components/menu/KartuBahan.tsx`.
+Perubahan rumus wajib disertai kasus baru di `tests/uji-bahan.ts`.
 
 ---
 

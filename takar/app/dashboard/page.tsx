@@ -9,5 +9,11 @@ export default async function DashboardPage() {
     calculateDynamicMenus(),
     ambilAlert(),
   ]);
-  return <DashboardHome menus={menus} latestDate={latestDate} alerts={alerts} />;
+  return (
+    <DashboardHome
+      menus={menus}
+      latestDate={latestDate}
+      alerts={alerts}
+    />
+  );
 }

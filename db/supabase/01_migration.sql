@@ -1,5 +1,5 @@
 -- Takar — migrasi Supabase
--- Jalankan di SQL Editor Supabase, atau: supabase db push
+-- Jalankan melalui psql seperti contoh di README, atau tempel ke SQL Editor.
 --
 -- Berbeda dari db/schema.sql: terhubung ke auth.users dan seluruh tabel
 -- dilindungi Row Level Security. Ini yang memenuhi NFR-13.
@@ -32,7 +32,11 @@ create table if not exists regions (
   bi_regency_id  int,
   name           text not null,
   level          text not null check (level in ('province','regency')),
-  unique (bi_province_id, bi_regency_id)
+  constraint regions_level_regency_check check (
+    (level = 'province' and bi_regency_id is null) or
+    (level = 'regency' and bi_regency_id is not null)
+  ),
+  unique nulls not distinct (bi_province_id, bi_regency_id)
 );
 
 -- ══════════════════════════════════════════════════════════════
@@ -48,16 +52,21 @@ create table if not exists businesses (
   region_id  int  not null references regions(id),
   packaging_mode text not null default 'mixed'
     check (packaging_mode in ('dine_in','takeaway','mixed')),
+  onboarding_step smallint not null default 1
+    check (onboarding_step between 1 and 5),
+  onboarding_completed_at timestamptz,
   created_at timestamptz not null default now()
 );
 
 create index if not exists businesses_owner_idx on businesses (owner_id);
+create index if not exists businesses_region_idx on businesses (region_id);
 
 -- ══════════════════════════════════════════════════════════════
 -- HARGA  — satu tabel untuk BI dan harga milik warung
 -- ══════════════════════════════════════════════════════════════
 
 create table if not exists prices (
+  id           uuid primary key default gen_random_uuid(),
   commodity_id text not null,
   region_id    int  not null references regions(id),
   business_id  uuid references businesses(id) on delete cascade,  -- NULL = publik BI
@@ -66,11 +75,20 @@ create table if not exists prices (
   source       text not null default 'bi_hargapangan'
                check (source in ('bi_hargapangan','manual','nota_ocr')),
   is_filled    boolean not null default false,
-  fetched_at   timestamptz not null default now()
+  filled_from_date date,
+  fetched_at   timestamptz not null default now(),
+  constraint prices_source_owner_check check (
+    (business_id is null and source = 'bi_hargapangan') or
+    (business_id is not null and source in ('manual','nota_ocr'))
+  ),
+  constraint prices_filled_source_ck check (
+    (not is_filled and filled_from_date is null) or
+    (is_filled and filled_from_date is not null and filled_from_date < date)
+  )
 );
 
--- PK parsial: business_id NULL tidak bisa jadi bagian PK biasa,
--- jadi dipisah menjadi dua unique index.
+-- Natural key parsial: business_id NULL tidak bisa dijaga oleh UNIQUE biasa,
+-- jadi harga publik dan harga warung dipisah menjadi dua unique index.
 create unique index if not exists prices_publik_uniq
   on prices (commodity_id, region_id, date) where business_id is null;
 create unique index if not exists prices_warung_uniq
@@ -170,6 +188,9 @@ create table if not exists alerts (
 
 create index if not exists alerts_inbox_idx
   on alerts (business_id, date desc) where read_at is null;
+create index if not exists alerts_business_idx on alerts (business_id);
+create index if not exists alerts_menu_idx
+  on alerts (menu_item_id) where menu_item_id is not null;
 
 create table if not exists ai_cache (
   id         uuid primary key default gen_random_uuid(),
@@ -179,29 +200,6 @@ create table if not exists ai_cache (
   created_at timestamptz not null default now(),
   unique (kind, input_hash)
 );
-
--- ══════════════════════════════════════════════════════════════
--- PEMBANTU KEPEMILIKAN
--- security definer supaya kebijakan tidak memicu RLS berulang
--- ══════════════════════════════════════════════════════════════
-
-create or replace function public.punya_warung(b uuid)
-returns boolean language sql security definer stable
-set search_path = public as $$
-  select exists (
-    select 1 from businesses where id = b and owner_id = auth.uid()
-  );
-$$;
-
-create or replace function public.punya_menu(m uuid)
-returns boolean language sql security definer stable
-set search_path = public as $$
-  select exists (
-    select 1 from menu_items mi
-    join businesses b on b.id = mi.business_id
-    where mi.id = m and b.owner_id = auth.uid()
-  );
-$$;
 
 -- ══════════════════════════════════════════════════════════════
 -- ROW LEVEL SECURITY  — NFR-13
@@ -222,50 +220,200 @@ alter table ai_cache         enable row level security;
 
 -- Referensi publik: siapa pun boleh baca, tidak ada yang boleh tulis.
 -- (service role melewati RLS, jadi cron tetap bisa mengisi)
-create policy ref_baca_commodities   on commodities   for select using (true);
-create policy ref_baca_catalog       on catalog_items for select using (true);
-create policy ref_baca_regions       on regions       for select using (true);
+create policy ref_baca_commodities on commodities for select
+  to anon, authenticated using (true);
+create policy ref_baca_catalog on catalog_items for select
+  to anon, authenticated using (true);
+create policy ref_baca_regions on regions for select
+  to anon, authenticated using (true);
 
 -- ingest_runs sengaja bisa dibaca publik: ini bukti sistem berjalan harian,
 -- dan dipakai saat demo di depan juri.
-create policy ref_baca_ingest        on ingest_runs   for select using (true);
+create policy ref_baca_ingest on ingest_runs for select
+  to anon, authenticated using (true);
 
 -- Warung: hanya pemiliknya.
-create policy warung_baca   on businesses for select using (owner_id = auth.uid());
-create policy warung_buat   on businesses for insert with check (owner_id = auth.uid());
-create policy warung_ubah   on businesses for update using (owner_id = auth.uid())
-                                          with check (owner_id = auth.uid());
-create policy warung_hapus  on businesses for delete using (owner_id = auth.uid());
+create policy warung_baca on businesses for select to authenticated
+  using (owner_id = (select auth.uid()));
+create policy warung_buat on businesses for insert to authenticated
+  with check (owner_id = (select auth.uid()));
+create policy warung_ubah on businesses for update to authenticated
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+create policy warung_hapus on businesses for delete to authenticated
+  using (owner_id = (select auth.uid()));
 
 -- Harga: baris publik BI dibaca siapa saja; baris milik warung hanya pemiliknya.
-create policy harga_baca on prices for select
-  using (business_id is null or punya_warung(business_id));
-create policy harga_tulis on prices for insert
-  with check (business_id is not null and punya_warung(business_id));
-create policy harga_ubah on prices for update
-  using (business_id is not null and punya_warung(business_id))
-  with check (business_id is not null and punya_warung(business_id));
-create policy harga_hapus on prices for delete
-  using (business_id is not null and punya_warung(business_id));
+create policy harga_baca_publik on prices for select to anon
+  using (business_id is null);
+create policy harga_baca_pengguna on prices for select to authenticated
+  using (
+    business_id is null or exists (
+      select 1 from businesses b
+      where b.id = prices.business_id
+        and b.owner_id = (select auth.uid())
+    )
+  );
+create policy harga_tulis on prices for insert to authenticated
+  with check (
+    business_id is not null and exists (
+      select 1 from businesses b
+      where b.id = prices.business_id
+        and b.owner_id = (select auth.uid())
+    )
+  );
+create policy harga_ubah on prices for update to authenticated
+  using (
+    business_id is not null and exists (
+      select 1 from businesses b
+      where b.id = prices.business_id
+        and b.owner_id = (select auth.uid())
+    )
+  )
+  with check (
+    business_id is not null and exists (
+      select 1 from businesses b
+      where b.id = prices.business_id
+        and b.owner_id = (select auth.uid())
+    )
+  );
+create policy harga_hapus on prices for delete to authenticated
+  using (
+    business_id is not null and exists (
+      select 1 from businesses b
+      where b.id = prices.business_id
+        and b.owner_id = (select auth.uid())
+    )
+  );
 
 -- Menu dan turunannya.
-create policy menu_semua on menu_items for all
-  using (punya_warung(business_id)) with check (punya_warung(business_id));
+create policy menu_baca on menu_items for select to authenticated
+  using (exists (
+    select 1 from businesses b
+    where b.id = menu_items.business_id
+      and b.owner_id = (select auth.uid())
+  ));
+create policy menu_buat on menu_items for insert to authenticated
+  with check (exists (
+    select 1 from businesses b
+    where b.id = menu_items.business_id
+      and b.owner_id = (select auth.uid())
+  ));
+create policy menu_ubah on menu_items for update to authenticated
+  using (exists (
+    select 1 from businesses b
+    where b.id = menu_items.business_id
+      and b.owner_id = (select auth.uid())
+  ))
+  with check (exists (
+    select 1 from businesses b
+    where b.id = menu_items.business_id
+      and b.owner_id = (select auth.uid())
+  ));
+create policy menu_hapus on menu_items for delete to authenticated
+  using (exists (
+    select 1 from businesses b
+    where b.id = menu_items.business_id
+      and b.owner_id = (select auth.uid())
+  ));
 
-create policy resep_semua on recipe_items for all
-  using (punya_menu(menu_item_id)) with check (punya_menu(menu_item_id));
+create policy resep_baca on recipe_items for select to authenticated
+  using (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = recipe_items.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ));
+create policy resep_buat on recipe_items for insert to authenticated
+  with check (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = recipe_items.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ));
+create policy resep_ubah on recipe_items for update to authenticated
+  using (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = recipe_items.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ))
+  with check (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = recipe_items.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ));
+create policy resep_hapus on recipe_items for delete to authenticated
+  using (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = recipe_items.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ));
 
-create policy biaya_semua on fixed_costs for all
-  using (punya_menu(menu_item_id)) with check (punya_menu(menu_item_id));
+create policy biaya_baca on fixed_costs for select to authenticated
+  using (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = fixed_costs.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ));
+create policy biaya_buat on fixed_costs for insert to authenticated
+  with check (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = fixed_costs.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ));
+create policy biaya_ubah on fixed_costs for update to authenticated
+  using (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = fixed_costs.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ))
+  with check (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = fixed_costs.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ));
+create policy biaya_hapus on fixed_costs for delete to authenticated
+  using (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = fixed_costs.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ));
 
 -- Snapshot: dibaca pemilik, ditulis service role (job recompute).
-create policy snapshot_baca on margin_snapshots for select
-  using (punya_menu(menu_item_id));
+create policy snapshot_baca on margin_snapshots for select to authenticated
+  using (exists (
+    select 1 from menu_items mi
+    join businesses b on b.id = mi.business_id
+    where mi.id = margin_snapshots.menu_item_id
+      and b.owner_id = (select auth.uid())
+  ));
 
 -- Alert: dibaca pemilik; pemilik boleh menandai sudah dibaca.
-create policy alert_baca on alerts for select using (punya_warung(business_id));
-create policy alert_tandai on alerts for update
-  using (punya_warung(business_id)) with check (punya_warung(business_id));
+create policy alert_baca on alerts for select to authenticated
+  using (exists (
+    select 1 from businesses b
+    where b.id = alerts.business_id
+      and b.owner_id = (select auth.uid())
+  ));
+create policy alert_tandai on alerts for update to authenticated
+  using (exists (
+    select 1 from businesses b
+    where b.id = alerts.business_id
+      and b.owner_id = (select auth.uid())
+  ))
+  with check (exists (
+    select 1 from businesses b
+    where b.id = alerts.business_id
+      and b.owner_id = (select auth.uid())
+  ));
 
 -- ai_cache: hanya service role. Tanpa policy = tidak ada akses dari klien.
 
@@ -274,26 +422,34 @@ create policy alert_tandai on alerts for update
 -- ══════════════════════════════════════════════════════════════
 -- Di Supabase, RLS saja TIDAK CUKUP. Peran juga butuh hak tabel —
 -- tanpa ini hasilnya "permission denied" meski policy sudah benar.
--- Default privileges Supabase biasanya menutupinya kalau migrasi
--- dijalankan sebagai postgres, tapi ditulis eksplisit supaya pasti.
+-- Project Supabase bisa memberi privilege lebar secara default. GRANT tidak
+-- mencabut privilege tersebut, jadi selalu REVOKE dulu lalu beri minimum.
 
 grant usage on schema public to anon, authenticated;
+
+revoke all on table
+  commodities, catalog_items, regions, ingest_runs, businesses, prices,
+  menu_items, recipe_items, fixed_costs, margin_snapshots, alerts, ai_cache
+  from anon, authenticated;
+
+revoke all on sequence
+  regions_id_seq, ingest_runs_id_seq, margin_snapshots_id_seq
+  from anon, authenticated;
 
 -- Referensi publik: baca saja, termasuk untuk pengunjung belum login.
 grant select on commodities, catalog_items, regions, ingest_runs
   to anon, authenticated;
+grant select on prices to anon, authenticated;
 
 -- Data warung: hanya pengguna terautentikasi. RLS yang menyaring barisnya.
 grant select, insert, update, delete on
-  businesses, menu_items, recipe_items, fixed_costs, prices
+  businesses, menu_items, recipe_items, fixed_costs
   to authenticated;
+grant insert, update, delete on prices to authenticated;
 
 grant select on margin_snapshots to authenticated;
-grant select, update on alerts to authenticated;   -- update = tandai sudah dibaca
-
-grant usage, select on all sequences in schema public to authenticated;
-grant execute on function public.punya_warung(uuid), public.punya_menu(uuid)
-  to authenticated;
+grant select on alerts to authenticated;
+grant update (read_at) on alerts to authenticated;
 
 -- ai_cache sengaja tidak diberi hak apa pun: hanya service role.
 
@@ -339,15 +495,61 @@ left join lateral (
 -- Peta eksposur: persentase modal tiap menu per bahan (Cincin 1).
 create or replace view menu_exposure
 with (security_invoker = true) as
-with biaya as (
-  select r.menu_item_id, r.commodity_id, r.qty * lp.price as biaya_bahan
+with harga_bahan as (
+  select r.menu_item_id,
+         r.commodity_id,
+         r.qty,
+         case
+           -- Bahan di luar katalog BI: harga warung dibekukan.
+           when bi_kini.price is null then harga_sendiri.price
+           -- Belum ada harga warung: gunakan harga BI terbaru.
+           when harga_sendiri.price is null then bi_kini.price
+           -- Baseline BI tidak tersedia: bekukan harga warung.
+           when bi_saat_beli.price is null or bi_saat_beli.price = 0
+             then harga_sendiri.price
+           -- Pagar pengaman BR-09: rasio tidak wajar kembali ke BI.
+           when bi_kini.price / bi_saat_beli.price not between 0.3 and 3.0
+             then bi_kini.price
+           else harga_sendiri.price * (bi_kini.price / bi_saat_beli.price)
+         end as harga_efektif
   from   recipe_items r
   join   menu_items  m on m.id = r.menu_item_id
   join   businesses  b on b.id = m.business_id
-  join   latest_prices lp
-         on lp.commodity_id = r.commodity_id
-        and lp.region_id    = b.region_id
-        and (lp.business_id is null or lp.business_id = b.id)
+  left join lateral (
+    select p.price, p.date
+    from prices p
+    where p.business_id = b.id
+      and p.commodity_id = r.commodity_id
+      and p.region_id = b.region_id
+    order by p.date desc
+    limit 1
+  ) harga_sendiri on true
+  left join lateral (
+    select p.price, p.date
+    from prices p
+    where p.business_id is null
+      and p.commodity_id = r.commodity_id
+      and p.region_id = b.region_id
+    order by p.date desc
+    limit 1
+  ) bi_kini on true
+  left join lateral (
+    select p.price
+    from prices p
+    where p.business_id is null
+      and p.commodity_id = r.commodity_id
+      and p.region_id = b.region_id
+      and p.date <= harga_sendiri.date
+    order by p.date desc
+    limit 1
+  ) bi_saat_beli on true
+),
+biaya as (
+  select menu_item_id,
+         commodity_id,
+         qty * harga_efektif as biaya_bahan
+  from harga_bahan
+  where harga_efektif is not null
 ),
 total as (
   select menu_item_id, sum(biaya_bahan) as bahan_total
@@ -365,4 +567,6 @@ left join commodities   c  on c.id  = b.commodity_id
 left join catalog_items ci on ci.id = b.commodity_id;
 
 -- View memakai security_invoker, jadi RLS pemanggil tetap berlaku.
+revoke all on latest_prices, price_change_7d, menu_exposure
+  from anon, authenticated;
 grant select on latest_prices, price_change_7d, menu_exposure to authenticated;

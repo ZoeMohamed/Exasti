@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { getDbMenuDetail } from "@/lib/services/menu-engine";
 import { formatRupiah } from "@/lib/formatRupiah";
 import { MenuPriceActions } from "@/components/menu/MenuPriceActions";
+import { MenuAvailabilityAction } from "@/components/menu/MenuAvailabilityAction";
+import { MenuDeleteAction } from "@/components/menu/MenuDeleteAction";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +23,7 @@ export default async function MenuDetailPage({
   const sellPrice = menu.sellPrice;
   const modal = menu.modal;
   const profit = menu.profit;
-  const margin = menu.margin;
+  const profitRate = menu.profitRate;
   const status = menu.status;
 
   const suggestedProfit = menu.suggestedPrice - modal;
@@ -39,18 +41,22 @@ export default async function MenuDetailPage({
             href="/dashboard"
             className="brutal-btn bg-white px-3 py-1.5 font-mono text-xs font-bold"
           >
-            ⬅ Kembali ke Beranda
+            Kembali ke Beranda
           </Link>
           <Link
             href={`/dashboard/menu/${id}/edit`}
             className="brutal-btn bg-warning-yellow px-3 py-1.5 font-mono text-xs font-bold"
           >
-            ✏️ Edit Resep & Porsi
+            Ubah Resep dan Porsi
           </Link>
         </div>
-        <span className="bg-warning-yellow px-2 py-1 font-mono text-xs font-bold brutal-border-2">
-          KODE: {menu.shortName} · Pantauan Harga Live Bank Indonesia
-        </span>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <span className="bg-warning-yellow px-2 py-1 font-mono text-xs font-bold brutal-border-2">
+            Harga bahan diperiksa setiap hari
+          </span>
+          <MenuAvailabilityAction menuId={id} active={status !== "diistirahatkan"} />
+          <MenuDeleteAction menuId={id} menuName={menu.name} />
+        </div>
       </div>
 
       {/* Main Header Card */}
@@ -64,25 +70,27 @@ export default async function MenuDetailPage({
                     ? "bg-critical-red"
                     : status === "tipis"
                       ? "bg-warning-yellow text-ink"
-                      : "bg-bright-green text-ink"
+                      : status === "diistirahatkan"
+                        ? "bg-ink/20 text-ink"
+                        : "bg-bright-green text-ink"
                 }`}
               >
-                STATUS: {status.toUpperCase()} ({margin.toLocaleString("id-ID")}%)
+                STATUS: {status.toUpperCase()} ({profitRate.toLocaleString("id-ID")}%)
               </span>
               <span className="font-mono text-xs font-bold text-ink/70">
-                Kategori: {menu.category} · {menu.batchYield} Porsi Sekali Masak
+                {menu.category} · Sekali masak menghasilkan {menu.batchYield} porsi
               </span>
             </div>
             <h1 className="font-heading text-4xl font-extrabold uppercase tracking-tight sm:text-5xl">
               {menu.name}
             </h1>
             <p className="mt-1 text-sm text-ink/80">
-              Perhitungan modal porsi dihitung otomatis dari resep batch ({menu.batchYield} porsi) dikalikan harga komoditas pasar Kota Semarang hari ini.
+              Modal satu porsi dihitung dari jumlah bahan untuk sekali masak, lalu dibagi menjadi {menu.batchYield} porsi.
             </p>
           </div>
           <div className="min-w-[280px] bg-cream p-5 shadow-[4px_4px_0_#111] brutal-border-2">
             <span className="block font-mono text-xs font-bold uppercase text-ink/70">
-              Untung Bersih Saat Ini:
+              Sisa Setelah Modal Per Porsi:
             </span>
             <strong
               className={`my-1 block font-mono text-4xl sm:text-5xl ${
@@ -101,8 +109,7 @@ export default async function MenuDetailPage({
             </div>
           </div>
         </div>
-        <div className="mt-6 flex items-start gap-3 border-2 border-dashed border-ink bg-warning-yellow/30 p-3 font-mono text-xs font-bold sm:text-sm">
-          ⚠️{" "}
+        <div className="mt-6 border-2 border-dashed border-ink bg-warning-yellow/30 p-3 font-mono text-xs font-bold sm:text-sm">
           <span>
             PENTING: Modal di atas{" "}
             <u className="decoration-critical-red decoration-2">
@@ -117,14 +124,13 @@ export default async function MenuDetailPage({
       <section className="border-t-8 border-t-critical-red bg-cream-surface p-6 sm:p-8 brutal-card">
         <div className="mb-6 max-w-2xl">
           <span className="inline-block bg-critical-red px-2 py-0.5 font-mono text-xs font-bold uppercase text-white">
-            Penyelidikan Takar (Atribusi BR-04)
+            PENYEBAB UTAMA
           </span>
           <h2 className="mt-2 font-heading text-3xl font-extrabold sm:text-4xl">
-            Kenapa untungnya turun?
+            Apa yang paling memengaruhi untung?
           </h2>
           <p className="mt-1 font-medium text-ink/80">
-            Jangan terkecoh oleh persentase berita di media. Takar menghitung kenaikan
-            dalam satuan <b className="underline">Rupiah per Porsi</b> berdasarkan gramatur resep aslimu.
+            Takar melihat berapa rupiah tambahan biaya untuk setiap porsi berdasarkan takaran resep warungmu.
           </p>
         </div>
 
@@ -144,7 +150,7 @@ export default async function MenuDetailPage({
                 Penyebab Terbesar Kenaikan Modal (+{driver.driverPct}%)
               </span>
               <p className="mt-3 text-xs leading-relaxed sm:text-sm">
-                Karena resepmu memakai porsi komoditas ini dalam takaran dominan, kenaikan harga per kilogramnya langsung menguras kantong sebesar {formatRupiah(driver.driverRp)} per porsi!
+                Karena resepmu memakai bahan ini dalam takaran dominan, kenaikan harga per kilogramnya langsung menguras kantong sebesar {formatRupiah(driver.driverRp)} per porsi!
               </p>
             </div>
 
@@ -165,13 +171,13 @@ export default async function MenuDetailPage({
                 Persentase {driver.altPct}%, tapi dampaknya kecil
               </span>
               <p className="mt-3 text-xs leading-relaxed">
-                Meskipun berita menghebohkan lonjakan persentase komoditas ini, porsi yang dipakai per porsi sedikit, sehingga kontribusi kenaikannya hanya {formatRupiah(driver.altRp)}.
+                Meskipun lonjakan persentasenya tinggi, takaran bahan ini sedikit, sehingga kontribusi kenaikannya hanya {formatRupiah(driver.altRp)}.
               </p>
             </div>
           </div>
         ) : (
           <div className="bg-white p-6 font-mono text-sm brutal-border-2">
-            ✅ Biaya bahan baku untuk menu ini terpantau stabil dalam 7 hari terakhir. Tidak ada lonjakan bahan yang signifikan.
+            Biaya bahan untuk menu ini stabil dalam 7 hari terakhir. Tidak ada kenaikan besar yang perlu dikejar.
           </div>
         )}
 
@@ -183,14 +189,14 @@ export default async function MenuDetailPage({
                 : "“Biaya bahan baku saat ini berada di batas wajar.”"}
             </strong>
             <p className="text-xs text-cream/80">
-              Fokus bernegosiasi dengan pemasok bahan utama atau sesuaikan harga jual di simulator.
+              Coba minta harga yang lebih baik ke pemasok, atau uji harga jual baru lewat halaman Coba Harga.
             </p>
           </div>
           <Link
             href={`/dashboard/simulator?menu=${id}&price=${sellPrice}`}
             className="brutal-btn whitespace-nowrap bg-bright-green px-4 py-2 text-xs font-heading font-extrabold text-ink"
           >
-            Coba di Simulator ➔
+            Coba Perubahan Harga
           </Link>
         </div>
       </section>
@@ -202,7 +208,7 @@ export default async function MenuDetailPage({
           <div className="mb-4 flex items-center justify-between border-b-2 border-dashed border-ink pb-4">
             <div>
               <span className="font-mono text-xs font-bold uppercase text-ink/70">
-                Rincian Resep & Modal Dinamis
+                RINCIAN BIAYA BAHAN
               </span>
               <h2 className="font-heading text-2xl font-extrabold">
                 Komposisi Modal Menu
@@ -219,15 +225,14 @@ export default async function MenuDetailPage({
           {typeof menu.cakupan === "number" && menu.cakupan < 70 && (
             <div className="mb-4 bg-warning-yellow p-3 brutal-border-2">
               <p className="font-heading text-sm font-bold">
-                Angka ini masih banyak tebakannya
+                Perbarui harga belanja saat ada perubahan
               </p>
               <p className="mt-1 text-xs">
-                Baru {menu.cakupan} dari tiap 100 rupiah modal menu ini yang punya harga
-                pasar harian
+                Baru {menu.cakupan}% modal yang mengikuti perubahan harga pasar setiap hari
                 {menu.bahanTanpaHarga && menu.bahanTanpaHarga > 0
                   ? `, dan ${menu.bahanTanpaHarga} bahan belum ada harganya`
                   : ""}
-                . Isi harga belanjamu lewat Scan Nota supaya lebih tepat.
+                . Harga belanjamu tetap dipakai sesuai catatan terakhir. Catat nota baru saat harganya berubah.
               </p>
             </div>
           )}
@@ -289,20 +294,22 @@ export default async function MenuDetailPage({
               “Hitungan Berdasarkan Resep Asli”
             </h3>
             <p className="mt-1 text-xs leading-relaxed">
-              Resep menu ini dihitung dari takaran sekali masak (batch yield: {menu.batchYield} porsi). Data harga bahan segar diperbarui otomatis setiap hari kerja dari Bank Indonesia.
+              Resep dihitung dari takaran sekali masak yang menghasilkan {menu.batchYield} porsi. Harga bahan diperbarui otomatis setiap hari kerja.
             </p>
           </div>
 
           <div className="border-t-8 border-t-bright-green bg-ink p-6 text-cream brutal-card">
             <span className="font-mono text-xs font-bold uppercase text-warning-yellow">
-              Rekomendasi Cerdas Takar (BR-07)
+              {priceAdjustment > 0 ? "SARAN HARGA" : "HARGA JUAL"}
             </span>
             <h3 className="mt-1 font-heading text-2xl font-extrabold text-white">
-              “Kalau mau untungmu kembali sehat…”
+              {priceAdjustment > 0
+                ? "Kalau mau untungmu kembali sehat…"
+                : "Harga jualmu sudah sehat"}
             </h3>
             <div className="my-5 border-2 border-white bg-white/10 p-4">
               <span className="font-mono text-xs text-cream/70">
-                SARAN HARGA JUAL BARU:
+                {priceAdjustment > 0 ? "SARAN HARGA JUAL BARU:" : "HARGA JUAL SEKARANG:"}
               </span>
               <strong className="my-1 block font-mono text-4xl text-bright-green sm:text-5xl">
                 {formatRupiah(menu.suggestedPrice)}
@@ -315,18 +322,20 @@ export default async function MenuDetailPage({
               </div>
             </div>
             <p className="mb-4 text-xs leading-relaxed text-cream/80">
-              Dengan harga {formatRupiah(menu.suggestedPrice)}, untungmu kembali ke{" "}
+              Dengan harga {formatRupiah(menu.suggestedPrice)}, untungmu {priceAdjustment > 0 ? "kembali" : "tetap"} di{" "}
               <b className="font-mono text-bright-green">
                 {formatRupiah(suggestedProfit)} / porsi ({suggestedMargin}%)
               </b>
               .
             </p>
-            <MenuPriceActions
-              menuId={id}
-              menuName={menu.name}
-              currentPrice={sellPrice}
-              suggestedPrice={menu.suggestedPrice}
-            />
+            {priceAdjustment > 0 && (
+              <MenuPriceActions
+                menuId={id}
+                menuName={menu.name}
+                currentPrice={sellPrice}
+                suggestedPrice={menu.suggestedPrice}
+              />
+            )}
           </div>
         </aside>
       </div>
@@ -347,7 +356,7 @@ function DynamicProfitHistory({
   currentProfit,
 }: {
   menuName: string;
-  history: Array<{ date: string; label: string; hpp: number; profit: number; marginPct: number }>;
+  history: Array<{ date: string; label: string; hpp: number; profit: number }>;
   currentProfit: number;
 }) {
   if (!history || history.length === 0) {
@@ -386,11 +395,11 @@ function DynamicProfitHistory({
             Riwayat Untung 30 Hari Terakhir
           </h2>
           <p className="text-xs font-medium text-ink/70">
-            Tren rupiah untung per porsi {menuName} berdasarkan data historis harian Bank Indonesia.
+            Perubahan untung per porsi {menuName} dari catatan harga bahan harian.
           </p>
         </div>
         <span className="w-fit bg-cream p-1.5 font-mono text-xs border border-ink">
-          Puncak: {formatRupiah(peak)} ➔ Hari Ini:{" "}
+          Puncak: {formatRupiah(peak)} · Hari ini:{" "}
           <b className={currentProfit < 1500 ? "text-critical-red" : "text-bright-green"}>
             {formatRupiah(currentProfit)}
           </b>

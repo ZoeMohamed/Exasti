@@ -4,6 +4,7 @@ import { formatRupiah } from "@/lib/formatRupiah";
 import { MenuCard } from "@/components/ui/MenuCard";
 import { AlertInbox } from "@/components/dashboard/AlertInbox";
 import type { AlertTampil } from "@/lib/services/alerts";
+import { tanggalIndonesia } from "@/lib/tanggal";
 
 interface DashboardHomeProps {
   menus: Menu[];
@@ -11,32 +12,28 @@ interface DashboardHomeProps {
   alerts: AlertTampil[];
 }
 
-export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps) {
-  const activeCount = menus.length;
-  const criticalMenus = menus.filter((m) => m.status === "tipis" || m.status === "rugi");
-  const avgProfit = Math.round(menus.reduce((acc, m) => acc + m.profit, 0) / (menus.length || 1));
+export function DashboardHome({
+  menus,
+  latestDate,
+  alerts,
+}: DashboardHomeProps) {
+  const activeMenus = menus.filter((menu) => menu.status !== "diistirahatkan");
+  const activeCount = activeMenus.length;
+  const criticalMenus = activeMenus.filter((menu) => menu.status === "tipis" || menu.status === "rugi");
+  const avgProfit = Math.round(
+    activeMenus.reduce((total, menu) => total + menu.profit, 0) / (activeMenus.length || 1),
+  );
 
-  // Format tanggal BI
-  const formattedDate = (() => {
-    try {
-      const d = new Date(latestDate);
-      if (!isNaN(d.getTime())) {
-        const day = d.getDate();
-        const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-        return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
-      }
-    } catch {}
-    return latestDate;
-  })();
+  const formattedDate = tanggalIndonesia(latestDate);
 
   return (
     <div className="space-y-8">
       <section className="relative bg-white p-6 sm:p-8 brutal-card">
         <span className="absolute right-6 -top-3 rotate-2 bg-warning-yellow px-3 py-1 font-mono text-xs font-bold brutal-border">
-          📍 Semarang · Update Harga BI ({formattedDate})
+          Harga pasar Semarang · {formattedDate}
         </span>
         <span className="mb-3 inline-block bg-ink px-2.5 py-1 font-mono text-xs font-bold uppercase text-cream">
-          Analisis Keuangan Warung Hari Ini
+          Ringkasan Warung Hari Ini
         </span>
         <h1 className="max-w-3xl font-heading text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
           “Hari ini, ada{" "}
@@ -46,19 +43,19 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
           yang perlu kamu lihat.”
         </h1>
         <p className="mt-4 max-w-2xl text-base font-medium leading-relaxed text-ink/80 sm:text-lg">
-          Harga daging ayam dan cabai di Semarang bergerak dinamis dari data Bank Indonesia.
+          Harga ayam dan cabai di Semarang dapat berubah setiap hari.
           Jangan sampai jualan laris manis tapi pas dihitung uangnya malah habis untuk modal.
         </p>
-        <div className="mt-8 grid grid-cols-1 gap-4 border-t-2 border-ink/20 pt-6 sm:grid-cols-3">
+        <div data-tour="dashboard-summary" className="mt-8 grid grid-cols-1 gap-4 border-t-2 border-ink/20 pt-6 sm:grid-cols-3">
           <Metric
             label="Menu Aktif Jualan"
             value={`${activeCount} Menu`}
-            note="Dipantau otomatis harian"
+            note="Dihitung ulang setiap hari"
           />
           <Metric
             label="Untung Rata-Rata"
             value={formatRupiah(avgProfit)}
-            note="per porsi (semua menu)"
+            note="per porsi · belum dikurangi sewa dan listrik"
             tone="green"
           />
           <Metric
@@ -70,7 +67,7 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
         </div>
       </section>
 
-      <section>
+      <section data-tour="dashboard-alerts">
         <SectionTitle
           title="Yang Perlu Kamu Perhatikan"
           note={
@@ -82,10 +79,10 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
         <AlertInbox alerts={alerts} />
       </section>
 
-      <section>
+      <section data-tour="dashboard-menus">
         <SectionTitle
           title="Kondisi Menu Kamu"
-          note="Diurutkan dari untung paling tipis ke paling tebal."
+          note="Perkiraan dampak uang mingguan terbesar ditampilkan lebih dulu."
           action={
             <Link
               href="/dashboard/menu/tambah"
@@ -96,9 +93,19 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
           }
         />
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {menus.map((menu) => (
+          {activeMenus.length > 0 ? activeMenus.map((menu) => (
             <MenuCard key={menu.id} menu={menu} />
-          ))}
+          )) : (
+            <div className="col-span-full bg-white p-6 text-center brutal-card">
+              <h3 className="font-heading text-xl font-extrabold">Belum ada menu yang dihitung</h3>
+              <p className="mx-auto mt-2 max-w-lg text-sm text-ink/70">
+                Tambahkan menu pertama beserta bahan dan harga jualnya. Takar akan langsung menghitung modal dan sisa uang per porsi.
+              </p>
+              <Link href="/dashboard/menu/tambah" className="brutal-btn mt-4 inline-block bg-warning-yellow px-5 py-3 text-sm font-bold">
+                Tambah Menu Pertama
+              </Link>
+            </div>
+          )}
         </div>
       </section>
     </div>

@@ -1,48 +1,34 @@
 import { cache } from "react";
-import { queryDb } from "../db/client";
-import { keIsoTanggal } from "../tanggal";
+import {
+  getCurrentBusinessId,
+  queryAppDb,
+  withAppTransaction,
+} from "../auth/context";
+import { hariIniJakarta, keIsoTanggal, tanggalIndonesia } from "../tanggal";
 import type { Menu, Ingredient } from "@/types/menu";
 import {
   hitungHpp, hitungMargin, kesehatan, cariPendorong, cariPembanding,
   saranHarga, penyumbangTerbesar, periksaSatuan, type BahanResep,
 } from "../margin";
-
-/**
- * Memuat bahan seluruh menu dalam SATU kueri lewat view resep_efektif,
- * yang sudah menerapkan BR-09 (harga efektif) dan menyediakan harga
- * pembanding 7 hari untuk BR-04. Menggantikan kueri per-menu yang lama
- * berikut fallback harga karangan Rp 25.000.
- */
-const muatSemuaBahan = cache(async function (): Promise<Map<string, BahanResep[]>> {
-  const res = await queryDb(
-    `select menu_item_id, commodity_id, nama, qty, harga, harga_lalu, dari_data
-     from resep_efektif`,
-  );
-  const peta = new Map<string, BahanResep[]>();
-  for (const r of res?.rows ?? []) {
-    const daftar = peta.get(r.menu_item_id) ?? [];
-    daftar.push({
-      komoditasId: r.commodity_id,
-      nama: r.nama,
-      qty: Number(r.qty),
-      harga: r.harga === null ? null : Number(r.harga),
-      hargaLalu: r.harga_lalu === null ? null : Number(r.harga_lalu),
-      dariData: Boolean(r.dari_data),
-    });
-    peta.set(r.menu_item_id, daftar);
-  }
-  return peta;
-});
-
-const muatSemuaBiayaTetap = cache(async function (): Promise<Map<string, number>> {
-  const res = await queryDb(
-    `select menu_item_id, coalesce(sum(amount), 0) total
-     from fixed_costs group by menu_item_id`,
-  );
-  const peta = new Map<string, number>();
-  for (const r of res?.rows ?? []) peta.set(r.menu_item_id, Number(r.total));
-  return peta;
-});
+import type { DbQuery } from "@/lib/db/client";
+import { normalisasiNama } from "@/lib/bahan/cari";
+import { definisiPasar } from "@/lib/bahan/katalog-pasar";
+import { bandingkanPrioritasMenu } from "@/lib/priority";
+import { hitungHargaPerDasar, hitungTakaran, type Pemakaian } from "@/lib/bahan/takaran";
+import {
+  bentukLama,
+  keluargaDariInput,
+  validasiBahanResep,
+  type BahanResepInput,
+  type BahanResepLama,
+  type RefBahan,
+} from "@/lib/bahan/validasi";
+import { keSatuanDasar, type Satuan, type SatuanDasar } from "@/lib/units";
+import {
+  siapkanBiayaTetap,
+  type BiayaTetapInput,
+  type BiayaTetapTersimpan,
+} from "@/lib/biaya";
 
 export interface ProfitHistoryPoint {
   date: string;
@@ -63,10 +49,11 @@ export interface DbMenuDetail {
   weeklyVolume: number;
   modal: number;
   profit: number;
-  margin: number;
-  status: "sehat" | "tipis" | "rugi";
+  profitRate: number;
+  status: "sehat" | "tipis" | "rugi" | "diistirahatkan";
   driver: string;
   ingredients: Ingredient[];
+  fixedCosts: BiayaTetapTersimpan[];
   driverNote: {
     driverName: string;
     driverPct: number;
@@ -78,17 +65,19 @@ export interface DbMenuDetail {
   suggestedPrice: number;
   history: ProfitHistoryPoint[];
   recipeRows?: Array<{
-    commodityId: string;
+    bahan: RefBahan;
+    pemakaian: Pemakaian;
     name: string;
-    price: number;
-    batchQty: number;
-    unit: string;
-    note?: string;
-  }>;
-  fixedCosts?: Array<{
-    label: string;
-    amount: number;
-    isEstimated?: boolean;
+    satuanDasar: SatuanDasar;
+    harga: number | null;
+    sumberHarga: string;
+    tanggalHarga: string | null;
+    hargaBelanja?: {
+      hargaKemasan: number;
+      isi: number;
+      satuan: Satuan;
+    };
+    catatan?: string;
   }>;
   /** BR-10 / FR-28 — persen modal yang berasal dari data harga otomatis. */
   cakupan?: number;
@@ -116,22 +105,57 @@ function getMenuIcon(name: string): string {
  */
 export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; latestDate: string }> {
   try {
-    const res = await queryDb(
-      `select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active,
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(
+      `with bahan_per_menu as (
+         select menu_item_id,
+                jsonb_agg(jsonb_build_object(
+                  'komoditasId', commodity_id,
+                  'nama', nama,
+                  'qty', qty,
+                  'harga', harga,
+                  'hargaLalu', harga_lalu,
+                  'dariData', dari_data
+                )) as daftar
+         from resep_efektif
+         where business_id = $1
+         group by menu_item_id
+       ), biaya_per_menu as (
+         select fc.menu_item_id, coalesce(sum(fc.amount), 0) as total
+         from fixed_costs fc
+         join menu_items mi on mi.id = fc.menu_item_id
+         where mi.business_id = $1
+         group by fc.menu_item_id
+       )
+       select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active,
               (select max(date) from prices
-               where region_id = b.region_id and business_id is null) as latest_price_date
-       from menu_items m
-       join businesses b on b.id = m.business_id
-       where m.active`,
+               where region_id = b.region_id and business_id is null and not is_filled
+                ) as latest_price_date,
+              coalesce(bpm.daftar, '[]'::jsonb) as bahan,
+              coalesce(cpm.total, 0) as biaya_tetap
+       from businesses b
+       left join menu_items m on m.business_id = b.id
+       left join bahan_per_menu bpm on bpm.menu_item_id = m.id
+       left join biaya_per_menu cpm on cpm.menu_item_id = m.id
+       where b.id = $1`,
+      [businessId],
     );
     if (!res || res.rows.length === 0) return { menus: [], latestDate: "" };
 
-    const [petaBahan, petaBiaya] = await Promise.all([muatSemuaBahan(), muatSemuaBiayaTetap()]);
     const latestDate = keIsoTanggal(res.rows[0].latest_price_date) ?? "";
 
-    const menus: Menu[] = res.rows.map((row) => {
-      const bahan = petaBahan.get(row.id) ?? [];
-      const biayaTetap = petaBiaya.get(row.id) ?? 0;
+    // LEFT JOIN sengaja mempertahankan satu baris bisnis meski akun baru belum
+    // punya menu, supaya tanggal harga tetap tampil tanpa kueri tambahan.
+    const menus: Menu[] = res.rows.filter((row) => row.id).map((row) => {
+      const bahan: BahanResep[] = (Array.isArray(row.bahan) ? row.bahan : []).map((item) => ({
+        komoditasId: String(item.komoditasId),
+        nama: definisiPasar(String(item.komoditasId))?.namaTampil ?? String(item.nama),
+        qty: Number(item.qty),
+        harga: item.harga === null ? null : Number(item.harga),
+        hargaLalu: item.hargaLalu === null ? null : Number(item.hargaLalu),
+        dariData: Boolean(item.dariData),
+      }));
+      const biayaTetap = Number(row.biaya_tetap);
 
       // Seluruh keputusan angkanya diambil lib/margin.ts — tidak ada ambang
       // yang ditulis ulang di sini (BR-01, BR-02, BR-15).
@@ -148,27 +172,21 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
         price: sellPrice,
         modal: hpp,
         profit: sellPrice - hpp,
-        margin,
-        status: kesehatan(margin),
+        profitRate: margin,
+        status: row.active ? kesehatan(margin) : "diistirahatkan",
         driver: pendorong ? pendorong.nama : "Harga bahan stabil",
         servingsPerWeek: row.weekly_volume ?? 0,
         category: row.name.toLowerCase().includes("teh") ? "Minuman" : "Makanan Utama",
       };
     });
 
-    // FR-21 / BR-14 — urut dari dampak rupiah terkecil bila volume terisi (dampak = untung * volume), atau untung paling tipis
-    menus.sort((a, b) => {
-      const volumeA = a.servingsPerWeek > 0 ? a.servingsPerWeek : 1;
-      const volumeB = b.servingsPerWeek > 0 ? b.servingsPerWeek : 1;
-      const dampakA = a.profit * volumeA;
-      const dampakB = b.profit * volumeB;
-      return dampakA - dampakB;
-    });
+    // BR-14 / FR-50 — jika volume tersedia, lihat dampak rupiah mingguan.
+    menus.sort(bandingkanPrioritasMenu);
 
     return { menus, latestDate };
   } catch (err) {
     console.error("Error getDbMenus:", err);
-    return { menus: [], latestDate: "" };
+    throw err;
   }
 });
 
@@ -178,14 +196,16 @@ export const getDbMenus = cache(async function (): Promise<{ menus: Menu[]; late
  */
 export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetail | null> {
   try {
-    const menuRes = await queryDb(
+    const businessId = await getCurrentBusinessId();
+    const menuRes = await queryAppDb(
       `select m.id, m.name, m.sell_price, m.batch_yield, m.weekly_volume, m.active
        from menu_items m
-       where m.id::text = $1
-          or lower(m.name) like $2
-          or lower(replace(m.name, ' ', '-')) like $2
+       where m.business_id = $1
+         and (m.id::text = $2
+          or lower(m.name) = $3
+          or lower(replace(m.name, ' ', '-')) = $3)
        limit 1`,
-      [menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`],
+      [businessId, menuIdOrSlug, menuIdOrSlug.replace(/-/g, " ").toLowerCase()],
     );
     if (!menuRes || menuRes.rows.length === 0) return null;
 
@@ -195,17 +215,18 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     // Empat kueri berikut tidak saling bergantung. Dijalankan berurutan,
     // masing-masing menunggu ~180 ms ke Mumbai; dijalankan bersamaan,
     // totalnya tinggal satu kali tunggu.
-    const fcPromise = queryDb(
-      `select label, amount, is_estimated from fixed_costs where menu_item_id = $1`,
+    const fcPromise = queryAppDb(
+      `select label, amount, pack_price, pack_qty, usage_qty, is_estimated
+       from fixed_costs where menu_item_id = $1 order by updated_at, id`,
       [m.id],
     );
-    const margin30Promise = queryDb(
+    const margin30Promise = queryAppDb(
       `select margin_pct from margin_snapshots
        where menu_item_id = $1 and date <= current_date - 30
        order by date desc limit 1`,
       [m.id],
     );
-    const histPromise = queryDb(
+    const histPromise = queryAppDb(
       `select date, hpp, sell_price, margin_pct, round(sell_price - hpp) as untung
        from margin_snapshots where menu_item_id = $1
        order by date desc limit 30`,
@@ -213,22 +234,32 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
     );
 
     // ── bahan lewat resep_efektif ──
-    const bahanRes = await queryDb(
-      `select commodity_id, nama, satuan, qty, batch_qty, harga, harga_lalu,
-              dari_data, alasan, harga_diisi_mundur, bi_tanggal
-       from resep_efektif where menu_item_id = $1`,
+    const bahanRes = await queryAppDb(
+      `select e.commodity_id, e.nama, e.satuan, e.qty, e.batch_qty, e.harga,
+              e.harga_lalu, e.dari_data, e.alasan, e.harga_diisi_mundur,
+              e.bi_tanggal, e.komoditas_bi, e.harga_nota, e.tanggal_beli,
+              r.cara_pakai, r.jumlah_input, r.satuan_input, r.isi_kemasan,
+              r.satuan_kemasan, r.porsi_per_kemasan, r.note
+       from resep_efektif e
+       join recipe_items r
+         on r.menu_item_id = e.menu_item_id and r.commodity_id = e.commodity_id
+       where e.menu_item_id = $1`,
       [m.id],
     );
 
     const bahan: BahanResep[] = [];
     const ingredients: Ingredient[] = [];
     const recipeRows: DbMenuDetail["recipeRows"] = [];
+    const fixedCosts: BiayaTetapTersimpan[] = [];
 
     for (const r of bahanRes?.rows ?? []) {
       const harga = r.harga === null ? null : Number(r.harga);
+      const namaTampil = r.komoditas_bi
+        ? definisiPasar(String(r.commodity_id))?.namaTampil ?? String(r.nama)
+        : String(r.nama);
       bahan.push({
         komoditasId: r.commodity_id,
-        nama: r.nama,
+        nama: namaTampil,
         qty: Number(r.qty),
         harga,
         hargaLalu: r.harga_lalu === null ? null : Number(r.harga_lalu),
@@ -237,49 +268,90 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
 
       // FR-27: harga hasil isi mundur ditandai di UI
       const tandaIsiMundur = r.harga_diisi_mundur
-        ? ` · memakai harga ${keIsoTanggal(r.bi_tanggal)}`
+        ? ` · memakai harga ${tanggalIndonesia(r.bi_tanggal)}`
         : "";
 
+      const tanggalHarga = keIsoTanggal(r.tanggal_beli ?? r.bi_tanggal);
+      const hargaPemilik = r.harga_nota !== null;
+      const quantity = r.cara_pakai === "per_kemasan"
+        ? `${Number(r.isi_kemasan)} ${r.satuan_kemasan} · cukup ${Number(r.porsi_per_kemasan)} porsi`
+        : `${Number(r.jumlah_input ?? r.batch_qty)} ${r.satuan_input ?? r.satuan} untuk ${m.batch_yield} porsi`;
+
       ingredients.push({
-        name: String(r.nama).toUpperCase(),
-        quantity:
-          harga === null
-            ? "harga belum ada"
-            : `${Number(r.batch_qty)} ${r.satuan} untuk ${m.batch_yield} porsi`,
+        name: namaTampil,
+        quantity,
+        unit: r.satuan as "kg" | "liter" | "pcs",
         unitPrice: harga === null ? 0 : Math.round(harga),
         cost: harga === null ? 0 : Math.round(Number(r.qty) * harga),
-        source: !r.dari_data
-          ? "PERKIRAAN"
-          : String(r.alasan).includes("notamu")
-            ? "HARGA KAMU"
-            : "DATA PASAR",
-        sourceNote: String(r.alasan) + tandaIsiMundur,
+        source: hargaPemilik ? "HARGA KAMU" : r.dari_data ? "DATA PASAR" : "PERKIRAAN",
+        sourceNote: String(r.alasan) + (tanggalHarga ? `, dicatat ${tanggalIndonesia(tanggalHarga)}` : "") + tandaIsiMundur,
       });
 
+      let hargaBelanja: NonNullable<NonNullable<DbMenuDetail["recipeRows"]>[number]["hargaBelanja"]> | undefined;
+      if (hargaPemilik && r.harga_nota !== null) {
+        if (r.cara_pakai === "per_kemasan") {
+          const isi = Number(r.isi_kemasan);
+          const satuan = r.satuan_kemasan as Satuan;
+          const isiDasar = keSatuanDasar(isi, satuan, r.satuan as SatuanDasar);
+          hargaBelanja = {
+            hargaKemasan: "galat" in isiDasar
+              ? Number(r.harga_nota)
+              : Math.round(Number(r.harga_nota) * isiDasar.nilai),
+            isi,
+            satuan,
+          };
+        } else {
+          hargaBelanja = { hargaKemasan: Number(r.harga_nota), isi: 1, satuan: r.satuan as Satuan };
+        }
+      }
+
       recipeRows.push({
-        commodityId: r.commodity_id,
-        name: r.nama,
-        price: harga === null ? 0 : Math.round(harga),
-        batchQty: Number(r.batch_qty),
-        unit: r.satuan,
+        bahan: r.komoditas_bi
+          ? { jenis: "pasar", id: r.commodity_id }
+          : { jenis: "warung", id: r.commodity_id },
+        pemakaian: r.cara_pakai === "per_kemasan"
+          ? {
+              cara: "per_kemasan",
+              isi: Number(r.isi_kemasan),
+              satuan: r.satuan_kemasan as Satuan,
+              porsi: Number(r.porsi_per_kemasan),
+            }
+          : {
+              cara: "per_masak",
+              jumlah: Number(r.jumlah_input ?? r.batch_qty),
+              satuan: (r.satuan_input ?? r.satuan) as Satuan,
+            },
+        name: namaTampil,
+        satuanDasar: r.satuan as SatuanDasar,
+        harga,
+        sumberHarga: String(r.alasan),
+        tanggalHarga,
+        hargaBelanja,
+        catatan: r.note ?? undefined,
       });
     }
 
     // ── biaya tetap ──
     const fcRes = await fcPromise;
     let biayaTetap = 0;
-    const fixedCosts: Array<{ label: string; amount: number; isEstimated?: boolean }> = [];
     for (const fc of fcRes?.rows ?? []) {
-      const amt = Math.round(Number(fc.amount));
-      biayaTetap += amt;
+      const amount = Number(fc.amount);
+      const amt = Math.round(amount);
+      biayaTetap += amount;
       fixedCosts.push({
         label: String(fc.label),
-        amount: amt,
+        amount,
+        packPrice: fc.pack_price === null ? null : Number(fc.pack_price),
+        packQty: fc.pack_qty === null ? null : Number(fc.pack_qty),
+        usageQty: fc.usage_qty === null ? 1 : Number(fc.usage_qty),
         isEstimated: Boolean(fc.is_estimated),
       });
       ingredients.push({
         name: String(fc.label).toUpperCase(),
-        quantity: fc.is_estimated ? "perkiraan kami · bisa diubah" : "kamu yang isi",
+        quantity: fc.pack_price !== null && fc.pack_qty !== null
+          ? `${formatAngkaBiaya(fc.pack_price)} ÷ ${formatAngkaBiaya(fc.pack_qty)} isi${Number(fc.usage_qty ?? 1) === 1 ? "" : ` × ${formatAngkaBiaya(fc.usage_qty)} dipakai`}`
+          : fc.is_estimated ? "perkiraan kami · bisa diubah" : "kamu yang isi",
+        unit: "pcs",
         unitPrice: amt,
         cost: amt,
         source: fc.is_estimated ? "PERKIRAAN" : "HARGA KAMU",
@@ -324,10 +396,11 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
       weeklyVolume: m.weekly_volume ?? 0,
       modal: hpp,
       profit: sellPrice - hpp,
-      margin,
-      status: kesehatan(margin),
+      profitRate: margin,
+      status: m.active ? kesehatan(margin) : "diistirahatkan",
       driver: pendorong ? pendorong.nama : "Harga bahan stabil",
       ingredients,
+      fixedCosts,
       // FR-24 — blok "gara-gara X, bukan Y"
       driverNote: pendorong
         ? {
@@ -339,73 +412,334 @@ export async function getDbMenuDetail(menuIdOrSlug: string): Promise<DbMenuDetai
             altRp: pembanding ? pembanding.kontribusiRp : 0,
           }
         : null,
-      suggestedPrice: saranHarga(hpp, margin30 === null ? null : Number(margin30)),
+      // Saran pemulihan margin tidak boleh menyuruh pemilik menurunkan harga
+      // yang saat ini sudah lebih sehat dari batas minimum.
+      suggestedPrice: Math.max(
+        sellPrice,
+        saranHarga(hpp, margin30 === null ? null : Number(margin30)),
+      ),
       history,
       recipeRows,
-      fixedCosts,
       // FR-28 / BR-10 — peringatan cakupan data
       cakupan: Math.round(cakupan * 100),
       bahanTanpaHarga: jumlahHilang,
     };
   } catch (err) {
     console.error("Error getDbMenuDetail:", err);
-    return null;
+    throw err;
   }
 }
 
 /**
  * [Q8] Simpan menu baru ke Supabase dalam satu transaksi
  */
+export type MenuRecipeInput = Array<BahanResepInput | BahanResepLama>;
+
+export class MenuInputError extends Error {
+  constructor(
+    message: string,
+    public readonly status: 400 | 422,
+    public readonly keberatan: Array<{ indeks: number; nama: string; pesan: string; bagian?: "bahan" | "biaya" }> = [],
+  ) {
+    super(message);
+    this.name = "MenuInputError";
+  }
+}
+
+function formatAngkaBiaya(value: unknown): string {
+  return Number(value).toLocaleString("id-ID", { maximumFractionDigits: 2 });
+}
+
+function biayaAtauGalat(value: unknown): BiayaTetapTersimpan[] {
+  const hasil = siapkanBiayaTetap(value);
+  if (hasil.galat.length > 0) {
+    throw new MenuInputError(
+      "Periksa kemasan dan biaya kecil.",
+      422,
+      hasil.galat.map((item) => ({ ...item, bagian: "biaya" as const })),
+    );
+  }
+  return hasil.biaya;
+}
+
+async function tulisBiayaTetap(
+  query: DbQuery,
+  menuId: string,
+  biaya: BiayaTetapTersimpan[],
+) {
+  for (const item of biaya) {
+    await query(
+      `insert into fixed_costs (
+         menu_item_id, label, amount, pack_price, pack_qty, usage_qty, is_estimated
+       ) values ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        menuId,
+        item.label,
+        item.amount,
+        item.packPrice,
+        item.packQty,
+        item.usageQty,
+        item.isEstimated,
+      ],
+    );
+  }
+}
+
+interface ResepSiap {
+  commodityId: string;
+  nama: string;
+  satuanDasar: SatuanDasar;
+  batchQty: number;
+  qty: number;
+  caraPakai: "per_masak" | "per_kemasan";
+  jumlahInput: number | null;
+  satuanInput: Satuan | null;
+  isiKemasan: number | null;
+  satuanKemasan: Satuan | null;
+  porsiPerKemasan: number | null;
+  note: string | null;
+  hargaManual: number | null;
+  hargaEfektif: number | null;
+  indeks: number;
+}
+
+async function siapkanResep(
+  query: DbQuery,
+  businessId: string,
+  regionId: number,
+  recipe: MenuRecipeInput,
+  batchYield: number,
+  sellPrice: number,
+): Promise<ResepSiap[]> {
+  if (!Array.isArray(recipe) || recipe.length === 0) {
+    throw new MenuInputError("Tambahkan minimal satu bahan.", 400);
+  }
+  const bentukGalat = recipe.flatMap((row, indeks) => validasiBahanResep(row, indeks));
+  if (bentukGalat.length > 0) throw new MenuInputError(bentukGalat[0], 400);
+
+  const siap: ResepSiap[] = [];
+  const ids = new Set<string>();
+
+  for (let indeks = 0; indeks < recipe.length; indeks++) {
+    const mentah = recipe[indeks];
+    let input: BahanResepInput;
+    let resolved: { id: string; nama: string; unit: SatuanDasar; jenis: "pasar" | "warung" } | undefined;
+
+    if (bentukLama(mentah)) {
+      const referensi = await query<{ id: string; nama: string; unit: SatuanDasar; jenis: "pasar" | "warung" }>(
+        `select x.id, x.nama, x.unit, x.jenis
+         from (
+           select c.id, c.name nama, c.unit, 'pasar'::text jenis from commodities c
+           union all
+           select ci.id, ci.name nama, ci.unit, 'warung'::text jenis
+           from catalog_items ci where ci.business_id = $1
+         ) x where x.id = $2 limit 1`,
+        [businessId, mentah.commodityId],
+      );
+      resolved = referensi.rows[0];
+      if (!resolved) {
+        throw new MenuInputError("Bahan tidak ditemukan.", 422, [{ indeks, nama: mentah.commodityId, pesan: "Bahan ini tidak tersedia untuk warungmu." }]);
+      }
+      input = {
+        bahan: { jenis: resolved.jenis, id: resolved.id },
+        pemakaian: { cara: "per_masak", jumlah: mentah.batchQty, satuan: resolved.unit },
+        catatan: mentah.note,
+      };
+    } else {
+      input = mentah;
+      if (input.bahan.jenis === "pasar") {
+        const hasil = await query<{ id: string; nama: string; unit: SatuanDasar }>(
+          "select id, name nama, unit from commodities where id = $1 limit 1",
+          [input.bahan.id],
+        );
+        if (hasil.rows[0]) resolved = { ...hasil.rows[0], jenis: "pasar" };
+      } else if (input.bahan.jenis === "warung") {
+        const hasil = await query<{ id: string; nama: string; unit: SatuanDasar }>(
+          "select id, name nama, unit from catalog_items where id = $1 and business_id = $2 limit 1",
+          [input.bahan.id, businessId],
+        );
+        if (hasil.rows[0]) resolved = { ...hasil.rows[0], jenis: "warung" };
+      } else {
+        const satuanDasar = keluargaDariInput(input);
+        const nama = input.bahan.nama.trim().replace(/\s+/g, " ");
+        const hasil = await query<{ id: string; nama: string; unit: SatuanDasar }>(
+          `insert into catalog_items (id, business_id, name, nama_normal, unit, approved)
+           values ('w_' || gen_random_uuid()::text, $1, $2, $3, $4, true)
+           on conflict (business_id, nama_normal) where business_id is not null
+           do update set name = excluded.name
+           returning id, name nama, unit`,
+          [businessId, nama, normalisasiNama(nama), satuanDasar],
+        );
+        if (hasil.rows[0]) resolved = { ...hasil.rows[0], jenis: "warung" };
+        if (resolved && resolved.unit !== satuanDasar) {
+          throw new MenuInputError("Satuan bahan tidak cocok.", 422, [{
+            indeks,
+            nama,
+            pesan: `${nama} sudah tercatat dalam ${resolved.unit}. Gunakan satuan yang sejenis.`,
+          }]);
+        }
+      }
+      if (!resolved) {
+        const nama = input.bahan.jenis === "baru" ? input.bahan.nama : input.bahan.id;
+        throw new MenuInputError("Bahan tidak ditemukan.", 422, [{ indeks, nama, pesan: "Bahan ini tidak tersedia untuk warungmu." }]);
+      }
+    }
+
+    if (ids.has(resolved.id)) {
+      throw new MenuInputError("Bahan yang sama dimasukkan dua kali.", 422, [{
+        indeks,
+        nama: resolved.nama,
+        pesan: `${resolved.nama} sudah ada di baris sebelumnya. Gabungkan jumlahnya dalam satu baris.`,
+      }]);
+    }
+    ids.add(resolved.id);
+
+    const angkaPemakaian = input.pemakaian.cara === "per_masak" ? input.pemakaian.jumlah : input.pemakaian.isi;
+    if (resolved.unit === "kg" && input.pemakaian.satuan === "kg" && angkaPemakaian > 100) {
+      throw new MenuInputError("Sepertinya satuan bahan keliru.", 422, [{
+        indeks,
+        nama: resolved.nama,
+        pesan: `${resolved.nama} ditulis ${angkaPemakaian} kg. Kalau maksudmu gram, ganti satuannya ke gram.`,
+      }]);
+    }
+
+    const takaran = hitungTakaran(input.pemakaian, resolved.unit, batchYield);
+    if ("galat" in takaran) {
+      throw new MenuInputError(takaran.galat, 422, [{ indeks, nama: resolved.nama, pesan: takaran.galat }]);
+    }
+
+    let hargaManual: number | null = null;
+    if (input.harga) {
+      const hitungHarga = hitungHargaPerDasar(input.harga, resolved.unit);
+      if ("galat" in hitungHarga) {
+        throw new MenuInputError(hitungHarga.galat, 422, [{ indeks, nama: resolved.nama, pesan: hitungHarga.galat }]);
+      }
+      hargaManual = hitungHarga.hargaPerDasar;
+    }
+
+    const hargaDb = await query<{ price: string }>(
+      `select case
+         when $4 = 'warung' then nota.price
+         when nota.price is null then pasar_kini.price
+         when pasar_beli.price is null or pasar_beli.price = 0 or pasar_kini.price is null then nota.price
+         when pasar_kini.price / pasar_beli.price < 0.3 or pasar_kini.price / pasar_beli.price > 3 then pasar_kini.price
+         else round((nota.price / pasar_beli.price) * pasar_kini.price, 2)
+       end as price
+       from (values (1)) dummy(n)
+       left join lateral (
+         select p.price, p.date from prices p
+         where p.commodity_id = $1 and p.region_id = $2 and p.business_id = $3
+         order by p.date desc, p.fetched_at desc limit 1
+       ) nota on true
+       left join lateral (
+         select p.price from prices p
+         where $4 = 'pasar' and p.commodity_id = $1 and p.region_id = $2 and p.business_id is null
+         order by p.date desc limit 1
+       ) pasar_kini on true
+       left join lateral (
+         select p.price from prices p
+         where $4 = 'pasar' and p.commodity_id = $1 and p.region_id = $2
+           and p.business_id is null and p.date <= nota.date
+         order by p.date desc limit 1
+       ) pasar_beli on true`,
+      [resolved.id, regionId, businessId, resolved.jenis],
+    );
+    const hargaEfektif = hargaManual ?? (hargaDb.rows[0]?.price == null ? null : Number(hargaDb.rows[0].price));
+    if (hargaEfektif === null) {
+      throw new MenuInputError("Harga bahan belum diisi.", 422, [{ indeks, nama: resolved.nama, pesan: `Isi harga belanja ${resolved.nama} terlebih dahulu.` }]);
+    }
+
+    const keberatan = periksaSatuan([{
+      komoditasId: resolved.id,
+      nama: resolved.nama,
+      qty: takaran.qty,
+      harga: hargaEfektif,
+      dariData: resolved.jenis === "pasar" && hargaManual === null,
+    }], sellPrice)[0];
+    if (keberatan) {
+      throw new MenuInputError("Sepertinya ada takaran yang keliru.", 422, [{ indeks, nama: resolved.nama, pesan: keberatan.pesan }]);
+    }
+
+    siap.push({
+      commodityId: resolved.id,
+      nama: resolved.nama,
+      satuanDasar: resolved.unit,
+      batchQty: takaran.batchQty,
+      qty: takaran.qty,
+      caraPakai: input.pemakaian.cara,
+      jumlahInput: input.pemakaian.cara === "per_masak" ? input.pemakaian.jumlah : null,
+      satuanInput: input.pemakaian.cara === "per_masak" ? input.pemakaian.satuan : null,
+      isiKemasan: input.pemakaian.cara === "per_kemasan" ? input.pemakaian.isi : null,
+      satuanKemasan: input.pemakaian.cara === "per_kemasan" ? input.pemakaian.satuan : null,
+      porsiPerKemasan: input.pemakaian.cara === "per_kemasan" ? input.pemakaian.porsi : null,
+      note: input.catatan?.trim() || null,
+      hargaManual,
+      hargaEfektif,
+      indeks,
+    });
+  }
+  return siap;
+}
+
+async function tulisResep(
+  query: DbQuery,
+  menuId: string,
+  businessId: string,
+  regionId: number,
+  resep: ResepSiap[],
+) {
+  for (const row of resep) {
+    await query(
+      `insert into recipe_items (
+         menu_item_id, commodity_id, batch_qty, qty, note, cara_pakai,
+         jumlah_input, satuan_input, isi_kemasan, satuan_kemasan, porsi_per_kemasan
+       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [menuId, row.commodityId, row.batchQty, row.qty, row.note, row.caraPakai,
+       row.jumlahInput, row.satuanInput, row.isiKemasan, row.satuanKemasan, row.porsiPerKemasan],
+    );
+    if (row.hargaManual !== null) {
+      await query(
+        `insert into prices (commodity_id, region_id, business_id, date, price, source)
+         values ($1, $2, $3, $4, $5, 'manual')
+         on conflict (commodity_id, region_id, date, business_id)
+           where business_id is not null
+         do update set price = excluded.price, source = 'manual', fetched_at = now()`,
+        [row.commodityId, regionId, businessId, hariIniJakarta(), row.hargaManual],
+      );
+    }
+  }
+}
+
 export async function createDbMenu(data: {
   name: string;
   sellPrice: number;
   batchYield: number;
   weeklyVolume?: number;
-  recipe: Array<{ commodityId: string; batchQty: number; note?: string }>;
-  fixedCosts?: Array<{ label: string; amount: number }>;
-}): Promise<string | null> {
-  try {
-    const bizRes = await queryDb(`SELECT id FROM businesses LIMIT 1;`);
-    const businessId = bizRes?.rows[0]?.id || "00000000-0000-0000-0000-000000000001";
-
-    // Insert menu_item
-    const mRes = await queryDb(
-      `INSERT INTO menu_items (business_id, name, sell_price, batch_yield, weekly_volume, active)
-       VALUES ($1, $2, $3, $4, $5, true)
-       RETURNING id;`,
-      [businessId, data.name, data.sellPrice, data.batchYield, data.weeklyVolume || 100]
-    );
-
-    if (!mRes || mRes.rows.length === 0) return null;
-    const menuId = mRes.rows[0].id;
-
-    // Insert recipe_items
-    for (const r of data.recipe) {
-      const perPortionQty = r.batchQty / data.batchYield;
-      await queryDb(
-        `INSERT INTO recipe_items (menu_item_id, commodity_id, batch_qty, qty, note)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (menu_item_id, commodity_id) DO UPDATE SET batch_qty = EXCLUDED.batch_qty, qty = EXCLUDED.qty;`,
-        [menuId, r.commodityId, r.batchQty, perPortionQty, r.note || null]
+  recipe: MenuRecipeInput;
+  fixedCosts?: BiayaTetapInput[];
+}): Promise<string> {
+  const biaya = biayaAtauGalat(data.fixedCosts ?? []);
+  const businessId = await getCurrentBusinessId();
+  return withAppTransaction(async (query) => {
+      const bisnis = await query<{ region_id: number }>("select region_id from businesses where id = $1", [businessId]);
+      const regionId = bisnis.rows[0]?.region_id;
+      if (!regionId) throw new Error("Wilayah warung belum tersedia.");
+      const resep = await siapkanResep(query, businessId, regionId, data.recipe, data.batchYield, data.sellPrice);
+      const mRes = await query<{ id: string }>(
+        `insert into menu_items (business_id, name, sell_price, batch_yield, weekly_volume, active)
+         values ($1, $2, $3, $4, $5, true)
+         returning id`,
+        [businessId, data.name, data.sellPrice, data.batchYield, data.weeklyVolume ?? null],
       );
-    }
+      const menuId = mRes.rows[0]?.id;
+      if (!menuId) throw new Error("Menu tidak berhasil dibuat.");
 
-    // Insert fixed_costs
-    if (data.fixedCosts && data.fixedCosts.length > 0) {
-      for (const fc of data.fixedCosts) {
-        await queryDb(
-          `INSERT INTO fixed_costs (menu_item_id, label, amount, is_estimated)
-           VALUES ($1, $2, $3, true);`,
-          [menuId, fc.label, fc.amount]
-        );
-      }
-    }
+      await tulisResep(query, menuId, businessId, regionId, resep);
 
-    return menuId;
-  } catch (err) {
-    console.error("Error createDbMenu:", err);
-    return null;
-  }
+      await tulisBiayaTetap(query, menuId, biaya);
+
+      return menuId;
+  });
 }
 
 /**
@@ -413,19 +747,35 @@ export async function createDbMenu(data: {
  */
 export async function updateDbMenuPrice(menuIdOrSlug: string, newPrice: number): Promise<boolean> {
   try {
-    const res = await queryDb(
-      `UPDATE menu_items
-       SET sell_price = $1
-       WHERE id::text = $2 
-          OR lower(name) LIKE $3
-          OR lower(replace(name, ' ', '-')) LIKE $3;`,
-      [newPrice, menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`]
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(
+      `update menu_items
+       set sell_price = $1
+       where business_id = $2
+         and (id::text = $3
+          or lower(name) = $4
+          or lower(replace(name, ' ', '-')) = $4)`,
+      [newPrice, businessId, menuIdOrSlug, menuIdOrSlug.replace(/-/g, " ").toLowerCase()],
     );
     return Boolean(res && res.rowCount && res.rowCount > 0);
   } catch (err) {
     console.error("Error updateDbMenuPrice:", err);
     return false;
   }
+}
+
+export async function updateDbMenuActive(menuIdOrSlug: string, active: boolean): Promise<boolean> {
+  const businessId = await getCurrentBusinessId();
+  const result = await queryAppDb(
+    `update menu_items
+     set active = $1
+     where business_id = $2
+       and (id::text = $3
+        or lower(name) = $4
+        or lower(replace(name, ' ', '-')) = $4)`,
+    [active, businessId, menuIdOrSlug, menuIdOrSlug.replace(/-/g, " ").toLowerCase()],
+  );
+  return Boolean(result.rowCount);
 }
 
 /**
@@ -437,67 +787,55 @@ export async function updateDbMenuComplete(
     name?: string;
     sellPrice?: number;
     batchYield?: number;
-    weeklyVolume?: number;
-    recipe?: Array<{ commodityId: string; batchQty: number; note?: string }>;
-    fixedCosts?: Array<{ label: string; amount: number }>;
+    weeklyVolume?: number | null;
+    recipe?: MenuRecipeInput;
+    fixedCosts?: BiayaTetapInput[];
   }
 ): Promise<boolean> {
-  try {
-    // 1. Temukan UUID menu
-    const mRes = await queryDb(
-      `SELECT id, batch_yield FROM menu_items
-       WHERE id::text = $1 
-          OR lower(name) LIKE $2 
-          OR lower(replace(name, ' ', '-')) LIKE $2
-       LIMIT 1;`,
-      [menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`]
-    );
+  const biaya = data.fixedCosts === undefined ? null : biayaAtauGalat(data.fixedCosts);
+  const businessId = await getCurrentBusinessId();
+  return withAppTransaction(async (query) => {
+      const mRes = await query<{ id: string; batch_yield: number; sell_price: string }>(
+        `select id, batch_yield, sell_price from menu_items
+         where business_id = $1
+           and (id::text = $2
+            or lower(name) = $3
+            or lower(replace(name, ' ', '-')) = $3)
+         limit 1`,
+        [businessId, menuIdOrSlug, menuIdOrSlug.replace(/-/g, " ").toLowerCase()],
+      );
+      const menu = mRes.rows[0];
+      if (!menu) return false;
+      const yieldCount = data.batchYield ?? menu.batch_yield;
+      const bisnis = await query<{ region_id: number }>("select region_id from businesses where id = $1", [businessId]);
+      const regionId = bisnis.rows[0]?.region_id;
+      if (!regionId) throw new Error("Wilayah warung belum tersedia.");
+      const resep = data.recipe === undefined
+        ? null
+        : await siapkanResep(query, businessId, regionId, data.recipe, yieldCount, data.sellPrice ?? Number(menu.sell_price));
 
-    if (!mRes || mRes.rows.length === 0) return false;
-    const menuId = mRes.rows[0].id;
-    const yieldCount = data.batchYield || mRes.rows[0].batch_yield || 8;
+      const volumeDikirim = data.weeklyVolume !== undefined;
+      await query(
+        `update menu_items
+         set name = coalesce($1, name),
+             sell_price = coalesce($2, sell_price),
+             batch_yield = coalesce($3, batch_yield),
+             weekly_volume = case when $7::boolean then $4 else weekly_volume end
+         where id = $5 and business_id = $6`,
+        [data.name ?? null, data.sellPrice ?? null, data.batchYield ?? null, data.weeklyVolume ?? null, menu.id, businessId, volumeDikirim],
+      );
 
-    // 2. Update kolom menu_items
-    await queryDb(
-      `UPDATE menu_items
-       SET name = coalesce($1, name),
-           sell_price = coalesce($2, sell_price),
-           batch_yield = coalesce($3, batch_yield),
-           weekly_volume = coalesce($4, weekly_volume)
-       WHERE id = $5;`,
-      [data.name || null, data.sellPrice || null, data.batchYield || null, data.weeklyVolume || null, menuId]
-    );
-
-    // 3. Update resep bila dikirim
-    if (data.recipe && data.recipe.length > 0) {
-      await queryDb(`DELETE FROM recipe_items WHERE menu_item_id = $1;`, [menuId]);
-      for (const r of data.recipe) {
-        const perPortionQty = r.batchQty / yieldCount;
-        await queryDb(
-          `INSERT INTO recipe_items (menu_item_id, commodity_id, batch_qty, qty, note)
-           VALUES ($1, $2, $3, $4, $5);`,
-          [menuId, r.commodityId, r.batchQty, perPortionQty, r.note || null]
-        );
+      if (data.recipe !== undefined) {
+        await query("delete from recipe_items where menu_item_id = $1", [menu.id]);
+        await tulisResep(query, menu.id, businessId, regionId, resep ?? []);
       }
-    }
 
-    // 4. Update biaya tetap bila dikirim
-    if (data.fixedCosts && data.fixedCosts.length > 0) {
-      await queryDb(`DELETE FROM fixed_costs WHERE menu_item_id = $1;`, [menuId]);
-      for (const fc of data.fixedCosts) {
-        await queryDb(
-          `INSERT INTO fixed_costs (menu_item_id, label, amount, is_estimated)
-           VALUES ($1, $2, $3, true);`,
-          [menuId, fc.label, fc.amount]
-        );
+      if (data.fixedCosts !== undefined) {
+        await query("delete from fixed_costs where menu_item_id = $1", [menu.id]);
+        await tulisBiayaTetap(query, menu.id, biaya ?? []);
       }
-    }
-
-    return true;
-  } catch (err) {
-    console.error("Error updateDbMenuComplete:", err);
-    return false;
-  }
+      return true;
+  });
 }
 
 /**
@@ -505,34 +843,32 @@ export async function updateDbMenuComplete(
  */
 export const getDbBusinessProfile = cache(async function () {
   try {
-    const res = await queryDb(`
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(`
       SELECT b.id,
              b.name,
              b.packaging_mode,
+             b.onboarding_step,
+             b.onboarding_completed_at,
              r.id as region_id,
              r.name as region_name,
-             (SELECT count(*) FROM menu_items WHERE active) as active_menus_count,
-             (SELECT ran_at FROM ingest_runs ORDER BY ran_at DESC LIMIT 1) as last_ingest_time,
-             (SELECT max(date) FROM prices WHERE region_id = b.region_id AND business_id IS NULL) as latest_price_date
+             (SELECT count(*) FROM menu_items WHERE business_id = b.id AND active) as active_menus_count,
+             (SELECT ran_at FROM ingest_runs WHERE status = 'ok' ORDER BY ran_at DESC LIMIT 1) as last_ingest_time,
+             (SELECT max(date) FROM prices
+              WHERE region_id = b.region_id AND business_id IS NULL AND NOT is_filled) as latest_price_date
       FROM businesses b
       LEFT JOIN regions r ON r.id = b.region_id
+      WHERE b.id = $1
       LIMIT 1;
-    `);
+    `, [businessId]);
 
-    if (res && res.rows.length > 0) {
-      return res.rows[0];
-    }
+    const profile = res.rows[0];
+    if (!profile) throw new Error("Profil warung tidak ditemukan.");
+    return profile;
   } catch (err) {
     console.error("Error getDbBusinessProfile:", err);
+    throw err;
   }
-
-  return {
-    name: "Warung Bu Sri",
-    packaging_mode: "mixed",
-    region_name: "Kota Semarang",
-    active_menus_count: 6,
-    latest_price_date: "2026-09-11",
-  };
 });
 
 /**
@@ -540,16 +876,15 @@ export const getDbBusinessProfile = cache(async function () {
  */
 export async function updateDbBusinessProfile(data: {
   name: string;
-  packagingMode: "dine_in" | "takeaway" | "mixed";
   regionId?: number;
 }): Promise<boolean> {
   try {
-    const res = await queryDb(
-      // WHERE wajib: tanpa ini satu penyimpanan menimpa SELURUH warung.
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(
       `update businesses
-       set name = $1, packaging_mode = $2, region_id = coalesce($3, region_id)
-       where id = (select id from businesses order by created_at limit 1)`,
-      [data.name, data.packagingMode, data.regionId || null]
+       set name = $1, region_id = coalesce($2, region_id)
+       where id = $3`,
+      [data.name.trim(), data.regionId ?? null, businessId],
     );
     return Boolean(res && res.rowCount && res.rowCount > 0);
   } catch (err) {
@@ -577,7 +912,7 @@ export const getDynamicIngredients = async (slugOrId: string) => {
       batchYield: detail.batchYield,
       servingsPerWeek: detail.weeklyVolume,
       recipe: [],
-      fixedCosts: [],
+      fixedCosts: detail.fixedCosts,
     },
     currentSellPrice: detail.sellPrice,
     ingredients: detail.ingredients,
@@ -595,60 +930,18 @@ export const updateMenuPrice = updateDbMenuPrice;
  */
 export async function hapusDbMenu(menuIdOrSlug: string): Promise<boolean> {
   try {
-    const res = await queryDb(
+    const businessId = await getCurrentBusinessId();
+    const res = await queryAppDb(
       `delete from menu_items
-       where id::text = $1
-          or lower(name) like $2
-          or lower(replace(name, ' ', '-')) like $2`,
-      [menuIdOrSlug, `%${menuIdOrSlug.replace(/-/g, "%")}%`],
+       where business_id = $1
+         and (id::text = $2
+          or lower(name) = $3
+          or lower(replace(name, ' ', '-')) = $3)`,
+      [businessId, menuIdOrSlug, menuIdOrSlug.replace(/-/g, " ").toLowerCase()],
     );
     return Boolean(res?.rowCount);
   } catch (err) {
     console.error("Error hapusDbMenu:", err);
     return false;
   }
-}
-
-/**
- * FR-57 — memeriksa resep yang akan disimpan, memakai harga terkini tiap bahan.
- * Dipanggil sebelum insert/update sehingga angka mustahil tidak pernah masuk DB.
- */
-export async function periksaResepSebelumSimpan(
-  recipe: Array<{ commodityId: string; batchQty: number }>,
-  batchYield: number,
-  sellPrice: number,
-): Promise<Array<{ nama: string; biayaPerPorsi: number; pesan: string }>> {
-  if (!recipe?.length || !batchYield || batchYield <= 0) return [];
-
-  const ids = recipe.map((r) => r.commodityId);
-  const res = await queryDb(
-    `select lp.commodity_id, coalesce(c.name, ci.name, lp.commodity_id) nama, lp.price
-     from latest_prices lp
-     left join commodities   c  on c.id  = lp.commodity_id
-     left join catalog_items ci on ci.id = lp.commodity_id
-     where lp.commodity_id = any($1) and lp.business_id is null`,
-    [ids],
-  );
-
-  const harga = new Map<string, { nama: string; price: number }>();
-  for (const r of res?.rows ?? []) {
-    harga.set(r.commodity_id, { nama: r.nama, price: Number(r.price) });
-  }
-
-  const bahan: BahanResep[] = recipe.map((r) => {
-    const h = harga.get(r.commodityId);
-    return {
-      komoditasId: r.commodityId,
-      nama: h?.nama ?? r.commodityId,
-      qty: r.batchQty / batchYield,   // BR-08
-      harga: h ? h.price : null,
-      dariData: Boolean(h),
-    };
-  });
-
-  return periksaSatuan(bahan, sellPrice).map((k) => ({
-    nama: k.nama,
-    biayaPerPorsi: k.biayaPerPorsi,
-    pesan: k.pesan,
-  }));
 }

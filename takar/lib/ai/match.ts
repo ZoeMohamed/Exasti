@@ -2,6 +2,9 @@
 // FR-39: Pencocokan ke 21 komoditas BI dilakukan di KODE secara deterministik.
 // Katalog barang warung non-BI dipetakan dengan normalisasi kata.
 
+import { BI_COMMODITIES, WARUNG_NON_BI_CATALOG } from "@/lib/bahan/katalog-pasar";
+export { BI_COMMODITIES, WARUNG_NON_BI_CATALOG } from "@/lib/bahan/katalog-pasar";
+
 export interface MatchResult {
   matchedName: string;
   isBiCommodity: boolean;
@@ -10,200 +13,6 @@ export interface MatchResult {
   pricePerUnit: number;  // Rupiah per satuan standar
   note?: string;
 }
-
-// 21 varian komoditas pangan Bank Indonesia resmi
-export const BI_COMMODITIES: Record<
-  string,
-  { aliases: string[]; standardUnit: string; defaultPackSize?: number }
-> = {
-  "Daging Ayam Ras Segar": {
-    aliases: [
-      "ayam",
-      "ayam potong",
-      "ayam broiler",
-      "ayam karkas",
-      "daging ayam",
-      "dada ayam",
-      "paha ayam",
-      "fillet ayam",
-      "sayap ayam",
-      "ceker ayam",
-    ],
-    standardUnit: "kg",
-  },
-  "Beras Kualitas Medium I": {
-    aliases: [
-      "beras",
-      "beras c4",
-      "beras menthik",
-      "beras rojolele",
-      "beras medium",
-      "beras ramos",
-      "beras pandan wangi",
-      "beras putih",
-    ],
-    standardUnit: "kg",
-  },
-  "Cabai Rawit Merah": {
-    aliases: [
-      "cabai rawit merah",
-      "cabe rawit merah",
-      "cabe setan",
-      "cabai setan",
-      "lombok setan",
-      "rawit merah",
-      "cabe sret",
-    ],
-    standardUnit: "kg",
-  },
-  "Cabai Rawit Hijau": {
-    aliases: [
-      "cabai rawit hijau",
-      "cabe rawit hijau",
-      "cabe rawit ijo",
-      "cabe lalap",
-      "cabai lalap",
-      "rawit hijau",
-      "rawit ijo",
-    ],
-    standardUnit: "kg",
-  },
-  "Cabai Merah Keriting": {
-    aliases: [
-      "cabai merah keriting",
-      "cabe merah keriting",
-      "cabe keriting",
-      "cabai keriting",
-      "lombok keriting",
-    ],
-    standardUnit: "kg",
-  },
-  "Cabai Merah Besar": {
-    aliases: [
-      "cabai merah besar",
-      "cabe merah besar",
-      "cabe teropong",
-      "cabai teropong",
-      "cabe merah plonco",
-    ],
-    standardUnit: "kg",
-  },
-  "Bawang Merah Ukuran Sedang": {
-    aliases: [
-      "bawang merah",
-      "bwg merah",
-      "brambang",
-      "bawang merah brebes",
-      "brambang jawa",
-    ],
-    standardUnit: "kg",
-  },
-  "Bawang Putih Ukuran Sedang": {
-    aliases: [
-      "bawang putih",
-      "bwg putih",
-      "bawang kating",
-      "bawang sincan",
-      "bawang putih kating",
-    ],
-    standardUnit: "kg",
-  },
-  "Minyak Goreng Curah": {
-    aliases: ["minyak curah", "minyak goreng curah", "minyak kiloan"],
-    standardUnit: "kg",
-  },
-  "Minyak Goreng Kemasan Bermerk 1": {
-    aliases: [
-      "minyak bimoli",
-      "bimoli",
-      "minyak filma",
-      "filma",
-      "minyak tropical",
-      "tropical",
-      "minyak sunco",
-      "sunco",
-      "minyak sania",
-      "sania",
-      "minyak rose brand",
-    ],
-    standardUnit: "liter",
-  },
-  "Minyak Goreng Kemasan Bermerk 2": {
-    aliases: [
-      "minyak kita",
-      "minyakita",
-      "minyak goreng kita",
-      "minyak fortune",
-      "fortune",
-      "minyak sovia",
-      "sovia",
-      "minyak sedap",
-      "minyak camar",
-      "minyak hemart",
-      "hemart",
-    ],
-    standardUnit: "liter",
-  },
-  "Telur Ayam Ras Segar": {
-    aliases: ["telur", "telur ayam", "telor", "telor ayam", "telur negri", "telor leghorn"],
-    standardUnit: "kg",
-  },
-  "Daging Sapi Kualitas 1": {
-    aliases: ["daging sapi", "sapi has dalam", "sirloin", "tenderloin", "gandik"],
-    standardUnit: "kg",
-  },
-  "Daging Sapi Kualitas 2": {
-    aliases: ["daging sapi tetelan", "sandung lamur", "rawonan", "tetelan sapi"],
-    standardUnit: "kg",
-  },
-  "Gula Pasir Lokal": {
-    aliases: ["gula pasir", "gula putih", "gulaku", "gula tebu"],
-    standardUnit: "kg",
-  },
-};
-
-// Barang warung non-BI yang umum dicatat pemilik di nota
-export const WARUNG_NON_BI_CATALOG: Record<
-  string,
-  { aliases: string[]; standardUnit: string }
-> = {
-  "Tepung Terigu Segitiga": {
-    aliases: ["tepung", "tepung terigu", "segitiga biru", "cakra kembar", "terigu"],
-    standardUnit: "kg",
-  },
-  "Tepung Tapioka / Kanji": {
-    aliases: ["tapioka", "tepung kanji", "tepung sagu", "rose brand tapioka"],
-    standardUnit: "kg",
-  },
-  "Saus Sambal Extra Pedas": {
-    aliases: ["saus sambal", "saos abc", "sambal abc", "saos delmonte", "saos pedas"],
-    standardUnit: "botol",
-  },
-  "Kecap Manis": {
-    aliases: ["kecap", "kecap bango", "kecap abc", "kecap sedap"],
-    standardUnit: "botol",
-  },
-  "Garam Dapur Beriodium": {
-    aliases: ["garam", "garam halus", "garam dapur", "garam bata"],
-    standardUnit: "bungkus",
-  },
-  "Bumbu Penyedap Rasa": {
-    aliases: ["royco", "masako", "penyedap", "kaldu bubuk", "ajinomoto", "micin"],
-    standardUnit: "bungkus",
-  },
-  "Kertas Nasi Pembungkus": {
-    aliases: ["kertas nasi", "kertas minyak", "kertas coklat", "bungkus nasi"],
-    standardUnit: "pack",
-  },
-  "Kantong Plastik Kresek": {
-    aliases: ["kresek", "kantong plastik", "plastik bening", "plastik kemasan"],
-    standardUnit: "pack",
-  },
-  "Gas LPG 3 Kg": {
-    aliases: ["gas lpg", "gas 3kg", "gas melon", "isi ulang gas"],
-    standardUnit: "tabung",
-  },
-};
 
 function normalizeText(text: string): string {
   return text
@@ -271,6 +80,7 @@ export function matchReceiptItem(
     alias: string;
     isBi: boolean;
     standardUnit: string;
+    specificity: number;
   }
 
   const allCandidates: Candidate[] = [];
@@ -282,6 +92,9 @@ export function matchReceiptItem(
         alias: normalizeText(alias),
         isBi: true,
         standardUnit: def.standardUnit,
+        // Nama merek menunjukkan jenis minyak kemasan secara lebih pasti
+        // daripada frasa umum seperti "minyak goreng" pada baris yang sama.
+        specificity: ["bimoli", "filma", "tropical", "sunco", "sania", "minyakita", "minyak kita", "fortune", "sovia"].includes(normalizeText(alias)) ? 100 : 0,
       });
     }
   }
@@ -293,13 +106,14 @@ export function matchReceiptItem(
         alias: normalizeText(alias),
         isBi: false,
         standardUnit: def.standardUnit,
+        specificity: 0,
       });
     }
   }
 
   // Urutkan kandidat dari alias terpanjang ke terpendek
   // Contoh: "telur ayam ras" (14 char) dicoba sebelum "ayam" (4 char)
-  allCandidates.sort((a, b) => b.alias.length - a.alias.length);
+  allCandidates.sort((a, b) => b.specificity - a.specificity || b.alias.length - a.alias.length);
 
   for (const cand of allCandidates) {
     const regex = new RegExp(`\\b${cand.alias}\\b`, "i");

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { getDbMenus, createDbMenu, periksaResepSebelumSimpan } from "@/lib/services/menu-engine";
+import { getDbMenus, createDbMenu, MenuInputError } from "@/lib/services/menu-engine";
+import { apiError, requireApiBusinessId } from "@/lib/auth/api";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    await requireApiBusinessId();
     const { menus, latestDate } = await getDbMenus();
     return NextResponse.json({
       status: "ok",
@@ -12,13 +14,13 @@ export async function GET() {
       menus,
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Gagal mengambil data menu";
-    return NextResponse.json({ status: "error", message }, { status: 500 });
+    return apiError(err, "Gagal mengambil data menu");
   }
 }
 
 export async function POST(req: Request) {
   try {
+    await requireApiBusinessId();
     const body = await req.json();
 
     if (!body.name || !body.sellPrice || !body.batchYield) {
@@ -28,43 +30,29 @@ export async function POST(req: Request) {
       );
     }
 
-    // FR-57 — tolak sebelum menyentuh database
-    const keberatan = await periksaResepSebelumSimpan(
-      body.recipe || [],
-      Number(body.batchYield),
-      Number(body.sellPrice),
-    );
-    if (keberatan.length > 0) {
-      return NextResponse.json(
-        {
-          error: "Sepertinya ada takaran yang keliru",
-          keberatan,
-          pesan: keberatan[0].pesan,
-        },
-        { status: 422 },
-      );
-    }
-
     const menuId = await createDbMenu({
       name: body.name,
       sellPrice: Number(body.sellPrice),
       batchYield: Number(body.batchYield),
-      weeklyVolume: body.weeklyVolume ? Number(body.weeklyVolume) : undefined,
+      weeklyVolume: body.weeklyVolume === undefined || body.weeklyVolume === null
+        ? undefined
+        : Number(body.weeklyVolume),
       recipe: body.recipe || [],
       fixedCosts: body.fixedCosts || [],
     });
 
-    if (menuId) {
-      return NextResponse.json({
-        status: "ok",
-        message: `Menu "${body.name}" berhasil disimpan ke Supabase`,
-        menuId,
-      });
-    }
-
-    return NextResponse.json({ error: "Gagal menyimpan menu ke database" }, { status: 500 });
+    return NextResponse.json({
+      status: "ok",
+      message: `Menu "${body.name}" berhasil disimpan`,
+      menuId,
+    });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Gagal menyimpan menu";
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (err instanceof MenuInputError) {
+      return NextResponse.json(
+        { error: err.message, pesan: err.keberatan[0]?.pesan ?? err.message, keberatan: err.keberatan },
+        { status: err.status },
+      );
+    }
+    return apiError(err, "Gagal menyimpan menu");
   }
 }

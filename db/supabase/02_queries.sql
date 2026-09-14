@@ -166,21 +166,62 @@ select r.commodity_id,
        coalesce(c.unit, ci.unit)  as unit,
        m.batch_yield,
        r.qty,
-       lp.price                   as harga_satuan,
-       round(r.qty * lp.price)    as subtotal,
-       lp.is_filled,
-       lp.source
+       efektif.harga              as harga_satuan,
+       round(r.qty * efektif.harga) as subtotal,
+       bi_kini.is_filled,
+       efektif.alasan             as sumber_harga
 from   recipe_items r
 join   menu_items m on m.id = r.menu_item_id
 join   businesses b on b.id = m.business_id
 left join commodities   c  on c.id  = r.commodity_id
 left join catalog_items ci on ci.id = r.commodity_id
-left join latest_prices lp
-       on lp.commodity_id = r.commodity_id
-      and lp.region_id    = b.region_id
-      and (lp.business_id is null or lp.business_id = b.id)
+left join lateral (
+       select p.price, p.date
+       from prices p
+       where p.business_id = b.id
+         and p.commodity_id = r.commodity_id
+         and p.region_id = b.region_id
+       order by p.date desc limit 1
+     ) harga_sendiri on true
+left join lateral (
+       select p.price, p.date, p.is_filled
+       from prices p
+       where p.business_id is null
+         and p.commodity_id = r.commodity_id
+         and p.region_id = b.region_id
+       order by p.date desc limit 1
+     ) bi_kini on true
+left join lateral (
+       select p.price
+       from prices p
+       where p.business_id is null
+         and p.commodity_id = r.commodity_id
+         and p.region_id = b.region_id
+         and p.date <= harga_sendiri.date
+       order by p.date desc limit 1
+     ) bi_saat_beli on true
+left join lateral (
+       select case
+         when bi_kini.price is null then harga_sendiri.price
+         when harga_sendiri.price is null then bi_kini.price
+         when bi_saat_beli.price is null or bi_saat_beli.price = 0
+           then harga_sendiri.price
+         when bi_kini.price / bi_saat_beli.price not between 0.3 and 3.0
+           then bi_kini.price
+         else harga_sendiri.price * (bi_kini.price / bi_saat_beli.price)
+       end as harga,
+       case
+         when bi_kini.price is null then 'harga kamu (beku)'
+         when harga_sendiri.price is null then 'harga pasar (BI)'
+         when bi_saat_beli.price is null or bi_saat_beli.price = 0
+           then 'harga kamu (beku)'
+         when bi_kini.price / bi_saat_beli.price not between 0.3 and 3.0
+           then 'harga pasar (rasio tidak wajar)'
+         else 'harga kamu × gerakan pasar'
+       end as alasan
+     ) efektif on true
 where  r.menu_item_id = $1
-order  by r.qty * lp.price desc nulls last;
+order  by r.qty * efektif.harga desc nulls last;
 
 -- 6b · riwayat 30 hari untuk grafik
 select date, margin_pct, round(sell_price - hpp) as untung_per_porsi
@@ -188,24 +229,78 @@ from   margin_snapshots
 where  menu_item_id = $1 and date >= $2 - 30
 order  by date;
 
--- 6c · bahan untuk BR-04 — kontribusi RUPIAH, bukan persentase
--- lib/trend.ts yang memilih argmax(kontribusi_rp); SQL hanya menyiapkan.
+-- 6c · bahan untuk BR-04 — kontribusi RUPIAH, bukan persentase.
+-- Harga kini dan 7 hari lalu sama-sama mengikuti BR-09; satu bahan selalu
+-- menghasilkan tepat satu baris walau harga BI dan harga warung sama-sama ada.
 select r.commodity_id,
        coalesce(c.name, ci.name)                       as nama,
        r.qty,
-       pc.price_now,
-       pc.price_7d_ago,
-       pc.change_pct,
-       round(r.qty * (pc.price_now - pc.price_7d_ago)) as kontribusi_rp
+       efektif.harga_kini                              as price_now,
+       efektif.harga_7h                                as price_7d_ago,
+       round(((efektif.harga_kini - efektif.harga_7h) /
+              nullif(efektif.harga_7h, 0)) * 100, 1)   as change_pct,
+       round(r.qty * (efektif.harga_kini - efektif.harga_7h))
+                                                        as kontribusi_rp
 from   recipe_items r
 join   menu_items m on m.id = r.menu_item_id
 join   businesses b on b.id = m.business_id
 left join commodities   c  on c.id  = r.commodity_id
 left join catalog_items ci on ci.id = r.commodity_id
-join   price_change_7d pc
-       on pc.commodity_id = r.commodity_id
-      and pc.region_id    = b.region_id
-      and (pc.business_id is null or pc.business_id = b.id)
+left join lateral (
+       select p.price, p.date
+       from prices p
+       where p.business_id = b.id
+         and p.commodity_id = r.commodity_id
+         and p.region_id = b.region_id
+       order by p.date desc limit 1
+     ) harga_sendiri on true
+left join lateral (
+       select p.price, p.date
+       from prices p
+       where p.business_id is null
+         and p.commodity_id = r.commodity_id
+         and p.region_id = b.region_id
+       order by p.date desc limit 1
+     ) bi_kini on true
+left join lateral (
+       select p.price, p.date
+       from prices p
+       where p.business_id is null
+         and p.commodity_id = r.commodity_id
+         and p.region_id = b.region_id
+         and p.date <= bi_kini.date - 7
+       order by p.date desc limit 1
+     ) bi_7h on true
+left join lateral (
+       select p.price
+       from prices p
+       where p.business_id is null
+         and p.commodity_id = r.commodity_id
+         and p.region_id = b.region_id
+         and p.date <= harga_sendiri.date
+       order by p.date desc limit 1
+     ) bi_saat_beli on true
+left join lateral (
+       select
+         case
+           when bi_kini.price is null then harga_sendiri.price
+           when harga_sendiri.price is null then bi_kini.price
+           when bi_saat_beli.price is null or bi_saat_beli.price = 0
+             then harga_sendiri.price
+           when bi_kini.price / bi_saat_beli.price not between 0.3 and 3.0
+             then bi_kini.price
+           else harga_sendiri.price * (bi_kini.price / bi_saat_beli.price)
+         end as harga_kini,
+         case
+           when bi_7h.price is null then harga_sendiri.price
+           when harga_sendiri.price is null then bi_7h.price
+           when bi_saat_beli.price is null or bi_saat_beli.price = 0
+             then harga_sendiri.price
+           when bi_7h.price / bi_saat_beli.price not between 0.3 and 3.0
+             then bi_7h.price
+           else harga_sendiri.price * (bi_7h.price / bi_saat_beli.price)
+         end as harga_7h
+     ) efektif on true
 where  r.menu_item_id = $1
 order  by kontribusi_rp desc nulls last;
 

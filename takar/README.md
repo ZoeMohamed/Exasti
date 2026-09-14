@@ -6,7 +6,7 @@ TAKAR adalah dashboard keuangan warung untuk membantu pemilik warung memahami mo
 
 Pastikan software berikut sudah terpasang:
 
-- [Node.js](https://nodejs.org/) versi LTS, minimal Node.js 20.9
+- [Node.js](https://nodejs.org/) versi 24
 - npm, biasanya sudah ikut terpasang bersama Node.js
 - Git, jika project diambil dari repository Git
 
@@ -25,11 +25,11 @@ git --version
 Jalankan dari folder tempat project akan disimpan:
 
 ```bash
-git clone URL_REPOSITORY
-cd nama-folder-repository
+git clone git@github.com:ZoeMohamed/Exasti.git
+cd Exasti/takar
 ```
 
-Jika repository sudah di-clone dan folder project berada di dalam folder `Exasti`, masuk ke folder Next.js:
+Jika repository sudah tersedia, masuk ke folder aplikasi:
 
 ```bash
 cd takar
@@ -38,12 +38,26 @@ cd takar
 ### 2. Install dependency
 
 ```bash
-npm install
+npm ci
 ```
 
-Perintah ini membaca `package.json` dan memasang dependency ke folder `node_modules`.
+Perintah ini memasang versi dependency yang sudah dikunci di `package-lock.json`.
 
-### 3. Jalankan development server
+### 3. Salin konfigurasi environment
+
+```bash
+cp .env.example .env.local
+```
+
+Project URL dan publishable key Supabase sudah tersedia di contoh karena memang
+aman dipakai browser. Isi `DATABASE_URL`, `GEMINI_API_KEY`, dan `CRON_SECRET`
+melalui password manager tim; jangan kirim nilainya di chat atau commit Git.
+
+Gunakan `TAKAR_DEMO_MODE=true` hanya untuk presentasi lokal dengan data seed.
+Deployment bersama wajib memakai `false`, lalu setiap developer masuk dengan
+akun Supabase masing-masing sehingga RLS memisahkan data warung.
+
+### 4. Jalankan development server
 
 ```bash
 npm run dev
@@ -64,6 +78,8 @@ Jalankan perintah dari folder `takar`:
 | `npm run dev` | Menjalankan development server dengan hot reload |
 | `npm run lint` | Memeriksa masalah ESLint |
 | `npm run build` | Membuat production build dan memeriksa TypeScript |
+| `npm test` | Menjalankan uji aturan hitung dan zona waktu Jakarta |
+| `npm run db:check` | Memeriksa koneksi serta integritas data Supabase |
 | `npm run start` | Menjalankan hasil production build |
 
 Untuk menjalankan aplikasi dalam mode production:
@@ -74,6 +90,39 @@ npm run start
 ```
 
 Kemudian buka <http://localhost:3000>.
+
+## Deployment Vercel
+
+Hubungkan repository GitHub `ZoeMohamed/Exasti`, lalu gunakan pengaturan berikut:
+
+| Pengaturan | Nilai |
+| --- | --- |
+| Production Branch | `main` |
+| Framework Preset | Next.js |
+| Root Directory | `takar` |
+| Install Command | `npm ci` |
+| Build Command | `npm run build` |
+| Function Region | `bom1` (Mumbai, dekat dengan database) |
+
+Tambahkan seluruh variabel dari `.env.example` melalui Vercel Project Settings.
+Nilai produksi wajib memakai:
+
+- `DATABASE_URL` transaction pooler Supabase pada port `6543`, dengan
+  `uselibpqcompat=true&sslmode=require`
+- `TAKAR_DEMO_MODE=false`
+- `CRON_SECRET` acak, minimal 16 karakter
+
+Jangan menyalin `.env.local` ke Git. Simpan `DATABASE_URL`, `GEMINI_API_KEY`, dan
+`CRON_SECRET` hanya di pengelola environment Vercel/password manager tim.
+
+Sesudah URL produksi tersedia, buka Supabase Auth > URL Configuration:
+
+- Site URL: URL produksi Vercel
+- Redirect URL lokal: `http://localhost:3000/**`
+- Redirect URL preview: `https://*-NAMA_TIM.vercel.app/**`
+
+Cron di `vercel.json` berjalan pukul 06.30 UTC atau 13.30 WIB. Vercel mengirim
+`CRON_SECRET` sebagai bearer token ke `/api/cron/harian` secara otomatis.
 
 ## Struktur Utama
 
@@ -143,7 +192,7 @@ Lalu refresh browser. Development server akan memuat ulang perubahan secara otom
 
 ## Catatan
 
-- Data aplikasi saat ini masih berupa mock data lokal.
-- OCR nota masih berupa simulasi dan belum terhubung ke API eksternal.
-- Data harga pasar belum terhubung ke API BI atau database.
+- Dashboard membaca dan menulis Supabase PostgreSQL secara langsung dari server.
+- OCR memakai Gemini bila `GEMINI_API_KEY` tersedia dan selalu meminta konfirmasi sebelum menyimpan.
+- Harga publik ditarik dari BI oleh cron harian pukul 13.30 WIB.
 - Prototype asli tetap tersedia di `referensi/code.html` sebagai referensi visual.
