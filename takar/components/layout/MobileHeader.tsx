@@ -30,7 +30,7 @@ export function MobileHeader({ regionName, hargaTanggal, hargaBasi }: MobileHead
       <Link
         href="/dashboard/belanja"
         prefetch={false}
-        className="brutal-btn bg-bright-green px-3 py-1.5 text-xs font-heading font-extrabold"
+        className="brutal-btn flex min-h-11 items-center bg-bright-green px-3 py-2 text-xs font-heading font-extrabold"
       >
         Catat Nota
       </Link>
