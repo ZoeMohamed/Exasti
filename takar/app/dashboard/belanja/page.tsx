@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { tanggalIndonesia } from "@/lib/tanggal";
 import Link from "next/link";
 import Image from "next/image";
@@ -15,6 +16,7 @@ import type { RefBahan } from "@/lib/bahan/validasi";
 import type { SatuanDasar } from "@/lib/units";
 import { matchReceiptItem } from "@/lib/ai/match";
 import { ringkasHargaNota, satuanNota, tebakSatuanDasarNota } from "@/lib/ai/receipt-units";
+import { PanduanKontekstual } from "@/components/onboarding/PanduanKontekstual";
 
 interface PilihanBahan {
   bahan: RefBahan;
@@ -45,7 +47,11 @@ function temukanPilihanOtomatis(
 }
 
 export default function BelanjaPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const panduanAktif = searchParams.get("panduan") === "3";
   const [bahan, setBahan] = useState<BahanTersedia[]>([]);
+  const [bahanLoading, setBahanLoading] = useState(true);
   const [saranUmum, setSaranUmum] = useState<SaranUmum[]>([]);
   const [pilihanManual, setPilihan] = useState<Record<string, PilihanBahan>>({});
   const [loading, setLoading] = useState(false);
@@ -58,6 +64,7 @@ export default function BelanjaPage() {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [receiptHistory, setReceiptHistory] = useState<UserPriceHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [guideLoading, setGuideLoading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -83,7 +90,8 @@ export default function BelanjaPage() {
           setSaranUmum(data.saranUmum || []);
         }
       })
-      .catch(() => setErrorMsg("Daftar bahan belum bisa dibuka."));
+      .catch(() => setErrorMsg("Daftar bahan belum bisa dibuka."))
+      .finally(() => setBahanLoading(false));
 
     fetchHistory();
   }, []);
@@ -99,6 +107,24 @@ export default function BelanjaPage() {
       })
       .catch(console.error)
       .finally(() => setHistoryLoading(false));
+  }
+
+  async function lanjutKeHasil() {
+    setGuideLoading(true);
+    setErrorMsg(null);
+    try {
+      const response = await fetch("/api/onboarding", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "progress", step: 4 }),
+      });
+      if (!response.ok) throw new Error("Progres belum tersimpan.");
+      router.push("/dashboard?panduan=4");
+      router.refresh();
+    } catch {
+      setErrorMsg("Belum bisa melanjutkan panduan. Periksa koneksi lalu coba lagi.");
+      setGuideLoading(false);
+    }
   }
 
   // 2. Memanggil AI OCR /api/ai/parse-nota (Gemini Flash Vision + Komoditas BI)
@@ -304,6 +330,13 @@ export default function BelanjaPage() {
       const data = await res.json();
       if (data.status === "ok") {
         setSaveSuccess(data.message || "Harga belanja berhasil disimpan.");
+        if (panduanAktif) {
+          await fetch("/api/onboarding", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "progress", step: 4 }),
+          }).catch(() => null);
+        }
         fetchHistory();
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
@@ -320,6 +353,31 @@ export default function BelanjaPage() {
 
   return (
     <div className="space-y-8 pb-12">
+      {panduanAktif ? (
+        <PanduanKontekstual
+          langkah={3}
+          judul="Catat harga yang benar-benar kamu bayar"
+          action={(
+            <button
+              type="button"
+              onClick={lanjutKeHasil}
+              disabled={guideLoading}
+              className="min-h-11 px-3 py-2 font-heading text-sm font-bold underline underline-offset-4 disabled:opacity-50"
+            >
+              {guideLoading ? "Membuka hasil..." : "Belum punya nota, lewati dulu"}
+            </button>
+          )}
+        >
+          <ol className="mt-2 space-y-1.5">
+            <li><strong>1. Unggah foto nota asli</strong> dari pasar atau toko langganan.</li>
+            <li><strong>2. Periksa hasil bacaan:</strong> nama, jumlah, satuan, dan total bayar.</li>
+            <li><strong>3. Hubungkan setiap baris</strong> ke bahan yang digunakan pada menu.</li>
+            <li><strong>4. Simpan</strong> setelah semua angka sesuai nota.</li>
+          </ol>
+          <p className="mt-2">Harga yang kamu setujui langsung dipakai untuk menghitung modal menu warungmu.</p>
+        </PanduanKontekstual>
+      ) : null}
+
       {/* HEADER NAV & DATABASE BADGE */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
@@ -329,7 +387,7 @@ export default function BelanjaPage() {
           Kembali ke Beranda
         </Link>
         <span className="bg-warning-yellow px-2.5 py-1 font-mono text-xs font-bold brutal-border-2">
-          {bahan.length} bahan siap dipakai
+          {bahanLoading ? "Menyiapkan bahan..." : `${bahan.length} bahan siap dipakai`}
         </span>
       </div>
 
@@ -356,13 +414,24 @@ export default function BelanjaPage() {
                 <p className="text-sm text-ink/80 mt-1">
                   Modal menu warung dan angka untung otomatis diperbarui menggunakan harga belanja terbaru ini.
                 </p>
-                <div className="mt-3 flex gap-3">
-                  <Link
-                    href="/dashboard"
-                    className="brutal-btn bg-bright-green px-3 py-1.5 text-xs font-heading font-bold"
-                  >
-                    Lihat Beranda
-                  </Link>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {panduanAktif ? (
+                    <button
+                      type="button"
+                      onClick={lanjutKeHasil}
+                      disabled={guideLoading}
+                      className="brutal-btn min-h-11 bg-bright-green px-4 py-2 text-xs font-heading font-bold disabled:opacity-50"
+                    >
+                      {guideLoading ? "Membuka hasil..." : "Lihat hasil dari data ini"}
+                    </button>
+                  ) : (
+                    <Link
+                      href="/dashboard"
+                      className="brutal-btn min-h-11 bg-bright-green px-4 py-2 text-xs font-heading font-bold"
+                    >
+                      Lihat Beranda
+                    </Link>
+                  )}
                 </div>
             </div>
           </div>
@@ -430,7 +499,7 @@ export default function BelanjaPage() {
             </div>
 
             {/* UJI CEPAT / DEMO SAMPLES */}
-            <div className="mt-6 border-t-2 border-ink/10 pt-4">
+            {!panduanAktif ? <div className="mt-6 border-t-2 border-ink/10 pt-4">
               <span className="font-mono text-xs font-bold text-ink/80">
                 Belum punya foto? Gunakan contoh nota:
               </span>
@@ -474,7 +543,7 @@ export default function BelanjaPage() {
                   <p className="text-[11px] text-ink/70 mt-0.5">Ayam Broiler 5kg, Telur Ayam 2kg, Bawang Putih, Gas 3kg</p>
                 </button>
               </div>
-            </div>
+            </div> : null}
           </div>
         </div>
 

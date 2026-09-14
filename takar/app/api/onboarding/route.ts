@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiError, requireApiBusinessId } from "@/lib/auth/api";
 import { queryAppDb } from "@/lib/auth/context";
-import { JUMLAH_LANGKAH_PANDUAN, langkahPanduanValid } from "@/lib/onboarding";
+import { TAHAP_PANDUAN_SELESAI, langkahPanduanValid } from "@/lib/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export async function PATCH(req: Request) {
              onboarding_completed_at = coalesce(onboarding_completed_at, now())
          where id = $2
          returning onboarding_step, onboarding_completed_at`,
-        [JUMLAH_LANGKAH_PANDUAN, businessId],
+        [TAHAP_PANDUAN_SELESAI, businessId],
       );
       return NextResponse.json({ status: "ok", onboarding: result.rows[0] });
     }

@@ -19,6 +19,7 @@ import type { BahanTersedia, HasilCari } from "@/lib/bahan/cari";
 import type { SaranUmum } from "@/lib/bahan/katalog-pasar";
 import type { Satuan, SatuanDasar } from "@/lib/units";
 import { formatRupiah } from "@/lib/formatRupiah";
+import { PanduanKontekstual } from "@/components/onboarding/PanduanKontekstual";
 
 interface InitialIngredientRow {
   bahan: IngredientRow["bahan"];
@@ -40,7 +41,7 @@ interface MenuFormProps {
   initialVolume?: number;
   initialRows?: InitialIngredientRow[];
   initialFixedCosts?: BiayaTetapTersimpan[];
-  kembaliKePanduan?: boolean;
+  panduanAktif?: boolean;
 }
 
 function unitKecil(dasar: SatuanDasar): Satuan {
@@ -53,17 +54,17 @@ export function MenuForm({
   edit = false,
   menuId,
   initialName = "",
-  initialPrice = 18000,
-  initialYield = 8,
+  initialPrice,
+  initialYield,
   initialVolume = 0,
   initialRows = [],
   initialFixedCosts = [],
-  kembaliKePanduan = false,
+  panduanAktif = false,
 }: MenuFormProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
-  const [sellPrice, setSellPrice] = useState<number | "">(initialPrice);
-  const [batchYield, setBatchYield] = useState<number | "">(initialYield);
+  const [sellPrice, setSellPrice] = useState<number | "">(initialPrice ?? "");
+  const [batchYield, setBatchYield] = useState<number | "">(initialYield ?? "");
   const [weeklyVolume, setWeeklyVolume] = useState<number | "">(initialVolume || "");
   const [bahan, setBahan] = useState<BahanTersedia[]>([]);
   const [saranUmum, setSaranUmum] = useState<SaranUmum[]>([]);
@@ -194,14 +195,14 @@ export function MenuForm({
         return;
       }
       setSaved(true);
-      if (kembaliKePanduan) {
+      if (panduanAktif) {
         await fetch("/api/onboarding", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "progress", step: 3 }),
         }).catch(() => null);
       }
-      router.push(kembaliKePanduan ? "/dashboard/panduan?langkah=3" : "/dashboard/menu");
+      router.push(panduanAktif ? "/dashboard/belanja?panduan=3" : "/dashboard/menu");
       router.refresh();
     } catch {
       setFormError("Menu belum tersimpan. Periksa koneksi lalu coba lagi.");
@@ -212,6 +213,20 @@ export function MenuForm({
 
   return (
     <div className="space-y-8">
+      {panduanAktif ? (
+        <PanduanKontekstual langkah={2} judul="Masukkan satu menu yang benar-benar kamu jual">
+          <ol className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+            <li><strong>1. Nama dan harga jual</strong> ke pembeli.</li>
+            <li><strong>2. Hasil sekali masak</strong> dalam porsi.</li>
+            <li><strong>3. Perkiraan laku</strong> per minggu, bila tahu.</li>
+            <li><strong>4. Bahan resep</strong> dan jumlah yang dipakai.</li>
+            <li><strong>5. Harga belanja sendiri</strong> bila berbeda dari pasar.</li>
+            <li><strong>6. Kemasan grosir:</strong> harga pak, isi pak, dan pemakaian per porsi.</li>
+          </ol>
+          <p className="mt-2">Setelah disimpan, menu ini langsung dihitung dan muncul di beranda warungmu.</p>
+        </PanduanKontekstual>
+      ) : null}
+
       <section className="bg-white p-6 sm:p-8 brutal-card">
         <span className="mb-2 inline-block bg-accent-green px-2.5 py-0.5 font-mono text-xs font-bold uppercase text-white">Catatan Resep</span>
         <h1 className="font-heading text-3xl font-extrabold sm:text-4xl">{edit ? "Ubah resep menu" : "Sekali masak, kamu memakai bahan apa saja?"}</h1>
@@ -251,8 +266,20 @@ export function MenuForm({
         {saved && <div className="bg-bright-green p-3 text-center text-sm font-bold brutal-border-2">Menu dan resep sudah tersimpan.</div>}
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="submit" disabled={loading || saved} className="brutal-btn flex-1 bg-critical-red px-6 py-3.5 font-heading font-extrabold text-white disabled:opacity-50">{loading ? "Menyimpan..." : saved ? "Sudah tersimpan" : edit ? "Simpan perubahan" : "Simpan menu baru"}</button>
-          <Link href={kembaliKePanduan ? "/dashboard/panduan?langkah=2" : "/dashboard/menu"} className="brutal-btn bg-white px-6 py-3.5 text-center font-heading font-bold">Batal</Link>
+          <button type="submit" disabled={loading || saved} className="brutal-btn flex-1 bg-critical-red px-6 py-3.5 font-heading font-extrabold text-white disabled:opacity-50">
+            {loading
+              ? "Menyimpan..."
+              : saved
+                ? "Sudah tersimpan"
+                : edit
+                  ? "Simpan perubahan"
+                  : panduanAktif
+                    ? "Simpan menu dan lanjut catat belanja"
+                    : "Simpan menu baru"}
+          </button>
+          <Link href="/dashboard" className="brutal-btn bg-white px-6 py-3.5 text-center font-heading font-bold">
+            {panduanAktif ? "Isi nanti" : "Batal"}
+          </Link>
         </div>
       </form>
     </div>

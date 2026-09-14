@@ -16,6 +16,7 @@ export default async function DashboardPage() {
       latestDate={latestDate}
       alerts={alerts}
       onboardingIncomplete={!profile.onboarding_completed_at}
+      onboardingStep={Number(profile.onboarding_step) || 1}
     />
   );
 }

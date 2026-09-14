@@ -5,15 +5,24 @@ import { MenuCard } from "@/components/ui/MenuCard";
 import { AlertInbox } from "@/components/dashboard/AlertInbox";
 import type { AlertTampil } from "@/lib/services/alerts";
 import { tanggalIndonesia } from "@/lib/tanggal";
+import { tujuanPanduan } from "@/lib/onboarding";
+import { PanduanHasil } from "@/components/onboarding/PanduanHasil";
 
 interface DashboardHomeProps {
   menus: Menu[];
   latestDate: string;
   alerts: AlertTampil[];
   onboardingIncomplete?: boolean;
+  onboardingStep?: number;
 }
 
-export function DashboardHome({ menus, latestDate, alerts, onboardingIncomplete = false }: DashboardHomeProps) {
+export function DashboardHome({
+  menus,
+  latestDate,
+  alerts,
+  onboardingIncomplete = false,
+  onboardingStep = 1,
+}: DashboardHomeProps) {
   const activeMenus = menus.filter((menu) => menu.status !== "diistirahatkan");
   const activeCount = activeMenus.length;
   const criticalMenus = activeMenus.filter((menu) => menu.status === "tipis" || menu.status === "rugi");
@@ -22,23 +31,30 @@ export function DashboardHome({ menus, latestDate, alerts, onboardingIncomplete 
   );
 
   const formattedDate = tanggalIndonesia(latestDate);
+  const sedangMembacaHasil = onboardingIncomplete && onboardingStep >= 4;
+  const lanjutHref = tujuanPanduan({
+    tersimpan: onboardingStep,
+    jumlahMenu: activeCount,
+    sudahSelesai: !onboardingIncomplete,
+  });
 
   return (
     <div className="space-y-8">
-      {onboardingIncomplete ? (
+      {sedangMembacaHasil ? <PanduanHasil /> : null}
+      {onboardingIncomplete && !sedangMembacaHasil ? (
         <section className="flex flex-col gap-4 bg-warning-yellow p-5 shadow-[4px_4px_0_#111] brutal-border sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-heading text-xl font-extrabold">Lanjutkan menyiapkan warungmu</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/75">
-              Panduan akan membantumu mengisi menu pertama, mencatat belanja, dan membaca angka untung.
+              Lanjutkan dari halaman kerja terakhir. Data yang kamu isi langsung menjadi data warungmu.
             </p>
           </div>
-          <Link href="/dashboard/panduan" className="brutal-btn min-h-11 shrink-0 bg-white px-5 py-2.5 text-center font-heading text-sm font-extrabold">
-            Lanjutkan Panduan
+          <Link href={lanjutHref} className="brutal-btn min-h-11 shrink-0 bg-white px-5 py-2.5 text-center font-heading text-sm font-extrabold">
+            Lanjutkan di form asli
           </Link>
         </section>
       ) : null}
-      <section className="relative bg-white p-6 sm:p-8 brutal-card">
+      <section className={`relative bg-white p-6 sm:p-8 brutal-card ${sedangMembacaHasil ? "outline-4 outline-offset-4 outline-warning-yellow" : ""}`}>
         <span className="absolute right-6 -top-3 rotate-2 bg-warning-yellow px-3 py-1 font-mono text-xs font-bold brutal-border">
           Harga pasar Semarang · {formattedDate}
         </span>

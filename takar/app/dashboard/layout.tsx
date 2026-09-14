@@ -33,7 +33,6 @@ async function DashboardNavigation() {
         lastSyncText={sinkron.teks}
         priceDateText={hargaIso ? tanggalIndonesia(hargaIso) : null}
         priceStale={hargaBasi}
-        guidePending={!profile.onboarding_completed_at}
       />
       <MobileHeader
         regionName={profile.region_name}
@@ -55,7 +54,6 @@ function DashboardNavigationFallback() {
         lastSyncText="Menyiapkan data"
         priceDateText={null}
         priceStale={false}
-        guidePending={false}
       />
       <MobileHeader regionName="Warungmu" hargaTanggal={null} hargaBasi={false} />
     </>

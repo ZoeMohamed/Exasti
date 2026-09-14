@@ -1,13 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { hargaPasarPerluDiperbarui, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
+import { PanduanKontekstual } from "@/components/onboarding/PanduanKontekstual";
 
 export default function SettingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const panduanAktif = searchParams.get("panduan") === "1";
 
   const [name, setName] = useState("Warung Bu Sri");
   const [regionId, setRegionId] = useState(1);
@@ -80,6 +82,16 @@ export default function SettingsPage() {
 
       if (res.ok) {
         setSaved(true);
+        if (panduanAktif) {
+          await fetch("/api/onboarding", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "progress", step: 2 }),
+          }).catch(() => null);
+          router.push("/dashboard/menu/tambah?panduan=2");
+          router.refresh();
+          return;
+        }
         setTimeout(() => {
           setSaved(false);
           router.refresh();
@@ -97,7 +109,21 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="bg-white p-6 sm:p-8 brutal-card">
+    <div className="space-y-5">
+      {panduanAktif ? (
+        <PanduanKontekstual langkah={1} judul="Isi data warung yang benar">
+          <ol className="mt-2 space-y-1.5">
+            <li><strong>1. Nama warung:</strong> isi nama yang dikenal pembeli.</li>
+            <li><strong>2. Kota:</strong> pilih lokasi belanja agar harga pasar pembanding sesuai daerahmu.</li>
+          </ol>
+          <p className="mt-2">
+            Tekan simpan setelah datanya benar. Kamu langsung dibawa ke form menu asli dan semua
+            isian menjadi data warungmu.
+          </p>
+        </PanduanKontekstual>
+      ) : null}
+
+      <section className="bg-white p-6 sm:p-8 brutal-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-dashed border-ink pb-4">
         <div>
           <h1 className="font-heading text-3xl font-extrabold sm:text-4xl">
@@ -170,15 +196,12 @@ export default function SettingsPage() {
             disabled={saving}
             className="brutal-btn bg-ink px-6 py-3 font-heading font-extrabold text-cream disabled:opacity-50"
           >
-            {saving ? "Menyimpan..." : "Simpan Pengaturan Warung"}
+            {saving
+              ? "Menyimpan..."
+              : panduanAktif
+                ? "Simpan dan buat menu pertama"
+                : "Simpan Pengaturan Warung"}
           </button>
-
-          <Link
-            href="/dashboard/panduan"
-            className="brutal-btn inline-block min-h-11 bg-warning-yellow px-5 py-2.5 text-center font-heading text-sm font-bold"
-          >
-            Buka Panduan Takar
-          </Link>
 
           <button
             type="button"
@@ -193,6 +216,7 @@ export default function SettingsPage() {
           </button>
         </form>
       )}
+      </section>
     </div>
   );
 }
