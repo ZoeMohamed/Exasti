@@ -75,7 +75,9 @@ export function KartuBahan({ row, index, batchYield, error, onChange, onRemove }
   }
 
   function gantiSatuanDasar(satuanDasar: SatuanDasar) {
-    const satuan: Satuan = satuanDasar === "kg" ? "gram" : satuanDasar === "liter" ? "ml" : "pcs";
+    const satuan: Satuan = row.pemakaian.cara === "per_kemasan"
+      ? satuanDasar === "kg" ? "gram" : satuanDasar === "liter" ? "ml" : "pcs"
+      : satuanDasar;
     const bahan = row.bahan.jenis === "baru" ? { ...row.bahan, satuanDasar } : row.bahan;
     onChange({
       ...row,

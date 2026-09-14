@@ -32,7 +32,7 @@ type LangkahLayar = {
   isi: string;
   labelLanjut?: string;
   harusKlikTarget?: boolean;
-  validasi?: "nama-warung" | "wilayah" | "nama-menu" | "harga-menu" | "porsi" | "bahan";
+  validasi?: "nama-warung" | "wilayah" | "nama-menu" | "harga-menu" | "porsi" | "bahan" | "bahan-lengkap";
 };
 
 const TOTAL_TAHAP = 4;
@@ -95,6 +95,13 @@ const LANGKAH_MENU: LangkahLayar[] = [
     isi: "Cari bahan yang dipakai. Pilih saran yang ada, atau tambahkan bahan khas warungmu lalu isi cara pakai dan harga belanjanya.",
     labelLanjut: "Bahan sudah ditambahkan",
     validasi: "bahan",
+  },
+  {
+    target: "menu-ingredient-card",
+    judul: "Lengkapi jumlah dan harga bahan",
+    isi: "Periksa cara pakai, jumlah, satuan, dan harga yang kamu bayar. Untuk bahan pasar, harga belanjamu sendiri boleh ditambahkan bila berbeda.",
+    labelLanjut: "Data bahan sudah lengkap",
+    validasi: "bahan-lengkap",
   },
   {
     target: "menu-costs",
@@ -195,6 +202,15 @@ function pesanValidasi(langkah: LangkahLayar): string | null {
     return document.querySelector('[data-tour="menu-ingredient-card"]')
       ? null
       : "Tambahkan minimal satu bahan terlebih dahulu.";
+  }
+  if (langkah.validasi === "bahan-lengkap") {
+    const card = target;
+    const invalid = card?.querySelector<HTMLInputElement | HTMLSelectElement>("input:invalid, select:invalid");
+    if (invalid) return "Lengkapi dulu kolom bahan yang masih kosong atau tidak valid.";
+    const harga = [...(card?.querySelectorAll<HTMLInputElement>('input[inputmode="numeric"]') ?? [])];
+    if (harga.some((input) => angkaInput(input) < 1)) {
+      return "Isi harga belanja bahan sebelum melanjutkan.";
+    }
   }
   return null;
 }

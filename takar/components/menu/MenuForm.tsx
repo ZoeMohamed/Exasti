@@ -122,6 +122,7 @@ export function MenuForm({
     const dasar = hasil.tipe === "saran" ? hasil.saran.satuanDasar : "kg";
     const cara = hasil.tipe === "saran" ? hasil.saran.caraPakai : "per_masak";
     const unit = unitKecil(dasar);
+    const satuanHarga = cara === "per_kemasan" ? unit : dasar;
     setRows((current) => [...current, {
       key: `baru-${Date.now()}-${current.length}`,
       bahan: { jenis: "baru", nama, satuanDasar: dasar },
@@ -133,7 +134,7 @@ export function MenuForm({
       harga: null,
       sumberHarga: "belum ada harga",
       tanggalHarga: null,
-      hargaBelanja: { hargaKemasan: 0, isi: 1, satuan: unit },
+      hargaBelanja: { hargaKemasan: 0, isi: 1, satuan: satuanHarga },
     }]);
   }
 
