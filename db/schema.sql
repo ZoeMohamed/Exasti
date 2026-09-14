@@ -107,6 +107,9 @@ create table if not exists businesses (
   -- satu ketukan, selisihnya bisa Rp 600/porsi.
   packaging_mode text not null default 'mixed'
     check (packaging_mode in ('dine_in','takeaway','mixed')),
+  onboarding_step smallint not null default 1
+    check (onboarding_step between 1 and 5),
+  onboarding_completed_at timestamptz,
   created_at  timestamptz not null default now()
 );
 

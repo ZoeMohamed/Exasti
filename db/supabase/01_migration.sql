@@ -52,6 +52,9 @@ create table if not exists businesses (
   region_id  int  not null references regions(id),
   packaging_mode text not null default 'mixed'
     check (packaging_mode in ('dine_in','takeaway','mixed')),
+  onboarding_step smallint not null default 1
+    check (onboarding_step between 1 and 5),
+  onboarding_completed_at timestamptz,
   created_at timestamptz not null default now()
 );
 

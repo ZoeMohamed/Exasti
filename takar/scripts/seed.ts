@@ -192,9 +192,15 @@ async function seed() {
 
   console.log("[3] Menyiapkan Warung Bu Sri...");
   await client.query(`
-    INSERT INTO businesses (id, name, region_id, packaging_mode)
-    VALUES ('${BUSINESS_ID}', 'Warung Bu Sri', 1, 'mixed')
-    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, region_id = EXCLUDED.region_id;
+    INSERT INTO businesses (
+      id, name, region_id, packaging_mode, onboarding_step, onboarding_completed_at
+    )
+    VALUES ('${BUSINESS_ID}', 'Warung Bu Sri', 1, 'mixed', 5, now())
+    ON CONFLICT (id) DO UPDATE SET
+      name = EXCLUDED.name,
+      region_id = EXCLUDED.region_id,
+      onboarding_step = 5,
+      onboarding_completed_at = coalesce(businesses.onboarding_completed_at, now());
   `);
 
   console.log("[3b] Menyiapkan bahan warung demo (nilai bertanda ASUMSI)...");

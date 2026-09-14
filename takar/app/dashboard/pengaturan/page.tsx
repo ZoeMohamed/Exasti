@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -171,6 +172,13 @@ export default function SettingsPage() {
           >
             {saving ? "Menyimpan..." : "Simpan Pengaturan Warung"}
           </button>
+
+          <Link
+            href="/dashboard/panduan"
+            className="brutal-btn inline-block min-h-11 bg-warning-yellow px-5 py-2.5 text-center font-heading text-sm font-bold"
+          >
+            Buka Panduan Takar
+          </Link>
 
           <button
             type="button"

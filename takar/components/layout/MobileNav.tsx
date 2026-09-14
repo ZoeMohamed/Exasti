@@ -7,6 +7,7 @@ const links = [
   ["Menu", "/dashboard/menu"],
   ["Coba Harga", "/dashboard/simulator"],
   ["Setelan", "/dashboard/pengaturan"],
+  ["Panduan", "/dashboard/panduan"],
 ] as const;
 export function MobileNav() {
   const pathname = usePathname();

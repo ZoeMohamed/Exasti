@@ -30,13 +30,18 @@ export async function PUT(req: Request) {
   try {
     await requireApiBusinessId();
     const body = await req.json();
-    if (!body.name) {
-      return NextResponse.json({ error: "Nama warung wajib diisi" }, { status: 400 });
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const regionId = Number(body.regionId);
+    if (name.length < 2 || name.length > 80) {
+      return NextResponse.json({ error: "Nama warung harus berisi 2–80 karakter." }, { status: 400 });
+    }
+    if (!Number.isInteger(regionId) || regionId < 1) {
+      return NextResponse.json({ error: "Pilih kota atau kabupaten yang tersedia." }, { status: 400 });
     }
 
     const ok = await updateDbBusinessProfile({
-      name: body.name,
-      regionId: body.regionId ? Number(body.regionId) : undefined,
+      name,
+      regionId,
     });
 
     if (ok) {

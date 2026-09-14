@@ -20,7 +20,8 @@
     "test:ocr": "tsx tests/uji-ocr.ts",
     "test:bi": "tsx tests/uji-bi.ts",
     "test:rupiah": "tsx tests/uji-rupiah.ts",
-    "test": "npm run test:margin && npm run test:time && npm run test:bahan && npm run test:biaya && npm run test:prioritas && npm run test:ocr && npm run test:bi && npm run test:rupiah"
+    "test:onboarding": "tsx tests/uji-onboarding.ts",
+    "test": "npm run test:margin && npm run test:time && npm run test:bahan && npm run test:biaya && npm run test:prioritas && npm run test:ocr && npm run test:bi && npm run test:rupiah && npm run test:onboarding"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

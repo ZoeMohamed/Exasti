@@ -40,6 +40,7 @@ interface MenuFormProps {
   initialVolume?: number;
   initialRows?: InitialIngredientRow[];
   initialFixedCosts?: BiayaTetapTersimpan[];
+  kembaliKePanduan?: boolean;
 }
 
 function unitKecil(dasar: SatuanDasar): Satuan {
@@ -57,6 +58,7 @@ export function MenuForm({
   initialVolume = 0,
   initialRows = [],
   initialFixedCosts = [],
+  kembaliKePanduan = false,
 }: MenuFormProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
@@ -192,7 +194,14 @@ export function MenuForm({
         return;
       }
       setSaved(true);
-      router.push("/dashboard/menu");
+      if (kembaliKePanduan) {
+        await fetch("/api/onboarding", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "progress", step: 3 }),
+        }).catch(() => null);
+      }
+      router.push(kembaliKePanduan ? "/dashboard/panduan?langkah=3" : "/dashboard/menu");
       router.refresh();
     } catch {
       setFormError("Menu belum tersimpan. Periksa koneksi lalu coba lagi.");
@@ -243,7 +252,7 @@ export function MenuForm({
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <button type="submit" disabled={loading || saved} className="brutal-btn flex-1 bg-critical-red px-6 py-3.5 font-heading font-extrabold text-white disabled:opacity-50">{loading ? "Menyimpan..." : saved ? "Sudah tersimpan" : edit ? "Simpan perubahan" : "Simpan menu baru"}</button>
-          <Link href="/dashboard/menu" className="brutal-btn bg-white px-6 py-3.5 text-center font-heading font-bold">Batal</Link>
+          <Link href={kembaliKePanduan ? "/dashboard/panduan?langkah=2" : "/dashboard/menu"} className="brutal-btn bg-white px-6 py-3.5 text-center font-heading font-bold">Batal</Link>
         </div>
       </form>
     </div>

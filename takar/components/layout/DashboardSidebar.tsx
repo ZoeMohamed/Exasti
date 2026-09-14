@@ -10,6 +10,7 @@ const links = [
   ["Catat Nota Belanja", "/dashboard/belanja"],
   ["Coba Perubahan Harga", "/dashboard/simulator"],
   ["Pengaturan Warung", "/dashboard/pengaturan"],
+  ["Panduan Takar", "/dashboard/panduan"],
 ] as const;
 
 function isActiveRoute(pathname: string, href: string) {
@@ -30,6 +31,7 @@ interface DashboardSidebarProps {
   lastSyncText?: string;
   priceDateText?: string | null;
   priceStale?: boolean;
+  guidePending?: boolean;
 }
 
 export function DashboardSidebar({
@@ -40,6 +42,7 @@ export function DashboardSidebar({
   lastSyncText = "Hari ini",
   priceDateText,
   priceStale = false,
+  guidePending = false,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
 
@@ -96,6 +99,11 @@ export function DashboardSidebar({
                 {label === "Daftar Menu" && (
                   <span className="ml-auto bg-cream-surface px-1.5 text-xs border border-ink">
                     {menuCount}
+                  </span>
+                )}
+                {label === "Panduan Takar" && guidePending && (
+                  <span className="ml-auto bg-warning-yellow px-1.5 font-mono text-[10px] border border-ink">
+                    LANJUT
                   </span>
                 )}
               </Link>

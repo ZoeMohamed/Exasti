@@ -62,7 +62,8 @@ function LoginContent() {
       }
 
       const next = new URL(window.location.href).searchParams.get("next");
-      const tujuan = next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+      const tujuanSesudahMasuk = next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+      const tujuan = mode === "daftar" ? "/dashboard/panduan" : tujuanSesudahMasuk;
 
       // Sesudah daftar, akun dibuat oleh Edge Function lalu sesi ditulis oleh
       // supabase-js ke cookie browser. Navigasi App Router dapat meminta RSC

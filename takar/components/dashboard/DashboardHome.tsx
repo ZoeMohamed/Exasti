@@ -10,9 +10,10 @@ interface DashboardHomeProps {
   menus: Menu[];
   latestDate: string;
   alerts: AlertTampil[];
+  onboardingIncomplete?: boolean;
 }
 
-export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps) {
+export function DashboardHome({ menus, latestDate, alerts, onboardingIncomplete = false }: DashboardHomeProps) {
   const activeMenus = menus.filter((menu) => menu.status !== "diistirahatkan");
   const activeCount = activeMenus.length;
   const criticalMenus = activeMenus.filter((menu) => menu.status === "tipis" || menu.status === "rugi");
@@ -24,6 +25,19 @@ export function DashboardHome({ menus, latestDate, alerts }: DashboardHomeProps)
 
   return (
     <div className="space-y-8">
+      {onboardingIncomplete ? (
+        <section className="flex flex-col gap-4 bg-warning-yellow p-5 shadow-[4px_4px_0_#111] brutal-border sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-heading text-xl font-extrabold">Lanjutkan menyiapkan warungmu</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/75">
+              Panduan akan membantumu mengisi menu pertama, mencatat belanja, dan membaca angka untung.
+            </p>
+          </div>
+          <Link href="/dashboard/panduan" className="brutal-btn min-h-11 shrink-0 bg-white px-5 py-2.5 text-center font-heading text-sm font-extrabold">
+            Lanjutkan Panduan
+          </Link>
+        </section>
+      ) : null}
       <section className="relative bg-white p-6 sm:p-8 brutal-card">
         <span className="absolute right-6 -top-3 rotate-2 bg-warning-yellow px-3 py-1 font-mono text-xs font-bold brutal-border">
           Harga pasar Semarang · {formattedDate}

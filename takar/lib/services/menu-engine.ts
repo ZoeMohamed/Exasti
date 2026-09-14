@@ -848,6 +848,8 @@ export const getDbBusinessProfile = cache(async function () {
       SELECT b.id,
              b.name,
              b.packaging_mode,
+             b.onboarding_step,
+             b.onboarding_completed_at,
              r.id as region_id,
              r.name as region_name,
              (SELECT count(*) FROM menu_items WHERE business_id = b.id AND active) as active_menus_count,
@@ -882,7 +884,7 @@ export async function updateDbBusinessProfile(data: {
       `update businesses
        set name = $1, region_id = coalesce($2, region_id)
        where id = $3`,
-      [data.name, data.regionId ?? null, businessId],
+      [data.name.trim(), data.regionId ?? null, businessId],
     );
     return Boolean(res && res.rowCount && res.rowCount > 0);
   } catch (err) {
