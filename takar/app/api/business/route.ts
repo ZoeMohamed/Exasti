@@ -3,6 +3,7 @@ import { getDbBusinessProfile, updateDbBusinessProfile } from "@/lib/services/me
 import { queryAppDb } from "@/lib/auth/context";
 import { apiError, requireApiBusinessId } from "@/lib/auth/api";
 import { keIsoTanggal } from "@/lib/tanggal";
+import { syncBiPricesForRegion } from "@/lib/services/bi-ingest";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,9 @@ export async function GET() {
   try {
     await requireApiBusinessId();
     const profile = await getDbBusinessProfile();
-    const regionsRes = await queryAppDb("select id, name from regions order by id asc");
+    const regionsRes = await queryAppDb(
+      "select id, name, coalesce(province_name, 'Lainnya') as province_name from regions order by province_name asc, name asc",
+    );
 
     return NextResponse.json({
       status: "ok",
@@ -45,6 +48,17 @@ export async function PUT(req: Request) {
     });
 
     if (ok) {
+      // Jika wilayah baru ini belum memiliki data harga BI, picu sinkronisasi awal di background
+      const priceCheck = await queryAppDb(
+        "select 1 from prices where region_id = $1 and business_id is null limit 1",
+        [regionId],
+      );
+      if (!priceCheck?.rows?.length) {
+        syncBiPricesForRegion(regionId, 30).catch((syncErr) =>
+          console.error(`Sinkronisasi awal untuk wilayah ID ${regionId} gagal:`, syncErr),
+        );
+      }
+
       return NextResponse.json({ status: "ok", message: "Pengaturan warung berhasil disimpan" });
     }
     return NextResponse.json({ error: "Pengaturan warung belum berhasil disimpan" }, { status: 500 });
@@ -52,3 +66,4 @@ export async function PUT(req: Request) {
     return apiError(err, "Gagal memperbarui profil");
   }
 }
+

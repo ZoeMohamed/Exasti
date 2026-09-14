@@ -6,6 +6,12 @@ import { createClient } from "@/lib/supabase/client";
 import { hargaPasarPerluDiperbarui, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
 import { simpanTahapPanduan } from "@/lib/onboarding-client";
 
+interface RegionOption {
+  id: number;
+  name: string;
+  province_name?: string;
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -13,8 +19,8 @@ export default function SettingsPage() {
 
   const [name, setName] = useState("Warung Bu Sri");
   const [regionId, setRegionId] = useState(1);
-  const [regions, setRegions] = useState<Array<{ id: number; name: string }>>([
-    { id: 1, name: "Kota Semarang" },
+  const [regions, setRegions] = useState<RegionOption[]>([
+    { id: 1, name: "Kota Semarang", province_name: "Jawa Tengah" },
   ]);
   const [lastSyncText, setLastSyncText] = useState("Hari ini");
   const [latestPriceText, setLatestPriceText] = useState("belum masuk");
@@ -142,10 +148,21 @@ export default function SettingsPage() {
                 onChange={(e) => setRegionId(Number(e.target.value))}
                 className="mt-1 w-full bg-cream p-3 font-mono brutal-border-2"
               >
-                {regions.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
+                {Object.entries(
+                  regions.reduce<Record<string, RegionOption[]>>((acc, r) => {
+                    const prov = r.province_name || "Wilayah Lainnya";
+                    if (!acc[prov]) acc[prov] = [];
+                    acc[prov].push(r);
+                    return acc;
+                  }, {}),
+                ).map(([prov, list]) => (
+                  <optgroup key={prov} label={prov}>
+                    {list.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>

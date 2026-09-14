@@ -1,6 +1,7 @@
 import { Client } from "pg";
 import * as fs from "fs";
 import * as path from "path";
+import { BI_REGIONS } from "../lib/data/bi-regions";
 
 // Load .env.local manually
 const envPath = path.resolve(__dirname, "../.env.local");
@@ -173,12 +174,22 @@ async function seed() {
   console.log("Menghubungkan ke Supabase PostgreSQL...");
   await client.connect();
 
-  console.log("[1] Menyiapkan Wilayah Kota Semarang...");
+  console.log("[1] Menyiapkan Wilayah Kota Semarang & Bank Indonesia...");
+  await client.query("ALTER TABLE regions ADD COLUMN IF NOT EXISTS province_name text;");
   await client.query(`
-    INSERT INTO regions (id, bi_province_id, bi_regency_id, name, level)
-    VALUES (1, 14, 35, 'Kota Semarang', 'regency')
-    ON CONFLICT (bi_province_id, bi_regency_id) DO UPDATE SET name = EXCLUDED.name;
+    INSERT INTO regions (id, bi_province_id, bi_regency_id, name, province_name, level)
+    VALUES (1, 14, 35, 'Kota Semarang', 'Jawa Tengah', 'regency')
+    ON CONFLICT (bi_province_id, bi_regency_id) DO UPDATE SET name = EXCLUDED.name, province_name = EXCLUDED.province_name;
   `);
+  for (const r of BI_REGIONS) {
+    await client.query(
+      `INSERT INTO regions (bi_province_id, bi_regency_id, name, province_name, level)
+       VALUES ($1, $2, $3, $4, 'regency')
+       ON CONFLICT (bi_province_id, bi_regency_id)
+       DO UPDATE SET name = EXCLUDED.name, province_name = EXCLUDED.province_name;`,
+      [r.provinceId, r.regencyId, r.regencyName, r.provinceName],
+    );
+  }
 
   console.log("[2] Menyiapkan Komoditas Bank Indonesia...");
   for (const c of COMMODITIES) {

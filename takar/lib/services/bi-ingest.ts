@@ -55,12 +55,17 @@ export function parseRupiah(raw: string | null | undefined): number | null {
   return isNaN(num) ? null : num;
 }
 
-export async function fetchBiDataRaw(startDate: Date, endDate: Date): Promise<Record<string, Record<string, number>>> {
+export async function fetchBiDataRaw(
+  startDate: Date,
+  endDate: Date,
+  provinceId: number = JATENG_PROVINCE_ID,
+  regencyId: number = SEMARANG_REGENCY_ID,
+): Promise<Record<string, Record<string, number>>> {
   const params = new URLSearchParams({
     price_type_id: "1",
     comcat_id: "",
-    province_id: String(JATENG_PROVINCE_ID),
-    regency_id: String(SEMARANG_REGENCY_ID),
+    province_id: String(provinceId),
+    regency_id: String(regencyId),
     market_id: "",
     tipe_laporan: "1",
     start_date: formatBiRequestDate(startDate),
@@ -102,36 +107,37 @@ export async function fetchBiDataRaw(startDate: Date, endDate: Date): Promise<Re
   return series;
 }
 
-export async function syncBiPricesToDatabase(daysBack = 90): Promise<{ count: number; latestDate: string }> {
-  // BI menerbitkan menurut hari Indonesia. Memakai jam server (UTC di Vercel)
-  // membuat permintaan meleset sehari saat dijalankan dini hari WIB.
+/** Tarik dan perbarui harga komoditas pasar BI untuk satu wilayah tertentu. */
+export async function syncBiPricesForRegion(
+  regionId: number,
+  daysBack = 90,
+): Promise<{ count: number; latestDate: string; regionName: string }> {
   const today = new Date(hariIniJakarta() + "T12:00:00+07:00");
   const start = new Date(today);
   start.setDate(start.getDate() - daysBack);
 
-  await assertBiSemarangMapping();
-  const series = await fetchBiDataRaw(start, today);
-  const region = await queryDb<{ id: number; name: string }>(
-    `select id, name from regions
-     where bi_province_id = $1 and bi_regency_id = $2
-     limit 1`,
-    [JATENG_PROVINCE_ID, SEMARANG_REGENCY_ID],
+  const regionRes = await queryDb<{ id: number; name: string; bi_province_id: number; bi_regency_id: number }>(
+    `select id, name, bi_province_id, bi_regency_id from regions where id = $1 limit 1`,
+    [regionId],
   );
-  const regionId = region.rows[0]?.id;
-  if (!regionId || region.rows[0]?.name !== "Kota Semarang") {
-    throw new Error("Mapping Kota Semarang belum diperbarui di database.");
+  const region = regionRes.rows[0];
+  if (!region) {
+    throw new Error(`Wilayah dengan ID ${regionId} tidak ditemukan di database.`);
   }
+
+  if (region.id === 1) {
+    await assertBiSemarangMapping();
+  }
+
+  const series = await fetchBiDataRaw(start, today, region.bi_province_id, region.bi_regency_id);
   let totalUpserted = 0;
   let latestDate: string | null = null;
 
-  // Simpan ke Supabase. Dikirim per-bongkah, bukan satu baris satu kueri —
-  // versi satu-per-satu memakan 65 detik untuk 14 hari dan melewati batas
-  // waktu fungsi serverless, sehingga cron harian mati di tengah jalan.
   const baris: Array<[string, number, string, number]> = [];
   for (const [commodityName, dates] of Object.entries(series)) {
     for (const [dateStr, price] of Object.entries(dates)) {
       if (!latestDate || dateStr > latestDate) latestDate = dateStr;
-      baris.push([commodityName, regionId, dateStr, price]);
+      baris.push([commodityName, region.id, dateStr, price]);
     }
   }
 
@@ -152,9 +158,6 @@ export async function syncBiPricesToDatabase(daysBack = 90): Promise<{ count: nu
        on conflict (commodity_id, region_id, date) where business_id is null
        do update set price      = excluded.price,
                      fetched_at = now(),
-                     -- Hari yang sempat diisi mundur lalu BI-nya terbit menyusul
-                     -- harus kehilangan tandanya. Tanpa baris ini, harga asli
-                     -- tetap dilabeli "memakai harga tanggal lama" selamanya.
                      is_filled  = false,
                      filled_from_date = null,
                      source     = excluded.source`,
@@ -164,15 +167,60 @@ export async function syncBiPricesToDatabase(daysBack = 90): Promise<{ count: nu
   }
 
   if (!latestDate) {
-    throw new Error("BI tidak mengembalikan satu pun harga untuk rentang yang diminta.");
+    throw new Error(`BI tidak mengembalikan satu pun harga untuk ${region.name} pada rentang yang diminta.`);
   }
 
-  // Catat ke ingest_runs
   await queryDb(
     `INSERT INTO ingest_runs (target_date, region_count, rows_upserted, status, message)
      VALUES ($1, 1, $2, 'ok', $3)`,
-    [latestDate, totalUpserted, `Sukses tarik ${Object.keys(series).length} komoditas Kota Semarang (BI ${JATENG_PROVINCE_ID}/${SEMARANG_REGENCY_ID})`]
+    [
+      latestDate,
+      totalUpserted,
+      `Sukses tarik ${Object.keys(series).length} komoditas ${region.name} (BI ${region.bi_province_id}/${region.bi_regency_id})`,
+    ],
   );
 
-  return { count: totalUpserted, latestDate };
+  return { count: totalUpserted, latestDate, regionName: region.name };
 }
+
+export async function syncBiPricesToDatabase(
+  daysBack = 90,
+  targetRegionId?: number,
+): Promise<{ count: number; latestDate: string }> {
+  if (targetRegionId) {
+    const res = await syncBiPricesForRegion(targetRegionId, daysBack);
+    return { count: res.count, latestDate: res.latestDate };
+  }
+
+  // Sinkronisasi untuk seluruh wilayah yang aktif dipakai oleh bisnis + wilayah default (Semarang)
+  const activeRegions = await queryDb<{ id: number }>(
+    `select distinct r.id from regions r
+     where r.id in (select distinct region_id from businesses where region_id is not null)
+        or r.id = 1
+     order by r.id asc`,
+  );
+
+  let totalUpserted = 0;
+  let latestDate: string | null = null;
+
+  for (let i = 0; i < activeRegions.rows.length; i++) {
+    if (i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    }
+    try {
+      const res = await syncBiPricesForRegion(activeRegions.rows[i].id, daysBack);
+      totalUpserted += res.count;
+      if (!latestDate || res.latestDate > latestDate) {
+        latestDate = res.latestDate;
+      }
+    } catch (err) {
+      console.error(`Gagal sinkronisasi wilayah ID ${activeRegions.rows[i].id}:`, err);
+    }
+  }
+
+  return {
+    count: totalUpserted,
+    latestDate: latestDate || hariIniJakarta(),
+  };
+}
+
