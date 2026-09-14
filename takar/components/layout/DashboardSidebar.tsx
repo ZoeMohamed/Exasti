@@ -83,6 +83,7 @@ export function DashboardSidebar({
               <Link
                 key={href}
                 href={href}
+                data-tour={href === "/dashboard/pengaturan" ? "nav-settings" : undefined}
                 prefetch={false}
                 aria-current={active ? "page" : undefined}
                 className={`flex w-full items-center gap-3 px-4 py-3 font-heading font-bold brutal-border-2 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-[4px_4px_0_#111] ${active ? "bg-white shadow-[4px_4px_0_#111]" : ""}`}

@@ -2,10 +2,10 @@ export const JUMLAH_LANGKAH_PANDUAN = 4;
 export const TAHAP_PANDUAN_SELESAI = 5;
 
 const RUTE_PANDUAN: Record<number, string> = {
-  1: "/dashboard/pengaturan?panduan=1",
-  2: "/dashboard/menu/tambah?panduan=2",
-  3: "/dashboard/belanja?panduan=3",
-  4: "/dashboard?panduan=4",
+  1: "/dashboard",
+  2: "/dashboard/menu/tambah?tur=2",
+  3: "/dashboard/belanja?tur=3",
+  4: "/dashboard?tur=4",
 };
 
 export function langkahPanduanValid(value: unknown): number | null {

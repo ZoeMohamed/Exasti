@@ -16,7 +16,7 @@ import type { RefBahan } from "@/lib/bahan/validasi";
 import type { SatuanDasar } from "@/lib/units";
 import { matchReceiptItem } from "@/lib/ai/match";
 import { ringkasHargaNota, satuanNota, tebakSatuanDasarNota } from "@/lib/ai/receipt-units";
-import { PanduanKontekstual } from "@/components/onboarding/PanduanKontekstual";
+import { simpanTahapPanduan } from "@/lib/onboarding-client";
 
 interface PilihanBahan {
   bahan: RefBahan;
@@ -49,7 +49,7 @@ function temukanPilihanOtomatis(
 export default function BelanjaPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const panduanAktif = searchParams.get("panduan") === "3";
+  const turAktif = searchParams.get("tur") === "3";
   const [bahan, setBahan] = useState<BahanTersedia[]>([]);
   const [bahanLoading, setBahanLoading] = useState(true);
   const [saranUmum, setSaranUmum] = useState<SaranUmum[]>([]);
@@ -113,13 +113,8 @@ export default function BelanjaPage() {
     setGuideLoading(true);
     setErrorMsg(null);
     try {
-      const response = await fetch("/api/onboarding", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "progress", step: 4 }),
-      });
-      if (!response.ok) throw new Error("Progres belum tersimpan.");
-      router.push("/dashboard?panduan=4");
+      await simpanTahapPanduan(4);
+      router.push("/dashboard?tur=4");
       router.refresh();
     } catch {
       setErrorMsg("Belum bisa melanjutkan panduan. Periksa koneksi lalu coba lagi.");
@@ -330,12 +325,11 @@ export default function BelanjaPage() {
       const data = await res.json();
       if (data.status === "ok") {
         setSaveSuccess(data.message || "Harga belanja berhasil disimpan.");
-        if (panduanAktif) {
-          await fetch("/api/onboarding", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "progress", step: 4 }),
-          }).catch(() => null);
+        if (turAktif) {
+          await simpanTahapPanduan(4);
+          router.push("/dashboard?tur=4");
+          router.refresh();
+          return;
         }
         fetchHistory();
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -353,31 +347,6 @@ export default function BelanjaPage() {
 
   return (
     <div className="space-y-8 pb-12">
-      {panduanAktif ? (
-        <PanduanKontekstual
-          langkah={3}
-          judul="Catat harga yang benar-benar kamu bayar"
-          action={(
-            <button
-              type="button"
-              onClick={lanjutKeHasil}
-              disabled={guideLoading}
-              className="min-h-11 px-3 py-2 font-heading text-sm font-bold underline underline-offset-4 disabled:opacity-50"
-            >
-              {guideLoading ? "Membuka hasil..." : "Belum punya nota, lewati dulu"}
-            </button>
-          )}
-        >
-          <ol className="mt-2 space-y-1.5">
-            <li><strong>1. Unggah foto nota asli</strong> dari pasar atau toko langganan.</li>
-            <li><strong>2. Periksa hasil bacaan:</strong> nama, jumlah, satuan, dan total bayar.</li>
-            <li><strong>3. Hubungkan setiap baris</strong> ke bahan yang digunakan pada menu.</li>
-            <li><strong>4. Simpan</strong> setelah semua angka sesuai nota.</li>
-          </ol>
-          <p className="mt-2">Harga yang kamu setujui langsung dipakai untuk menghitung modal menu warungmu.</p>
-        </PanduanKontekstual>
-      ) : null}
-
       {/* HEADER NAV & DATABASE BADGE */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
@@ -415,7 +384,7 @@ export default function BelanjaPage() {
                   Modal menu warung dan angka untung otomatis diperbarui menggunakan harga belanja terbaru ini.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-3">
-                  {panduanAktif ? (
+                  {turAktif ? (
                     <button
                       type="button"
                       onClick={lanjutKeHasil}
@@ -489,6 +458,7 @@ export default function BelanjaPage() {
               )}
 
               <button
+                data-tour="receipt-upload"
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={loading}
@@ -499,7 +469,7 @@ export default function BelanjaPage() {
             </div>
 
             {/* UJI CEPAT / DEMO SAMPLES */}
-            {!panduanAktif ? <div className="mt-6 border-t-2 border-ink/10 pt-4">
+            {!turAktif ? <div className="mt-6 border-t-2 border-ink/10 pt-4">
               <span className="font-mono text-xs font-bold text-ink/80">
                 Belum punya foto? Gunakan contoh nota:
               </span>
@@ -597,7 +567,7 @@ export default function BelanjaPage() {
               </div>
             ) : items.length > 0 ? (
               /* TABEL / KARTU KONFIRMASI HASIL OCR */
-              <div className="mt-6 space-y-4">
+              <div data-tour="receipt-review" className="mt-6 space-y-4">
                 <div className="space-y-3">
                   {items.map((item, index) => {
                     const selected = pilihan[item.id];
@@ -742,6 +712,7 @@ export default function BelanjaPage() {
 
                 {/* Tombol Final Simpan */}
                 <button
+                  data-tour="receipt-save"
                   type="button"
                   onClick={handleSavePrices}
                   disabled={saving}

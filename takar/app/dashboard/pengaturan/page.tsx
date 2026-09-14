@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { hargaPasarPerluDiperbarui, keIsoTanggal, tanggalIndonesia } from "@/lib/tanggal";
-import { PanduanKontekstual } from "@/components/onboarding/PanduanKontekstual";
+import { simpanTahapPanduan } from "@/lib/onboarding-client";
 
 export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const panduanAktif = searchParams.get("panduan") === "1";
+  const turAktif = searchParams.get("tur") === "1";
 
   const [name, setName] = useState("Warung Bu Sri");
   const [regionId, setRegionId] = useState(1);
@@ -82,13 +82,9 @@ export default function SettingsPage() {
 
       if (res.ok) {
         setSaved(true);
-        if (panduanAktif) {
-          await fetch("/api/onboarding", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "progress", step: 2 }),
-          }).catch(() => null);
-          router.push("/dashboard/menu/tambah?panduan=2");
+        if (turAktif) {
+          await simpanTahapPanduan(2);
+          router.push("/dashboard/menu/tambah?tur=2");
           router.refresh();
           return;
         }
@@ -102,7 +98,7 @@ export default function SettingsPage() {
       }
     } catch (err) {
       console.error(err);
-      setErrorMessage("Koneksi sedang bermasalah. Coba lagi sebentar.");
+      setErrorMessage(err instanceof Error ? err.message : "Koneksi sedang bermasalah. Coba lagi sebentar.");
     } finally {
       setSaving(false);
     }
@@ -110,19 +106,6 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      {panduanAktif ? (
-        <PanduanKontekstual langkah={1} judul="Isi data warung yang benar">
-          <ol className="mt-2 space-y-1.5">
-            <li><strong>1. Nama warung:</strong> isi nama yang dikenal pembeli.</li>
-            <li><strong>2. Kota:</strong> pilih lokasi belanja agar harga pasar pembanding sesuai daerahmu.</li>
-          </ol>
-          <p className="mt-2">
-            Tekan simpan setelah datanya benar. Kamu langsung dibawa ke form menu asli dan semua
-            isian menjadi data warungmu.
-          </p>
-        </PanduanKontekstual>
-      ) : null}
-
       <section className="bg-white p-6 sm:p-8 brutal-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-dashed border-ink pb-4">
         <div>
@@ -142,6 +125,7 @@ export default function SettingsPage() {
           <label className="block font-heading text-sm font-bold">
             Nama Warung Kamu
             <input
+              data-tour="settings-name"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -153,6 +137,7 @@ export default function SettingsPage() {
             <label className="font-heading text-sm font-bold">
               Kota / Kabupaten untuk Harga Pasar
               <select
+                data-tour="settings-region"
                 value={regionId}
                 onChange={(e) => setRegionId(Number(e.target.value))}
                 className="mt-1 w-full bg-cream p-3 font-mono brutal-border-2"
@@ -192,13 +177,14 @@ export default function SettingsPage() {
           ) : null}
 
           <button
+            data-tour="settings-save"
             type="submit"
             disabled={saving}
             className="brutal-btn bg-ink px-6 py-3 font-heading font-extrabold text-cream disabled:opacity-50"
           >
             {saving
               ? "Menyimpan..."
-              : panduanAktif
+              : turAktif
                 ? "Simpan dan buat menu pertama"
                 : "Simpan Pengaturan Warung"}
           </button>

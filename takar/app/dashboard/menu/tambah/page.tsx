@@ -2,6 +2,6 @@ import { MenuForm } from "@/components/menu/MenuForm";
 
 export default async function AddMenuPage({ searchParams }: PageProps<"/dashboard/menu/tambah">) {
   const params = await searchParams;
-  const panduan = Array.isArray(params.panduan) ? params.panduan[0] : params.panduan;
-  return <MenuForm panduanAktif={panduan === "2"} />;
+  const tur = Array.isArray(params.tur) ? params.tur[0] : params.tur;
+  return <MenuForm turAktif={tur === "2"} />;
 }

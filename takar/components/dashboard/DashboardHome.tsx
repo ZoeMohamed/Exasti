@@ -5,23 +5,17 @@ import { MenuCard } from "@/components/ui/MenuCard";
 import { AlertInbox } from "@/components/dashboard/AlertInbox";
 import type { AlertTampil } from "@/lib/services/alerts";
 import { tanggalIndonesia } from "@/lib/tanggal";
-import { tujuanPanduan } from "@/lib/onboarding";
-import { PanduanHasil } from "@/components/onboarding/PanduanHasil";
 
 interface DashboardHomeProps {
   menus: Menu[];
   latestDate: string;
   alerts: AlertTampil[];
-  onboardingIncomplete?: boolean;
-  onboardingStep?: number;
 }
 
 export function DashboardHome({
   menus,
   latestDate,
   alerts,
-  onboardingIncomplete = false,
-  onboardingStep = 1,
 }: DashboardHomeProps) {
   const activeMenus = menus.filter((menu) => menu.status !== "diistirahatkan");
   const activeCount = activeMenus.length;
@@ -31,30 +25,10 @@ export function DashboardHome({
   );
 
   const formattedDate = tanggalIndonesia(latestDate);
-  const sedangMembacaHasil = onboardingIncomplete && onboardingStep >= 4;
-  const lanjutHref = tujuanPanduan({
-    tersimpan: onboardingStep,
-    jumlahMenu: activeCount,
-    sudahSelesai: !onboardingIncomplete,
-  });
 
   return (
     <div className="space-y-8">
-      {sedangMembacaHasil ? <PanduanHasil /> : null}
-      {onboardingIncomplete && !sedangMembacaHasil ? (
-        <section className="flex flex-col gap-4 bg-warning-yellow p-5 shadow-[4px_4px_0_#111] brutal-border sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-heading text-xl font-extrabold">Lanjutkan menyiapkan warungmu</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/75">
-              Lanjutkan dari halaman kerja terakhir. Data yang kamu isi langsung menjadi data warungmu.
-            </p>
-          </div>
-          <Link href={lanjutHref} className="brutal-btn min-h-11 shrink-0 bg-white px-5 py-2.5 text-center font-heading text-sm font-extrabold">
-            Lanjutkan di form asli
-          </Link>
-        </section>
-      ) : null}
-      <section className={`relative bg-white p-6 sm:p-8 brutal-card ${sedangMembacaHasil ? "outline-4 outline-offset-4 outline-warning-yellow" : ""}`}>
+      <section className="relative bg-white p-6 sm:p-8 brutal-card">
         <span className="absolute right-6 -top-3 rotate-2 bg-warning-yellow px-3 py-1 font-mono text-xs font-bold brutal-border">
           Harga pasar Semarang · {formattedDate}
         </span>
@@ -72,7 +46,7 @@ export function DashboardHome({
           Harga ayam dan cabai di Semarang dapat berubah setiap hari.
           Jangan sampai jualan laris manis tapi pas dihitung uangnya malah habis untuk modal.
         </p>
-        <div className="mt-8 grid grid-cols-1 gap-4 border-t-2 border-ink/20 pt-6 sm:grid-cols-3">
+        <div data-tour="dashboard-summary" className="mt-8 grid grid-cols-1 gap-4 border-t-2 border-ink/20 pt-6 sm:grid-cols-3">
           <Metric
             label="Menu Aktif Jualan"
             value={`${activeCount} Menu`}
@@ -93,7 +67,7 @@ export function DashboardHome({
         </div>
       </section>
 
-      <section>
+      <section data-tour="dashboard-alerts">
         <SectionTitle
           title="Yang Perlu Kamu Perhatikan"
           note={
@@ -105,7 +79,7 @@ export function DashboardHome({
         <AlertInbox alerts={alerts} />
       </section>
 
-      <section>
+      <section data-tour="dashboard-menus">
         <SectionTitle
           title="Kondisi Menu Kamu"
           note="Perkiraan dampak uang mingguan terbesar ditampilkan lebih dulu."

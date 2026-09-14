@@ -18,6 +18,7 @@ export function MobileNav() {
           <Link
             key={href}
             href={href}
+            data-tour={href === "/dashboard/pengaturan" ? "nav-settings" : undefined}
             prefetch={false}
             aria-current={active ? "page" : undefined}
             className={`flex min-h-11 flex-1 items-center justify-center px-1 py-2 text-center font-heading text-[11px] font-bold ${active ? "bg-warning-yellow brutal-border-2" : ""}`}
