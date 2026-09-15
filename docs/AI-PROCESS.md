@@ -68,7 +68,7 @@ Rantai ini membuktikan dirinya pada pengujian berikutnya: panggilan kedua kena
 **3. Batas free tier lebih ketat dari dokumentasi**
 
 Dokumentasi Google menyebut 15 permintaan/menit. Pengukuran nyata
-(`scripts/test_ratelimit.py`): **429 mulai permintaan ke-7** dalam satu burst,
+(skrip riset `scripts/test_ratelimit.py`, riwayat git, commit `013911e`): **429 mulai permintaan ke-7** dalam satu burst,
 pulih penuh setelah 60 detik.
 
 *Perbaikan:* jeda 9 detik antar panggilan pada skrip pengujian, dan keputusan

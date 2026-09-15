@@ -185,7 +185,8 @@ Aturan lama  → tetap memakai Rp 38.000
 
 Aturan yang benar menghasilkan `38.000 × 1,20 = Rp 45.600` — akurat **dan** segar.
 
-Terbukti berjalan di `scripts/skeleton.py` fungsi `harga_efektif()`.
+Diterapkan di view `resep_efektif` (`db/supabase/06_security_and_price_provenance.sql`).
+Pembuktian awal ada di skrip riset `scripts/skeleton.py` (riwayat git, commit `013911e`).
 
 #### Efek samping yang berguna
 
@@ -240,7 +241,7 @@ Kemasan kedua **lebih mahal per gram**, meski angka nominalnya jauh lebih kecil.
 
 Implementasi yang membandingkan harga kemasan secara langsung akan melaporkan
 *"harga turun 46%"* padahal sebenarnya **naik 7%** — salah arah sepenuhnya, tanpa
-error apa pun. Terbukti di `scripts/demo_lacak_nonbi.py`.
+error apa pun. Dibuktikan dengan skrip riset `scripts/demo_lacak_nonbi.py` (riwayat git, commit `013911e`).
 
 ### BR-12 — Identitas barang non-BI
 

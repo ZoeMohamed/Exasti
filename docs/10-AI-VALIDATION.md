@@ -58,7 +58,7 @@ https://datasets-server.huggingface.co/rows
   ?dataset=naver-clova-ix%2Fcord-v2&config=default&split=test&offset=0&length=10
 ```
 
-`scripts/test_ocr_nyata.py` sudah menarik, menjalankan, dan menilainya otomatis.
+Skrip riset `scripts/test_ocr_nyata.py` (riwayat git, commit `013911e`) sudah menarik, menjalankan, dan menilainya otomatis.
 
 **Nota tulisan tangan tetap perlu dikumpulkan sendiri** — CORD mayoritas nota
 tercetak. Itu bagian yang belum terbukti dan paling perlu kamu uji.

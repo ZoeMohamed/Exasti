@@ -133,7 +133,7 @@ dari harga BI asli, dan blok "gara-gara" menyebut bahan yang benar.
 
 ## Jendela demo terverifikasi — 2 Desember 2025
 
-Disisir dari 400 hari data BI Kota Semarang (`scripts/cari_demo_window.py`).
+Disisir dari 400 hari data BI (skrip riset `scripts/cari_demo_window.py`, riwayat git, commit `013911e`).
 **20 hari** sepanjang tahun menunjukkan kontras persen-vs-rupiah; ini yang paling tajam:
 
 ```

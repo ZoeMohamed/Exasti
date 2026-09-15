@@ -109,7 +109,6 @@ bisa diubah siapa pun di tim dengan cepat.
 ├── supabase/         Konfigurasi Supabase CLI dan Edge Function register-user
 ├── docs/             Dokumen produk, arsitektur, SRS, UX, dan AI
 ├── design/           Brief dan panduan desain, kanvas eksplorasi antarmuka
-├── scripts/          Skrip Python riset awal (validasi data BI dan OCR)
 └── package.json      Pintasan perintah yang meneruskan ke takar/
 ```
 

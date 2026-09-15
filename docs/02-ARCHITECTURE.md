@@ -243,8 +243,8 @@ Demo tidak boleh bergantung panggilan live. Lihat §Ketahanan.
 ### ⚠️ Jebakan yang sudah ditemukan dan diverifikasi
 
 1. **Tanggal request `MM/DD/YYYY`, tapi kunci tanggal di RESPONS `DD/MM/YYYY`.**
-   Format **berbeda** di satu API yang sama — sudah dikonfirmasi berjalan di
-   `scripts/skeleton.py`. Format request yang salah **tidak menghasilkan error**,
+   Format **berbeda** di satu API yang sama — ditangani di
+   `takar/lib/services/bi-ingest.ts`. Format request yang salah **tidak menghasilkan error**,
    seluruh baris hanya berisi `"-"`.
 2. **Wajib header `X-Requested-With: XMLHttpRequest`.**
 3. **Nilai kosong adalah string `"-"`, bukan `null`.**
@@ -259,7 +259,7 @@ Demo tidak boleh bergantung panggilan live. Lihat §Ketahanan.
 8. **Respons Semarang memuat 31 baris, bukan 21** — baris kategori induk ikut terkirim
    bersama variannya. Jangan dihitung dua kali.
 9. **Rentang > 120 hari sering timeout.** Pecah per 90 hari lalu gabungkan
-   (lihat `scripts/cari_demo_window.py`).
+   (skrip riset `scripts/cari_demo_window.py`, tersedia di riwayat git, commit `013911e`).
 
 ### Contoh panggilan terverifikasi
 
@@ -385,7 +385,8 @@ export function hargaEfektif(
 harga di nilai lama dan membuat sistem buta terhadap kenaikan pasar — produk mati
 diam-diam tanpa error. Penjelasan lengkap: [BR-09](06-SRS.md#br-09--harga-efektif-).
 
-Referensi berjalan: `scripts/skeleton.py` → `harga_efektif()`.
+Implementasi yang berjalan: view `resep_efektif` di
+`db/supabase/06_security_and_price_provenance.sql`.
 
 ### Simulator "kalau harga jadi segini" *(Cincin 1)*
 
@@ -567,7 +568,7 @@ belakangan.**
 ## Penyedia AI
 
 **Google AI Studio — Gemini Flash.** Sudah divalidasi pada **nota Indonesia asli**
-(dataset CORD, `scripts/test_ocr_nyata.py`):
+(dataset CORD, skrip riset `scripts/test_ocr_nyata.py` di riwayat git, commit `013911e`):
 
 ```
 35 nota · 81 barang
@@ -591,7 +592,7 @@ gemini-3.6-flash → gemini-3.5-flash → gemini-3.8-flash → gemini-flash-lite
 
 Perlakukan **404, 503, dan 429 sama** — semuanya lanjut ke model berikutnya.
 
-### Batas terukur (`scripts/test_ratelimit.py`, 11 Sep 2026)
+### Batas terukur (11 Sep 2026)
 
 ```
 7 permintaan berhasil beruntun, lalu 429 mulai permintaan ke-7
