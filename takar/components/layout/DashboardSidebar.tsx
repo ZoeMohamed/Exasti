@@ -54,14 +54,8 @@ export function DashboardSidebar({
             HARGA TERBARU
           </span>
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center bg-ink text-xl font-heading font-extrabold text-warning-yellow brutal-border-2">
-              T
-            </span>
-            <span className="font-heading text-3xl font-extrabold">TAKAR</span>
+            <img src="/logo.png" alt="Takar" className="h-15 w-auto" />
           </div>
-          <p className="mt-1 font-heading text-xs font-bold italic">
-            “Tahu untungmu sebelum habis.”
-          </p>
         </Link>
 
         <div className="mb-6 bg-white p-2.5 font-mono text-xs font-bold brutal-border-2 shadow-[2px_2px_0_#111]">
