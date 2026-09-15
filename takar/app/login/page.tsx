@@ -81,9 +81,7 @@ function LoginContent() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-cream p-4">
       <section className="w-full max-w-md bg-white p-6 brutal-card sm:p-8">
-        <div className="inline-flex size-14 items-center justify-center rounded-full bg-warning-yellow font-heading text-xl font-black brutal-border-2">
-          T.
-        </div>
+        <img src="/logoT.png" alt="Takar" className="h-14 w-auto" />
         <p className="mt-5 font-mono text-xs font-bold uppercase tracking-wider text-ink/60">
           Catatan warungmu
         </p>
