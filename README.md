@@ -10,6 +10,10 @@ lalu menunjukkan bahan mana yang benar-benar menggerus untung.
 
 **Aplikasi:** [takar-mocha.vercel.app](https://takar-mocha.vercel.app)
 
+**Akun demo:** `demoexasti@gmail.com` · kata sandi `11111111`
+
+> Akun demo dipakai bersama, jadi menu dan harga di dalamnya bisa diubah siapa pun yang masuk.
+
 ---
 
 ## Masalahnya
